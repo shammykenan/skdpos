@@ -752,7 +752,7 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
             </button>
             <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-none d-sm-flex">
                 <i class="fas fa-utensils"></i>
-                <span>Cafeteria POS</span>
+                <span>Dine with Din - Cafeteria</span>
             </a>
             <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-sm-none">
                 <i class="fas fa-utensils"></i>
@@ -765,11 +765,6 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
                 <span class="d-none d-md-inline"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin') ?></span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                    <a class="dropdown-item" href="<?= $baseUrl ?>/index.php?page=profile">
-                        <i class="fas fa-user me-2"></i> Profile
-                    </a>
-                </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout">

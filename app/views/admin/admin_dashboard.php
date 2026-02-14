@@ -632,7 +632,7 @@
             </button>
             <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-none d-sm-flex">
                 <i class="fas fa-utensils"></i>
-                <span>Cafeteria POS</span>
+                <span>Dine with Din - Cafeteria</span>
             </a>
             <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-sm-none">
                 <i class="fas fa-utensils"></i>
@@ -1003,7 +1003,7 @@
     <footer class="main-footer">
         <div class="d-flex justify-content-between align-items-center flex-wrap">
             <div>
-                <strong>Copyright &copy; <?= date('Y') ?> Cafeteria POS.</strong> All rights reserved.
+                <strong>Copyright &copy; <?= date('Y') ?> DinewithDin - Cafeteria.</strong> All rights reserved.
             </div>
             <div class="text-muted">
                 <b>Version</b> 1.0.0

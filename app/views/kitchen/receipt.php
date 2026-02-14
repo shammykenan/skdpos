@@ -107,7 +107,7 @@ $subtotal = $order['total_amount'] / 1.12;
 </head>
 <body>
 <div class="receipt">
-    <h1>My Shop</h1>
+    <h1>Dine with Din - Cafeteria</h1>
     <h2>Official Receipt</h2>
 
     <div class="info">
