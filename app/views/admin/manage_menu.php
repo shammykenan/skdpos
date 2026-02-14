@@ -999,18 +999,20 @@
                                             // Parse recipe_details from GROUP_CONCAT
                                             // Format: "Coffee Beans:0.1|Milk:0.25|Sugar:0.05"
                                             $ingredients_list = [];
-                                            if (!empty($item['recipe_details'])) {
-                                                $pairs = explode('|', $item['recipe_details']);
-                                                foreach ($pairs as $pair) {
-                                                    if (strpos($pair, ':') !== false) {
-                                                        list($name, $qty) = explode(':', $pair);
-                                                        $ingredients_list[] = [
-                                                            'name' => $name,
-                                                            'quantity' => $qty
-                                                        ];
+                                                if (!empty($item['recipe_details'])) {
+                                                    $pairs = explode('|', $item['recipe_details']);
+                                                    foreach ($pairs as $pair) {
+                                                        $parts = explode(':', $pair);
+                                                        if (count($parts) === 3) { 
+                                                            list($name, $qty, $unit) = $parts;
+                                                            $ingredients_list[] = [
+                                                                'name' => $name,
+                                                                'quantity' => $qty,
+                                                                'unit' => $unit
+                                                            ];
+                                                        }
                                                     }
                                                 }
-                                            }
                                             ?>
                                             <tr>
                                                 <td data-label="Image">
@@ -1038,21 +1040,21 @@
                                                     </span>
                                                 </td>
                                                 <td data-label="Ingredients">
-                                                    <?php if (!empty($ingredients_list)): ?>
-                                                        <div class="ingredient-list">
-                                                            <?php foreach ($ingredients_list as $ing): ?>
-                                                                <span class="ingredient-tag" title="<?= htmlspecialchars($ing['name']) ?>: <?= htmlspecialchars($ing['quantity']) ?>">
-                                                                    <?= htmlspecialchars($ing['name']) ?>
-                                                                    <?php if ($ing['quantity'] > 0): ?>
-                                                                        <small class="ms-1 opacity-75"><?= number_format($ing['quantity'], 2) ?></small>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            <?php endforeach; ?>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <span class="text-muted fst-italic">No recipe</span>
-                                                    <?php endif; ?>
-                                                </td>
+                                                        <?php if (!empty($ingredients_list)): ?>
+                                                            <div class="ingredient-list">
+                                                                <?php foreach ($ingredients_list as $ing): ?>
+                                                                    <span class="ingredient-tag" title="<?= htmlspecialchars($ing['name']) ?>: <?= htmlspecialchars($ing['quantity']) . ' ' . htmlspecialchars($ing['unit']) ?>">
+                                                                        <?= htmlspecialchars($ing['name']) ?>
+                                                                        <?php if ($ing['quantity'] > 0): ?>
+                                                                            <small class="ms-1 opacity-75"><?= number_format($ing['quantity'], 2) ?> <?= htmlspecialchars($ing['unit']) ?></small>
+                                                                        <?php endif; ?>
+                                                                    </span>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <span class="text-muted fst-italic">No recipe</span>
+                                                        <?php endif; ?>
+                                                    </td>
                                                 <td data-label="Price">
                                                     <div class="fw-semibold" style="color: var(--success);">₱<?= number_format($item['price'], 2) ?></div>
                                                     <small class="text-muted">Cost: ₱<?= number_format($item['cost_price'], 2) ?></small>

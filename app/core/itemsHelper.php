@@ -12,16 +12,47 @@ function getAllItems(PDO $pdo) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 function getAllItemsWithIngredients(PDO $pdo) {
-    $sql = "SELECT mi.*, c.category_name, GROUP_CONCAT(
-                    CONCAT(i.ingredient_name, ':', r.quantity_required) 
+    $sql = "SELECT 
+                mi.*, 
+                c.category_name, 
+                GROUP_CONCAT(
+                    CONCAT(i.ingredient_name, ':', IFNULL(r.quantity_required, 0), ':', IFNULL(i.unit, '')) 
                     ORDER BY i.ingredient_name 
-                    SEPARATOR '|') as recipe_details FROM menu_items as mi JOIN categories as c 
-                    ON mi.category_id = c.category_id LEFT JOIN recipes as r ON mi.item_id = r.item_id LEFT JOIN ingredients as i 
-                    ON r.ingredient_id = i.ingredient_id GROUP BY mi.item_id, c.category_name ORDER BY mi.item_name";
-    
+                    SEPARATOR '|'
+                ) as recipe_details 
+            FROM menu_items as mi 
+            JOIN categories as c ON mi.category_id = c.category_id 
+            LEFT JOIN recipes as r ON mi.item_id = r.item_id 
+            LEFT JOIN ingredients as i ON r.ingredient_id = i.ingredient_id 
+            GROUP BY mi.item_id, c.category_name 
+            ORDER BY mi.item_name";
+
     $stmt = $pdo->query($sql);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Parse recipe_details safely
+    foreach ($results as &$item) {
+        $item['ingredients_list'] = [];
+        if (!empty($item['recipe_details'])) {
+            $ingredients = explode('|', $item['recipe_details']);
+            foreach ($ingredients as $ing) {
+                $parts = explode(':', $ing);
+                $name = $parts[0] ?? '';
+                $quantity = isset($parts[1]) ? (float)$parts[1] : 0;
+                $unit = $parts[2] ?? ''; // ensures 'unit' always exists
+
+                $item['ingredients_list'][] = [
+                    'name' => $name,
+                    'quantity' => $quantity,
+                    'unit' => $unit
+                ];
+            }
+        }
+    }
+
+    return $results;
 }
+
 function getAllAvailableItems(PDO $pdo) {
     $sql = "SELECT mi.*, c.category_name FROM menu_items as mi JOIN categories as c ON mi.category_id = c.category_id WHERE mi.is_available = 1 ORDER BY item_name";
     $stmt = $pdo->query($sql);
