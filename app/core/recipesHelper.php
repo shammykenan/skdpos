@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/db.php';
 function getAllRecipes(PDO $pdo): array
 {
     $sql = "SELECT r.recipe_id, r.item_id, r.ingredient_id, r.quantity_required,
-                   m.item_name, i.ingredient_name
+                   m.item_name, i.ingredient_name, i.unit
             FROM recipes r
             JOIN menu_items m ON r.item_id = m.item_id
             JOIN ingredients i ON r.ingredient_id = i.ingredient_id

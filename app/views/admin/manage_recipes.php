@@ -836,7 +836,7 @@
                                                     <span class="badge bg-secondary"><?= htmlspecialchars($r['ingredient_name']) ?></span>
                                                 </td>
                                                 <td data-label="Quantity Required">
-                                                    <strong><?= htmlspecialchars($r['quantity_required']) ?></strong>
+                                                    <strong><?= htmlspecialchars($r['quantity_required'] . '' . $r['unit'] ) ?></strong>
                                                 </td>
                                                 <td data-label="Actions" class="text-end">
                                                     <div class="action-btns justify-content-end">
