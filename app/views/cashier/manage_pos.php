@@ -205,7 +205,6 @@
         <div class="nav-section-title">SALES</div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link active"><i class="fas fa-cash-register"></i> POS System</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_reports" class="nav-link"><i class="fas fa-chart-bar"></i> Reports</a></div>
         <?php endif; ?>
     </div>
 </div>

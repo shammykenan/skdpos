@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../models/users.php';
-require_once __DIR__ . '/../core/usersHelper.php';
+require_once __DIR__ . '/../models/users.php';      // Model functions
+require_once __DIR__ . '/../core/usersHelper.php';  // Helper functions (usernameExists, emailExists)
 $baseUrl = $_ENV['BASE_URL'] ?? '';
 
 // Check if user is logged in and is an admin
@@ -50,14 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         exit;
     }
 
-    // Validate email if provided
     if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $_SESSION['error'] = 'Please enter a valid email address.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users');
         exit;
     }
 
-    // Check password strength
     if (strlen($password) < 6) {
         $_SESSION['error'] = 'Password must be at least 6 characters long.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users');
@@ -70,30 +68,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         exit;
     }
 
-    // Check if email exists (if provided)
     if (!empty($email) && emailExists($pdo, $email)) {
         $_SESSION['error'] = 'Email address already exists.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users');
         exit;
     }
 
-    try {
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("
-            INSERT INTO users (username, full_name, email, password_hash, role, is_active, created_at) 
-            VALUES (:username, :full_name, :email, :password_hash, :role, 1, CURRENT_TIMESTAMP)
-        ");
-        $stmt->execute([
-            ':username' => $username,
-            ':full_name' => $full_name,
-            ':email' => !empty($email) ? $email : null,
-            ':password_hash' => $hashed_password,
-            ':role' => $role
-        ]);
+    $userId = createUser($pdo, $username, $password, $full_name, $email, $role, 1);
+    if ($userId) {
         $_SESSION['success'] = 'User added successfully.';
-    } catch (PDOException $e) {
-        $_SESSION['error'] = 'Failed to add user: ' . $e->getMessage();
+    } else {
+        $_SESSION['error'] = 'Failed to add user.';
     }
+
     header('Location: ' . $baseUrl . '/index.php?page=manage_users');
     exit;
 }
@@ -113,33 +100,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
         exit;
     }
 
-    // Validate email if provided
     if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $_SESSION['error'] = 'Please enter a valid email address.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users&edit=' . $user_id);
         exit;
     }
 
-    // Check if username exists (excluding current user)
     if (usernameExists($pdo, $username, $user_id)) {
         $_SESSION['error'] = 'Username already exists.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users&edit=' . $user_id);
         exit;
     }
 
-    // Check if email exists (excluding current user, if provided)
     if (!empty($email) && emailExists($pdo, $email, $user_id)) {
         $_SESSION['error'] = 'Email address already exists.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users&edit=' . $user_id);
         exit;
     }
 
-    try {
-        updateUser($pdo, $user_id, $username, $full_name, !empty($email) ? $email : null, $role, $is_active);
+    if (updateUser($pdo, $user_id, $username, $full_name, !empty($email) ? $email : null, $role, $is_active)) {
         $_SESSION['success'] = 'User updated successfully.';
-    } catch (PDOException $e) {
-        $_SESSION['error'] = 'Failed to update user: ' . $e->getMessage();
+    } else {
+        $_SESSION['error'] = 'Failed to update user.';
     }
+
     header('Location: ' . $baseUrl . '/index.php?page=manage_users');
     exit;
 }
@@ -147,31 +131,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
 // DELETE USER
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
     $user_id = (int) $_POST['user_id'];
-    
+
     if ($user_id === $_SESSION['user_id']) {
         $_SESSION['error'] = 'You cannot delete your own account.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users');
         exit;
     }
-    
-    try {
-        deleteUser($pdo, $user_id);
+
+    if (deleteUser($pdo, $user_id)) {
         $_SESSION['success'] = 'User deleted successfully.';
-    } catch (PDOException $e) {
-        $_SESSION['error'] = 'Failed to delete user: ' . $e->getMessage();
+    } else {
+        $_SESSION['error'] = 'Failed to delete user.';
     }
+
     header('Location: ' . $baseUrl . '/index.php?page=manage_users');
     exit;
 }
 
 // Handle edit request
 if (isset($_GET['edit'])) {
-    $edit_id = (int)$_GET['edit'];
+    $edit_id = (int) $_GET['edit'];
     try {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = :user_id");
         $stmt->execute([':user_id' => $edit_id]);
         $user_to_edit = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$user_to_edit) {
             $_SESSION['error'] = 'User not found.';
             header('Location: ' . $baseUrl . '/index.php?page=manage_users');

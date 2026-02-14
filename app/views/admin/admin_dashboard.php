@@ -751,12 +751,6 @@
                     Orders
                 </a>
             </div>
-            <div class="nav-item">
-                <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard&tab=reports" class="nav-link">
-                    <i class="fas fa-chart-bar"></i>
-                    Reports
-                </a>
-            </div>
         </div>
     </div>
     
