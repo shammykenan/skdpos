@@ -1098,6 +1098,13 @@
                                         
                                         <td data-label="Actions">
                                             <div class="action-buttons">
+                                                <button type="button"
+                                                        class="btn btn-sm view-order-btn"
+                                                        style="background: var(--lavender); color: var(--navy);"
+                                                        data-order-id="<?= $order['order_id'] ?>"
+                                                        data-order-number="<?= htmlspecialchars($order['order_number']) ?>">
+                                                    <i class="fas fa-eye"></i> View Details
+                                                </button>
                                                 <?php if ($order['status'] !== 'cancelled' && $order['status'] !== 'completed'): ?>
                                                     
                                                     <?php
@@ -1409,7 +1416,150 @@
             </div>
         </div>
     </div>
-    
+    <!-- =============================================
+     ORDER DETAILS MODAL
+============================================= -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius: 28px; border: none; box-shadow: 0 25px 50px rgba(0,0,0,0.15);">
+
+            <!-- Header -->
+            <div class="modal-header" style="border-bottom: 1px solid var(--border); padding: 1.5rem 1.8rem; border-radius: 28px 28px 0 0; background: var(--primary); color: white;">
+                <h5 class="modal-title d-flex align-items-center gap-2" style="color: white; font-size: 1.2rem; font-weight: 700;">
+                    <i class="fas fa-receipt"></i>
+                    Order Details — <span id="detailOrderNumber"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body p-0">
+
+                <!-- Loading spinner -->
+                <div id="orderDetailsLoader" class="text-center py-5">
+                    <div class="spinner-border" style="color: var(--primary); width: 2.5rem; height: 2.5rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Fetching order details…</p>
+                </div>
+
+                <!-- Content (hidden until loaded) -->
+                <div id="orderDetailsContent" style="display: none;">
+
+                    <!-- Order Meta Row -->
+                    <div style="background: var(--light-bg); padding: 1.4rem 1.8rem; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 3px;">Customer</div>
+                            <div style="font-weight: 600; color: var(--navy);" id="detailCustomer">—</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 3px;">Date & Time</div>
+                            <div style="font-weight: 600; color: var(--navy);" id="detailDate">—</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 3px;">Cashier</div>
+                            <div style="font-weight: 600; color: var(--navy);" id="detailCashier">—</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 3px;">Order Type</div>
+                            <div id="detailOrderType">—</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 3px;">Status</div>
+                            <div id="detailStatus">—</div>
+                        </div>
+                        <div id="detailTableWrap" style="display:none">
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 3px;">Table</div>
+                            <div style="font-weight: 600; color: var(--navy);" id="detailTable">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <div style="padding: 1.6rem 1.8rem 0;">
+                        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--warm-gray); margin-bottom: 0.9rem;">
+                            <i class="fas fa-list me-1" style="color: var(--primary);"></i> Order Items
+                        </div>
+                        <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.88rem;">
+                            <thead>
+                                <tr>
+                                    <th style="background: #f2f6fc; padding: 0.75rem 1rem; text-align: left; color: var(--primary-dark); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--primary-light); border-radius: 10px 0 0 0;">Item</th>
+                                    <th style="background: #f2f6fc; padding: 0.75rem 1rem; text-align: center; color: var(--primary-dark); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--primary-light);">Qty</th>
+                                    <th style="background: #f2f6fc; padding: 0.75rem 1rem; text-align: right; color: var(--primary-dark); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--primary-light);">Unit Price</th>
+                                    <th style="background: #f2f6fc; padding: 0.75rem 1rem; text-align: right; color: var(--primary-dark); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--primary-light); border-radius: 0 10px 0 0;">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailItemsBody">
+                                <!-- injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totals & Payment -->
+                    <div style="padding: 1.2rem 1.8rem 1.6rem; display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: flex-end;">
+
+                        <!-- Payment info (only if paid) -->
+                        <div id="detailPaymentSection" style="display:none; background: rgba(44,122,90,0.07); border: 1px solid rgba(44,122,90,0.18); border-radius: 18px; padding: 1rem 1.4rem; min-width: 200px;">
+                            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--success); margin-bottom: 0.6rem;">
+                                <i class="fas fa-money-bill-wave me-1"></i> Payment
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
+                                <span style="color: var(--warm-gray);">Method</span>
+                                <span style="font-weight: 600; color: var(--navy);" id="detailPayMethod">—</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
+                                <span style="color: var(--warm-gray);">Amount Paid</span>
+                                <span style="font-weight: 600; color: var(--navy);">₱<span id="detailAmountPaid">0.00</span></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: var(--warm-gray);">Change</span>
+                                <span style="font-weight: 600; color: var(--navy);">₱<span id="detailChange">0.00</span></span>
+                            </div>
+                        </div>
+
+                        <!-- Totals box -->
+                        <div style="background: var(--light-bg); border: 1px solid var(--border); border-radius: 18px; padding: 1rem 1.4rem; min-width: 230px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem;">
+                                <span style="color: var(--warm-gray);">Subtotal (excl. VAT)</span>
+                                <span style="font-weight: 600; color: var(--navy);">₱<span id="detailSubtotal">0.00</span></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem;">
+                                <span style="color: var(--warm-gray);">VAT (12%)</span>
+                                <span style="font-weight: 600; color: var(--navy);">₱<span id="detailVat">0.00</span></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 2px solid var(--border); font-size: 1rem;">
+                                <span style="font-weight: 700; color: var(--navy);">Total</span>
+                                <span style="font-weight: 700; color: var(--success); font-size: 1.1rem;">₱<span id="detailTotal">0.00</span></span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Error state -->
+                <div id="orderDetailsError" style="display: none; text-align: center; padding: 3rem 1.5rem; color: var(--danger);">
+                    <i class="fas fa-exclamation-circle" style="font-size: 2.5rem; margin-bottom: 0.8rem; display: block;"></i>
+                    <p class="fw-semibold mb-0">Failed to load order details. Please try again.</p>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer" style="border-top: 1px solid var(--border); padding: 1.2rem 1.8rem; border-radius: 0 0 28px 28px;">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Close
+                </button>
+                <a id="printReceiptBtn"
+                   href="#"
+                   target="_blank"
+                   class="btn btn-primary"
+                   style="display:none;">
+                    <i class="fas fa-print me-1"></i> Print Receipt
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
     <!-- Success Modal -->
     <?php if (!empty($_SESSION['success'])): ?>
     <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
@@ -1462,6 +1612,177 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // =============================================
+// ORDER DETAILS MODAL – fetch via AJAX
+// =============================================
+const orderDetailsModal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+
+const detailOrderNumber  = document.getElementById('detailOrderNumber');
+const detailCustomer     = document.getElementById('detailCustomer');
+const detailDate         = document.getElementById('detailDate');
+const detailCashier      = document.getElementById('detailCashier');
+const detailOrderType    = document.getElementById('detailOrderType');
+const detailStatus       = document.getElementById('detailStatus');
+const detailTableWrap    = document.getElementById('detailTableWrap');
+const detailTable        = document.getElementById('detailTable');
+const detailItemsBody    = document.getElementById('detailItemsBody');
+const detailSubtotal     = document.getElementById('detailSubtotal');
+const detailVat          = document.getElementById('detailVat');
+const detailTotal        = document.getElementById('detailTotal');
+const detailPaySection   = document.getElementById('detailPaymentSection');
+const detailPayMethod    = document.getElementById('detailPayMethod');
+const detailAmountPaid   = document.getElementById('detailAmountPaid');
+const detailChange       = document.getElementById('detailChange');
+const printReceiptBtn    = document.getElementById('printReceiptBtn');
+
+const loaderEl  = document.getElementById('orderDetailsLoader');
+const contentEl = document.getElementById('orderDetailsContent');
+const errorEl   = document.getElementById('orderDetailsError');
+
+function fmt(n) {
+    return parseFloat(n || 0).toFixed(2);
+}
+
+function showLoader() {
+    loaderEl.style.display  = 'block';
+    contentEl.style.display = 'none';
+    errorEl.style.display   = 'none';
+}
+
+function showContent() {
+    loaderEl.style.display  = 'none';
+    contentEl.style.display = 'block';
+    errorEl.style.display   = 'none';
+}
+
+function showError() {
+    loaderEl.style.display  = 'none';
+    contentEl.style.display = 'none';
+    errorEl.style.display   = 'block';
+}
+
+// Status badge helper
+function statusBadgeHtml(status) {
+    const map = {
+        pending:   'status-pending',
+        preparing: 'status-preparing',
+        completed: 'status-completed',
+        cancelled: 'status-cancelled'
+    };
+    const cls = map[status] || '';
+    return `<span class="status-badge ${cls}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+}
+
+// Order type badge helper
+function orderTypeBadgeHtml(type) {
+    if (!type) return '—';
+    const icons = { dine_in: 'fa-utensils', takeout: 'fa-bag-shopping' };
+    const labels = { dine_in: 'Dine In', takeout: 'Takeout' };
+    return `<span class="order-type-badge ${type}">
+                <i class="fas ${icons[type] || 'fa-question'}"></i>
+                ${labels[type] || type}
+            </span>`;
+}
+
+document.querySelectorAll('.view-order-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const orderId     = this.dataset.orderId;
+        const orderNumber = this.dataset.orderNumber;
+
+        // Reset modal
+        showLoader();
+        printReceiptBtn.style.display = 'none';
+        detailOrderNumber.textContent = '#' + orderNumber;
+        orderDetailsModal.show();
+
+        // Fetch details — update the URL to match your routing
+        fetch(`/coffee_shop/app/controllers/get_order_details.php?order_id=${orderId}`)
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) { showError(); return; }
+
+                const { order, items, payment } = res.data;
+
+                // Meta
+                detailCustomer.textContent  = order.customer_name || 'Walk-in';
+                detailDate.textContent      = new Date(order.created_at).toLocaleString('en-PH', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                detailCashier.textContent   = order.cashier_name || 'N/A';
+                detailOrderType.innerHTML   = orderTypeBadgeHtml(order.order_type);
+                detailStatus.innerHTML      = statusBadgeHtml(order.status);
+
+                if (order.table_number) {
+                    detailTable.textContent  = 'Table ' + order.table_number;
+                    detailTableWrap.style.display = '';
+                } else {
+                    detailTableWrap.style.display = 'none';
+                }
+
+                // Items
+                detailItemsBody.innerHTML = '';
+                items.forEach(item => {
+                    const itemSub = (parseFloat(item.unit_price) * parseInt(item.quantity)).toFixed(2);
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding: 0.85rem 1rem; border-bottom: 1px solid #edf2f7; font-weight: 600; color: var(--navy);">${item.item_name}</td>
+                        <td style="padding: 0.85rem 1rem; border-bottom: 1px solid #edf2f7; text-align: center; color: var(--warm-gray);">${item.quantity}</td>
+                        <td style="padding: 0.85rem 1rem; border-bottom: 1px solid #edf2f7; text-align: right; color: var(--warm-gray);">₱${fmt(item.unit_price)}</td>
+                        <td style="padding: 0.85rem 1rem; border-bottom: 1px solid #edf2f7; text-align: right; font-weight: 700; color: var(--success);">₱${itemSub}</td>
+                    `;
+                    detailItemsBody.appendChild(tr);
+
+                    if (item.addons && item.addons.length > 0) {
+                        item.addons.forEach(addon => {
+                            const addonSub = (parseFloat(addon.unit_price) * parseInt(addon.quantity)).toFixed(2);
+                            const addonTr = document.createElement('tr');
+                            addonTr.innerHTML = `
+                                <td style="padding: 0.5rem 1rem 0.5rem 2rem; border-bottom: 1px dashed #edf2f7; color: var(--warm-gray); font-size: 0.82rem;">
+                                    <i class="fas fa-level-up-alt fa-rotate-90 me-1" style="color: var(--primary-light); font-size: 0.7rem;"></i>
+                                    ${addon.addon_name}
+                                </td>
+                                <td style="padding: 0.5rem 1rem; border-bottom: 1px dashed #edf2f7; text-align: center; color: var(--warm-gray); font-size: 0.82rem;">${addon.quantity}</td>
+                                <td style="padding: 0.5rem 1rem; border-bottom: 1px dashed #edf2f7; text-align: right; color: var(--warm-gray); font-size: 0.82rem;">₱${fmt(addon.unit_price)}</td>
+                                <td style="padding: 0.5rem 1rem; border-bottom: 1px dashed #edf2f7; text-align: right; color: var(--warm-gray); font-size: 0.82rem;">₱${addonSub}</td>
+                            `;
+                            detailItemsBody.appendChild(addonTr);
+                        });
+                    }
+                });
+
+                // Totals
+                const total    = parseFloat(order.total_amount || 0);
+                const subtotal = total / 1.12;
+                const vat      = total - subtotal;
+
+                detailSubtotal.textContent = subtotal.toFixed(2);
+                detailVat.textContent      = vat.toFixed(2);
+                detailTotal.textContent    = total.toFixed(2);
+
+                // Payment
+                if (payment && order.status === 'completed') {
+                    detailPaySection.style.display = '';
+                    detailPayMethod.textContent    = payment.payment_method || '—';
+                    detailAmountPaid.textContent   = fmt(payment.amount_paid);
+                    detailChange.textContent       = fmt(payment.change_amount);
+                } else {
+                    detailPaySection.style.display = 'none';
+                }
+
+                // Print button – only for completed orders
+                if (order.status === 'completed') {
+                    printReceiptBtn.href          = `${window.location.pathname}?page=print_receipt&order_id=${orderId}`;
+                    printReceiptBtn.style.display = '';
+                } else {
+                    printReceiptBtn.style.display = 'none';
+                }
+
+                showContent();
+            })
+            .catch(() => showError());
+    });
+});
         // Mobile menu toggle
         const menuToggle = document.getElementById('menuToggle');
         const sidebar = document.getElementById('sidebar');

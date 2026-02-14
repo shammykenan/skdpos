@@ -74,6 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 
             $pdo->commit();
             $_SESSION['success'] = 'Order completed and payment processed successfully.';
+            header("Location: index.php?page=manage_orders");
+            exit;
         } else {
             // For non-completed status updates, just update the status
             updateOrderStatus($pdo, $order_id, $status, null);

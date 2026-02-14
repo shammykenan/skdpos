@@ -54,6 +54,9 @@ switch ($page) {
         requireRole(['cashier', 'admin']);
         require_once BASE_PATH . '/app/controllers/manage_reports_controller.php';
         break;
+    case 'print_receipt':
+    require_once BASE_PATH . '/app/controllers/print_receipt_controller.php';
+    exit;
     case 'logout':
         require_once BASE_PATH . '/config/logout.php';
         break;
