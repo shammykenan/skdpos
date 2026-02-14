@@ -1685,7 +1685,7 @@ document.querySelectorAll('.view-order-btn').forEach(btn => {
         orderDetailsModal.show();
 
         // Fetch details — update the URL to match your routing
-        fetch(`/coffee_shop/app/controllers/get_order_details.php?order_id=${orderId}`)
+        fetch(`/coffee_shop/app/ajax/get_order_details.php?order_id=${orderId}`)
             .then(r => r.json())
             .then(res => {
                 if (!res.success) { showError(); return; }
