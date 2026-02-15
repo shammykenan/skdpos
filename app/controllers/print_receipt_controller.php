@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/posHelper.php';
 
-requireRole(['admin', 'cashier']);
+requireRole(['admin', 'cashier', 'kitchen']);
 
 // Check if order_id is provided
 $order_id = (int) ($_GET['order_id'] ?? 0);

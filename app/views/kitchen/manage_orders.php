@@ -1413,7 +1413,7 @@
             <div class="modal-header" style="border-bottom: 1px solid var(--border); padding: 1.5rem 1.8rem; border-radius: 28px 28px 0 0; background: var(--primary); color: white;">
                 <h5 class="modal-title d-flex align-items-center gap-2" style="color: white; font-size: 1.2rem; font-weight: 700;">
                     <i class="fas fa-receipt"></i>
-                    Order Details — <span id="detailOrderNumber"></span>
+                    Order Details — <span style="font-size:15px" id="detailOrderNumber"></span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

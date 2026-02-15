@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../config/db.php';
 require_once __DIR__ . '/../../core/posHelper.php';
-requireRole(['admin', 'cashier']);
+requireRole(['admin', 'cashier', 'kitchen']);
 
 // Get order_id from GET
 $order_id = (int) ($_GET['order_id'] ?? 0);
@@ -30,137 +30,132 @@ $subtotal = $order['total_amount'] / 1.12;
     <title>Receipt #<?= htmlspecialchars($order['order_number']) ?></title>
     <style>
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 13px;
+            font-family: monospace;
+            font-size: 12px;
             margin: 0;
             padding: 0;
-            background: #fff;
-            color: #333;
+            color: #000;
         }
+
         .receipt {
-            width: 360px;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.05);
+            width: 80mm;
+            margin: 0 auto;
+            padding: 5px;
         }
-        .receipt h1 {
-            font-size: 22px;
+
+        h1 {
             text-align: center;
-            margin-bottom: 5px;
-            color: #222;
+            font-size: 16px;
+            margin: 5px 0 0;
         }
-        .receipt h2 {
-            font-size: 14px;
+
+        .center {
             text-align: center;
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-weight: normal;
-            color: #555;
         }
-        .info, .items, .totals, .footer {
-            margin-bottom: 15px;
+
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
         }
-        .info p {
+
+        .row {
+            display: flex;
+            justify-content: space-between;
             margin: 2px 0;
-            font-size: 12px;
         }
-        .items .item-row, .totals .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 3px;
-        }
-        .items .addon-row {
-            display: flex;
-            justify-content: space-between;
-            margin-left: 15px;
+
+        .small {
             font-size: 11px;
-            color: #555;
-        }
-        .totals .total-row span:first-child {
-            font-weight: 600;
-        }
-        .footer {
-            text-align: center;
-            font-size: 12px;
-            color: #555;
-        }
-        .footer p {
-            margin: 3px 0;
         }
 
         @media print {
             body {
-                width: 360px;
-                margin: 0;
-                padding: 0;
-            }
-            .receipt {
-                border: none;
-                box-shadow: none;
-                width: 100%;
-                padding: 0;
+                width: 80mm;
             }
         }
     </style>
 </head>
 <body>
+
 <div class="receipt">
-    <h1>Dine with Din - Cafeteria</h1>
-    <h2>Official Receipt</h2>
 
-    <div class="info">
-        <p>Receipt #: <?= htmlspecialchars($order['order_number']) ?></p>
-        <p>Date: <?= htmlspecialchars(date('Y-m-d H:i', strtotime($order['created_at']))) ?></p>
-        <p>Cashier: <?= htmlspecialchars($order['cashier_name'] ?? 'N/A') ?></p>
-        <p>Customer Name: <?= htmlspecialchars($order['customer_name'] ?? 'N/A') ?></p>
+    <h1>Dine with Din</h1>
+    <div class="center small">
+        Cafeteria<br>
+        Official Receipt
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="small">
+        Receipt #: <?= htmlspecialchars($order['order_number']) ?><br>
+        Date: <?= date('Y-m-d H:i', strtotime($order['created_at'])) ?><br>
+        Cashier: <?= htmlspecialchars($order['cashier_name'] ?? 'N/A') ?><br>
+        Customer: <?= htmlspecialchars($order['customer_name'] ?? 'N/A') ?><br>
+        Order Type: <?= ucfirst($order['order_type']) ?><br>
         <?php if(!empty($order['table_number'])): ?>
-            <p>Table #: <?= htmlspecialchars($order['table_number']) ?></p>
+            Table #: <?= htmlspecialchars($order['table_number']) ?><br>
         <?php endif; ?>
-        <p>Order Type: <?= ucfirst($order['order_type']) ?></p>
     </div>
 
-    <div class="items">
-        <?php foreach ($items as $item): ?>
-            <div class="item-row">
-                <span><?= htmlspecialchars($item['item_name']) ?> x<?= $item['quantity'] ?></span>
-                <span><?= number_format($item['unit_price'] * $item['quantity'], 2) ?></span>
-            </div>
-            <?php if (!empty($item['addons'])): ?>
-                <?php foreach ($item['addons'] as $addon): ?>
-                    <div class="addon-row">
-                        <span>+ <?= htmlspecialchars($addon['addon_name']) ?> x<?= $addon['quantity'] ?></span>
-                        <span><?= number_format($addon['unit_price'] * $addon['quantity'], 2) ?></span>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        <?php endforeach; ?>
+    <div class="divider"></div>
+
+    <?php foreach ($items as $item): ?>
+        <div class="row">
+            <span><?= htmlspecialchars($item['item_name']) ?> x<?= $item['quantity'] ?></span>
+            <span><?= number_format($item['unit_price'] * $item['quantity'], 2) ?></span>
+        </div>
+
+        <?php if (!empty($item['addons'])): ?>
+            <?php foreach ($item['addons'] as $addon): ?>
+                <div class="row small" style="padding-left:10px;">
+                    <span>+ <?= htmlspecialchars($addon['addon_name']) ?> x<?= $addon['quantity'] ?></span>
+                    <span><?= number_format($addon['unit_price'] * $addon['quantity'], 2) ?></span>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    <?php endforeach; ?>
+
+    <div class="divider"></div>
+
+    <?php
+        $vat = $order['total_amount'] - $subtotal;
+    ?>
+
+    <div class="row">
+        <span>Subtotal:</span>
+        <span><?= number_format($subtotal, 2) ?></span>
     </div>
 
-    <div class="totals">
-        <div class="total-row">
-            <span>Subtotal (before 12% tax):</span>
-            <span><?= number_format($subtotal, 2) ?></span>
-        </div>
-        <div class="total-row">
-            <span>Total:</span>
-            <span><?= number_format($order['total_amount'], 2) ?></span>
-        </div>
-        <div class="total-row">
-            <span>Payment (<?= htmlspecialchars($payment_method) ?>):</span>
-            <span><?= number_format($amount_paid, 2) ?></span>
-        </div>
-        <div class="total-row">
-            <span>Change:</span>
-            <span><?= number_format($change_amount, 2) ?></span>
-        </div>
+    <div class="row">
+        <span>VAT (12%):</span>
+        <span><?= number_format($vat, 2) ?></span>
     </div>
 
-    <div class="footer">
-        <p>Thank you for dining with us!</p>
-        <p>We look forward to serving you again!</p>
+    <div class="row">
+        <strong>Total:</strong>
+        <strong><?= number_format($order['total_amount'], 2) ?></strong>
     </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+        <span>Payment (<?= htmlspecialchars($payment_method) ?>):</span>
+        <span><?= number_format($amount_paid, 2) ?></span>
+    </div>
+
+    <div class="row">
+        <span>Change:</span>
+        <span><?= number_format($change_amount, 2) ?></span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="center small">
+        Thank you for dining with us!<br>
+        Please come again.
+    </div>
+
 </div>
 
 <script>
@@ -171,5 +166,6 @@ window.onload = function() {
     };
 };
 </script>
+
 </body>
 </html>
