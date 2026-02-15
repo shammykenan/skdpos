@@ -1,0 +1,163 @@
+-- =========================
+-- DATABASE
+-- =========================
+CREATE DATABASE IF NOT EXISTS dinewithdinCafeteria;
+USE dinewithdinCafeteria;
+
+-- =========================
+-- 1. USERS
+-- =========================
+CREATE TABLE users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    role ENUM('admin', 'cashier', 'kitchen') NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- =========================
+-- 2. CATEGORIES
+-- =========================
+CREATE TABLE categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_name VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================
+-- 3. MENU ITEMS
+-- =========================
+CREATE TABLE menu_items (
+    item_id INT AUTO_INCREMENT PRIMARY KEY,
+    item_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    cost_price DECIMAL(10,2) DEFAULT 0.00,
+    category_id INT NOT NULL,
+    image_url VARCHAR(255),
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 4. INGREDIENTS (INVENTORY)
+-- =========================
+CREATE TABLE ingredients (
+    ingredient_id INT AUTO_INCREMENT PRIMARY KEY,
+    ingredient_name VARCHAR(100) UNIQUE NOT NULL,
+    stock_quantity DECIMAL(10,2) NOT NULL DEFAULT 0,
+    unit VARCHAR(20) NOT NULL,
+    low_stock_alert DECIMAL(10,2) DEFAULT 10,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+        ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- =========================
+-- 5. RECIPES (BASE DRINK)
+-- =========================
+CREATE TABLE recipes (
+    recipe_id INT AUTO_INCREMENT PRIMARY KEY,
+    item_id INT NOT NULL,
+    ingredient_id INT NOT NULL,
+    quantity_required DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (item_id) REFERENCES menu_items(item_id) ON DELETE CASCADE,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(ingredient_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 6. ADD-ONS
+-- =========================
+CREATE TABLE addons (
+    addon_id INT AUTO_INCREMENT PRIMARY KEY,
+    addon_name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    ingredient_id INT NOT NULL,
+    quantity_used DECIMAL(10,2) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(ingredient_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 7. ORDERS
+-- =========================
+CREATE TABLE orders (
+    order_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(20) UNIQUE NOT NULL,
+    cashier_id INT NOT NULL,
+    customer_name VARCHAR(100),
+    table_number VARCHAR(10),
+    order_type ENUM('dine_in', 'takeout') DEFAULT 'dine_in',
+    order_source ENUM('walk_in', 'online') DEFAULT 'walk_in',
+    subtotal DECIMAL(10,2) NOT NULL,
+    discount DECIMAL(10,2) DEFAULT 0.00,
+    total_amount DECIMAL(10,2) NOT NULL,
+    status ENUM('pending', 'preparing', 'completed', 'cancelled') 
+        DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY (cashier_id) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 8. ORDER ITEMS
+-- =========================
+CREATE TABLE order_items (
+    order_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    item_id INT NOT NULL,
+    quantity INT NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(10,2) NOT NULL,
+    status ENUM('pending', 'preparing', 'ready') DEFAULT 'pending',
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES menu_items(item_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 9. ORDER ITEM ADD-ONS
+-- =========================
+CREATE TABLE order_item_addons (
+    order_item_addon_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_item_id INT NOT NULL,
+    addon_id INT NOT NULL,
+    quantity INT DEFAULT 1,
+    price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (order_item_id) REFERENCES order_items(order_item_id) ON DELETE CASCADE,
+    FOREIGN KEY (addon_id) REFERENCES addons(addon_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 10. PAYMENTS
+-- =========================
+CREATE TABLE payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    payment_method ENUM('cash') NOT NULL,
+    amount_paid DECIMAL(10,2) NOT NULL,
+    change_amount DECIMAL(10,2) DEFAULT 0.00,
+    payment_status ENUM('paid', 'pending', 'refunded') DEFAULT 'paid',
+    transaction_ref VARCHAR(100),
+    cashier_id INT NOT NULL,
+    paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE RESTRICT,
+    FOREIGN KEY (cashier_id) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+
+-- =========================
+-- 11. ACTIVITY LOGS
+-- =========================
+CREATE TABLE activity_logs (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    details TEXT,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE RESTRICT
+);
