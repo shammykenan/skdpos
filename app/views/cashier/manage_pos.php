@@ -117,18 +117,10 @@
             box-shadow: 2px 0 12px rgba(0,0,0,0.02);
         }
 
-        .sidebar::-webkit-scrollbar {
-            width: 5px;
-        }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
 
-        .sidebar::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 8px;
-        }
-
-        .sidebar-nav {
-            padding: 2rem 0.75rem;
-        }
+        .sidebar-nav { padding: 2rem 0.75rem; }
 
         .nav-section-title {
             padding: 0.6rem 1.2rem;
@@ -141,9 +133,7 @@
             margin-top: 0.8rem;
         }
 
-        .nav-item {
-            margin: 0.2rem 0.6rem;
-        }
+        .nav-item { margin: 0.2rem 0.6rem; }
 
         .nav-link {
             display: flex;
@@ -157,23 +147,9 @@
             font-size: 0.95rem;
         }
 
-        .nav-link:hover {
-            background: var(--lavender);
-            color: var(--primary-dark);
-        }
-
-        .nav-link.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 6px 12px rgba(15, 76, 92, 0.2);
-        }
-
-        .nav-link i {
-            width: 24px;
-            margin-right: 0.85rem;
-            font-size: 1.2rem;
-            text-align: center;
-        }
+        .nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
+        .nav-link.active { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(15, 76, 92, 0.2); }
+        .nav-link i { width: 24px; margin-right: 0.85rem; font-size: 1.2rem; text-align: center; }
 
         /* ─── MAIN CONTENT ─── */
         .main-content {
@@ -204,32 +180,12 @@
             gap: 0.7rem;
         }
 
-        .page-header h1 i {
-            color: var(--secondary);
-            font-size: 2.1rem;
-        }
+        .page-header h1 i { color: var(--secondary); font-size: 2.1rem; }
 
-        .breadcrumb {
-            background: none;
-            padding: 0.2rem 0;
-            margin: 0;
-            font-size: 0.9rem;
-        }
-
-        .breadcrumb-item a {
-            color: var(--warm-gray);
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .breadcrumb-item a:hover {
-            color: var(--primary);
-        }
-
-        .breadcrumb-item.active {
-            color: var(--primary-dark);
-            font-weight: 600;
-        }
+        .breadcrumb { background: none; padding: 0.2rem 0; margin: 0; font-size: 0.9rem; }
+        .breadcrumb-item a { color: var(--warm-gray); text-decoration: none; font-weight: 500; }
+        .breadcrumb-item a:hover { color: var(--primary); }
+        .breadcrumb-item.active { color: var(--primary-dark); font-weight: 600; }
 
         /* ─── CARDS ─── */
         .card {
@@ -259,12 +215,7 @@
             padding-bottom: 2px;
         }
         .category-tabs-wrapper::-webkit-scrollbar { display: none; }
-        .category-tabs {
-            display: flex; gap: 0.5rem;
-            white-space: nowrap;
-            flex-wrap: nowrap;
-            min-width: max-content;
-        }
+        .category-tabs { display: flex; gap: 0.5rem; white-space: nowrap; flex-wrap: nowrap; min-width: max-content; }
         .category-tab {
             padding: 0.5rem 1.1rem;
             border: 1.5px solid var(--border);
@@ -327,10 +278,7 @@
         }
 
         /* ─── DESKTOP CART ─── */
-        .cart-container {
-            position: sticky;
-            top: calc(var(--topbar-height) + 1.5rem);
-        }
+        .cart-container { position: sticky; top: calc(var(--topbar-height) + 1.5rem); }
         .cart-card { border-radius: 20px; overflow: hidden; }
         .cart-items { max-height: 320px; overflow-y: auto; }
         .cart-items::-webkit-scrollbar { width: 4px; }
@@ -359,6 +307,128 @@
         .qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
         .qty-input { width: 48px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.3rem; font-weight: 600; font-size: 0.85rem; }
         .addon-item { font-size: 0.72rem; color: var(--warm-gray); padding-left: 0.7rem; margin-top: 0.3rem; border-left: 2px solid var(--primary-light); }
+
+        /* ─── CART NOTE DISPLAY ─── */
+        .cart-item-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            margin-top: 0.45rem;
+            padding: 0.4rem 0.65rem;
+            background: rgba(254, 228, 64, 0.15);
+            border: 1px dashed rgba(244, 185, 66, 0.5);
+            border-radius: 8px;
+            font-size: 0.72rem;
+            color: #7a5c00;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .cart-item-note:hover { background: rgba(254, 228, 64, 0.28); }
+        .cart-item-note i { font-size: 0.75rem; margin-top: 1px; flex-shrink: 0; color: #b87a1a; }
+        .cart-item-note-text { flex: 1; font-style: italic; word-break: break-word; }
+        .cart-item-note-empty {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+            font-size: 0.72rem;
+            color: var(--warm-gray);
+            opacity: 0.6;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .cart-item-note-empty:hover { opacity: 1; color: var(--primary); }
+
+        /* ─── INLINE NOTE EDIT ─── */
+        .cart-item-note-editor {
+            margin-top: 0.45rem;
+        }
+        .cart-item-note-editor textarea {
+            width: 100%;
+            border: 1.5px solid var(--primary-light);
+            border-radius: 10px;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.78rem;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            color: var(--dark);
+            background: #fafcff;
+            transition: border-color 0.15s;
+        }
+        .cart-item-note-editor textarea:focus { border-color: var(--primary); }
+        .cart-item-note-editor .note-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.4rem;
+            margin-top: 0.3rem;
+        }
+        .note-save-btn {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.72rem;
+            border-radius: 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.15s;
+        }
+        .note-save-btn:hover { background: var(--primary-dark); }
+        .note-cancel-btn {
+            padding: 0.25rem 0.65rem;
+            font-size: 0.72rem;
+            border-radius: 20px;
+            background: white;
+            color: var(--warm-gray);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .note-cancel-btn:hover { background: var(--lavender); }
+
+        /* ─── NOTE FIELD IN MODAL ─── */
+        .note-field-wrapper {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(254, 228, 64, 0.08);
+            border: 1.5px dashed rgba(244, 185, 66, 0.55);
+            border-radius: 14px;
+        }
+        .note-field-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #7a5c00;
+            margin-bottom: 0.5rem;
+        }
+        .note-field-label i { color: #b87a1a; }
+        .note-field-hint {
+            font-size: 0.7rem;
+            color: var(--warm-gray);
+            margin-top: 0.35rem;
+        }
+        #modalItemNote {
+            width: 100%;
+            border: 1.5px solid rgba(244, 185, 66, 0.5);
+            border-radius: 10px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            resize: none;
+            font-family: inherit;
+            background: white;
+            color: var(--dark);
+            transition: border-color 0.15s;
+        }
+        #modalItemNote:focus {
+            outline: none;
+            border-color: var(--warning);
+            box-shadow: 0 0 0 3px rgba(244,185,66,0.15);
+        }
+        #modalItemNote::placeholder { color: #b0a070; font-style: italic; }
 
         /* ─── CART SUMMARY ─── */
         .cart-summary { padding: 1rem 1.2rem; background: #f4f7fb; border-radius: 14px; margin: 0.8rem 1.2rem 1rem; }
@@ -462,10 +532,7 @@
                 padding-bottom: calc(var(--mobile-bottom-bar) + 1.8rem);
             }
 
-            /* Hide desktop cart column on mobile */
             .desktop-cart-col { display: none !important; }
-
-            /* Full width menu on mobile */
             .menu-col { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
 
             /* ─── MOBILE BOTTOM CART BAR ─── */
@@ -535,9 +602,7 @@
                 display: flex; flex-direction: column;
                 overflow: hidden;
             }
-            .mobile-cart-drawer.open {
-                transform: translateY(0);
-            }
+            .mobile-cart-drawer.open { transform: translateY(0); }
             .drawer-backdrop {
                 position: fixed; inset: 0;
                 background: rgba(15,76,92,0.3);
@@ -571,24 +636,18 @@
                 flex-shrink: 0;
             }
 
-            /* Mobile checkout fields inside drawer */
             .checkout-section { padding: 1rem 1.2rem 0.5rem; }
             .cart-summary { margin: 0 1.2rem 0.75rem; }
             .submit-btn-wrap { padding: 0 1.2rem 1rem; }
             #submitOrderBtn { border-radius: 14px; }
 
-            /* Compact menu cards on mobile */
-            .menu-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.8rem;
-            }
+            .menu-grid { grid-template-columns: repeat(2, 1fr); gap: 0.8rem; }
             .menu-item-image, .menu-item-placeholder { height: 110px; }
             .menu-item-body { padding: 0.75rem; }
             .menu-item-name { font-size: 0.85rem; }
             .menu-item-price { font-size: 1rem; }
         }
 
-        /* ─── VERY SMALL SCREENS ─── */
         @media (max-width: 767.98px) {
             .main-content { padding: 1.2rem; padding-bottom: calc(var(--mobile-bottom-bar) + 1.2rem); }
             .page-header h1 { font-size: 1.8rem; }
@@ -602,26 +661,17 @@
             .page-header h1 { font-size: 1.5rem; }
         }
 
-        /* ─── DESKTOP — hide mobile-only elements ─── */
         @media (min-width: 992px) {
             .mobile-bottom-bar { display: none !important; }
             .mobile-cart-drawer { display: none !important; }
             .drawer-backdrop { display: none !important; }
         }
 
-        /* ─── ANIMATIONS ─── */
         .fade-in { animation: fadeUp 0.35s ease forwards; }
         @keyframes fadeUp { from { opacity: 0.5; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ─── LARGE SCREENS (>1199px) ─── */
-        @media (min-width: 1200px) {
-            .menu-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-        }
-
-        /* ─── MEDIUM SCREENS (992-1199px) ─── */
-        @media (min-width: 992px) and (max-width: 1199px) {
-            .menu-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-        }
+        @media (min-width: 1200px) { .menu-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } }
+        @media (min-width: 992px) and (max-width: 1199px) { .menu-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
     </style>
 </head>
 <body>
@@ -668,39 +718,33 @@
         <div class="nav-section-title">DASHBOARD</div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link">
-                <i class="fas fa-tachometer-alt"></i>
-                Dashboard
+                <i class="fas fa-tachometer-alt"></i> Dashboard
             </a>
         </div>
         <div class="nav-section-title">MANAGEMENT</div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="nav-link">
-                <i class="fas fa-utensils"></i>
-                Menu Items
+                <i class="fas fa-utensils"></i> Menu Items
             </a>
         </div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="nav-link">
-                <i class="fas fa-tags"></i>
-                Recipes
+                <i class="fas fa-tags"></i> Recipes
             </a>
         </div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link">
-                <i class="fas fa-boxes"></i>
-                Ingredients
+                <i class="fas fa-boxes"></i> Ingredients
             </a>
         </div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_addons" class="nav-link">
-                <i class="fas fa-plus-circle"></i>
-                Add-ons
+                <i class="fas fa-plus-circle"></i> Add-ons
             </a>
         </div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link">
-                <i class="fas fa-users"></i>
-                User Management
+                <i class="fas fa-users"></i> User Management
             </a>
         </div>
         <?php endif; ?>
@@ -708,14 +752,12 @@
         <div class="nav-section-title">SALES</div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link active">
-                <i class="fas fa-cash-register"></i>
-                POS System
+                <i class="fas fa-cash-register"></i> POS System
             </a>
         </div>
         <div class="nav-item">
             <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link">
-                <i class="fas fa-receipt"></i>
-                Orders
+                <i class="fas fa-receipt"></i> Orders
             </a>
         </div>
         <?php endif; ?>
@@ -763,7 +805,6 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Category tabs: horizontal scroll on mobile -->
                     <div class="category-tabs-wrapper">
                         <div class="category-tabs">
                             <button class="category-tab active" data-category="all">
@@ -845,7 +886,6 @@
                         </h5>
                     </div>
 
-                    <!-- Order Type + Fields -->
                     <div class="checkout-section">
                         <div class="mb-3">
                             <label class="form-label">Order Type <span class="text-danger">*</span></label>
@@ -871,7 +911,6 @@
 
                     <hr class="mx-3 my-0">
 
-                    <!-- Cart Items -->
                     <div class="cart-items" id="cartItems">
                         <div class="empty-cart">
                             <i class="fas fa-shopping-cart"></i>
@@ -880,14 +919,12 @@
                         </div>
                     </div>
 
-                    <!-- Summary -->
                     <div class="cart-summary d-none" id="cartSummary">
                         <div class="cart-summary-row"><span>Subtotal:</span><span id="subtotal">₱0.00</span></div>
                         <div class="cart-summary-row"><span>VAT (12%):</span><span id="vatAmount">₱0.00</span></div>
                         <div class="cart-summary-row total"><span>Total:</span><span id="total">₱0.00</span></div>
                     </div>
 
-                    <!-- Submit -->
                     <div class="submit-btn-wrap">
                         <button type="button" class="btn btn-success d-none" id="submitOrderBtn" disabled>
                             <i class="fas fa-check me-2"></i> Submit Order
@@ -903,7 +940,7 @@
 </div>
 
 <!-- ════════════════════════════════════════
-     MOBILE BOTTOM BAR (sticky)
+     MOBILE BOTTOM BAR
 ════════════════════════════════════════ -->
 <div class="mobile-bottom-bar" id="mobileBottomBar" style="display:none">
     <button class="cart-preview-btn" onclick="openCartDrawer()">
@@ -921,9 +958,6 @@
     </button>
 </div>
 
-<!-- ════════════════════════════════════════
-     DRAWER BACKDROP
-════════════════════════════════════════ -->
 <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeCartDrawer()"></div>
 
 <!-- ════════════════════════════════════════
@@ -936,7 +970,6 @@
         <button class="drawer-close" onclick="closeCartDrawer()"><i class="fas fa-times"></i></button>
     </div>
     <div class="drawer-body">
-        <!-- Order Type + Fields in drawer -->
         <div class="checkout-section">
             <div class="mb-3">
                 <label class="form-label">Order Type <span class="text-danger">*</span></label>
@@ -961,7 +994,6 @@
 
         <hr class="mx-3 my-0">
 
-        <!-- Cart items in drawer -->
         <div class="cart-items" id="cartItemsMobile">
             <div class="empty-cart">
                 <i class="fas fa-shopping-cart"></i>
@@ -971,7 +1003,6 @@
         </div>
     </div>
 
-    <!-- Drawer footer: summary + submit -->
     <div class="drawer-footer">
         <div class="cart-summary d-none" id="cartSummaryMobile">
             <div class="cart-summary-row"><span>Subtotal:</span><span id="subtotalM">₱0.00</span></div>
@@ -1136,7 +1167,6 @@ function showErrorModal(title, message) {
     showModal('genericErrorModal');
 }
 
-// Cleanup orphaned backdrops
 document.addEventListener('hidden.bs.modal', function () {
     if (document.querySelector('.modal.show')) return;
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
@@ -1201,31 +1231,49 @@ function loadCart()  {
 // ============================================================
 // CART OPERATIONS
 // ============================================================
-function addToCartWithQuantity(item, addons, quantity) {
+function addToCartWithQuantity(item, addons, quantity, note) {
     const check = checkCanAdd(item.id, quantity, addons);
     if (!check.success) {
         showStockErrorModal(`Cannot add "${item.name}" — combined order exceeds stock`, check.missingIngredients);
         return;
     }
-    const existingIndex = cart.findIndex(row => {
-        if (row.id !== item.id) return false;
-        if (row.addons.length !== addons.length) return false;
-        const rowKey = row.addons.map(a => `${a.id}:${a.quantity}`).sort().join('|');
-        const newKey = addons.map(a => `${a.id}:${a.quantity}`).sort().join('|');
-        return rowKey === newKey;
-    });
-    if (existingIndex > -1) {
-        const mergedQty  = cart[existingIndex].quantity + quantity;
-        const mergeCheck = checkCanChangeQty(existingIndex, mergedQty);
-        if (!mergeCheck.success) {
-            showStockErrorModal(`Cannot increase "${item.name}" — combined order exceeds stock`, mergeCheck.missingIngredients);
+
+    // NOTE: items with notes are never merged (each note is unique to an order row)
+    const trimmedNote = (note || '').trim();
+    if (!trimmedNote) {
+        // No note — try to merge with an identical existing row
+        const existingIndex = cart.findIndex(row => {
+            if (row.id !== item.id) return false;
+            if ((row.note || '') !== '') return false; // rows with notes don't merge
+            if (row.addons.length !== addons.length) return false;
+            const rowKey = row.addons.map(a => `${a.id}:${a.quantity}`).sort().join('|');
+            const newKey = addons.map(a => `${a.id}:${a.quantity}`).sort().join('|');
+            return rowKey === newKey;
+        });
+        if (existingIndex > -1) {
+            const mergedQty  = cart[existingIndex].quantity + quantity;
+            const mergeCheck = checkCanChangeQty(existingIndex, mergedQty);
+            if (!mergeCheck.success) {
+                showStockErrorModal(`Cannot increase "${item.name}" — combined order exceeds stock`, mergeCheck.missingIngredients);
+                return;
+            }
+            cart[existingIndex].quantity      = mergedQty;
+            cart[existingIndex].hasStockIssue = false;
+            validateAndRender();
+            saveCart();
             return;
         }
-        cart[existingIndex].quantity      = mergedQty;
-        cart[existingIndex].hasStockIssue = false;
-    } else {
-        cart.push({ id: item.id, name: item.name, price: item.price, quantity, addons: addons.map(a => ({ ...a })), hasStockIssue: false });
     }
+
+    cart.push({
+        id:           item.id,
+        name:         item.name,
+        price:        item.price,
+        quantity,
+        addons:       addons.map(a => ({ ...a })),
+        note:         trimmedNote,
+        hasStockIssue: false
+    });
     validateAndRender();
     saveCart();
 }
@@ -1264,6 +1312,52 @@ function removeFromCart(index) {
 }
 
 // ============================================================
+// NOTE OPERATIONS (inline editing in cart)
+// ============================================================
+
+// Show inline note editor for a cart row
+function showNoteEditor(index) {
+    // Close any other open editor first
+    document.querySelectorAll('.cart-item-note-editor').forEach(el => {
+        const i = parseInt(el.dataset.index);
+        if (!isNaN(i)) cancelNoteEdit(i);
+    });
+
+    const noteDisplayEls = document.querySelectorAll(`[data-note-display="${index}"]`);
+    noteDisplayEls.forEach(el => el.style.display = 'none');
+
+    const editorEls = document.querySelectorAll(`[data-note-editor="${index}"]`);
+    editorEls.forEach(el => {
+        el.style.display = 'block';
+        const textarea = el.querySelector('textarea');
+        if (textarea) {
+            textarea.value = cart[index].note || '';
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }
+    });
+}
+
+function saveNote(index) {
+    const editorEls = document.querySelectorAll(`[data-note-editor="${index}"]`);
+    let noteValue = '';
+    editorEls.forEach(el => {
+        const textarea = el.querySelector('textarea');
+        if (textarea) noteValue = textarea.value.trim();
+    });
+    cart[index].note = noteValue;
+    saveCart();
+    renderCart();
+}
+
+function cancelNoteEdit(index) {
+    const editorEls = document.querySelectorAll(`[data-note-editor="${index}"]`);
+    editorEls.forEach(el => { el.style.display = 'none'; });
+    const noteDisplayEls = document.querySelectorAll(`[data-note-display="${index}"]`);
+    noteDisplayEls.forEach(el => { el.style.display = ''; });
+}
+
+// ============================================================
 // VALIDATE WHOLE CART + RENDER
 // ============================================================
 function validateAndRender() {
@@ -1287,12 +1381,38 @@ function validateAndRender() {
 }
 
 // ============================================================
-// CART ITEM HTML BUILDER (shared)
+// CART ITEM HTML BUILDER
 // ============================================================
 function buildCartItemHTML(row, index) {
     const addonsSubtotal = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
     const lineTotal      = (row.price + addonsSubtotal) * row.quantity;
     const hasIssue       = row.hasStockIssue === true;
+    const note           = row.note || '';
+
+    // Build note section HTML
+    const noteDisplayHTML = note
+        ? `<div class="cart-item-note" data-note-display="${index}" onclick="showNoteEditor(${index})">
+               <i class="fas fa-pen-to-square"></i>
+               <span class="cart-item-note-text">${escapeHtml(note)}</span>
+           </div>`
+        : `<div class="cart-item-note-empty" data-note-display="${index}" onclick="showNoteEditor(${index})">
+               <i class="fas fa-pen-to-square"></i>
+               <span>Add order note...</span>
+           </div>`;
+
+    const noteEditorHTML = `
+        <div class="cart-item-note-editor" data-note-editor="${index}" style="display:none">
+            <textarea rows="2" maxlength="300"
+                      placeholder="e.g. No sugar, less ice, extra hot..."
+                      onkeydown="handleNoteKeydown(event, ${index})">${escapeHtml(note)}</textarea>
+            <div class="note-actions">
+                <button class="note-cancel-btn" onclick="cancelNoteEdit(${index})">Cancel</button>
+                <button class="note-save-btn" onclick="saveNote(${index})">
+                    <i class="fas fa-check me-1"></i> Save
+                </button>
+            </div>
+        </div>`;
+
     return `
         <div class="cart-item ${hasIssue ? 'insufficient-stock' : ''}">
             <div class="cart-item-header">
@@ -1308,6 +1428,8 @@ function buildCartItemHTML(row, index) {
                 <div class="addon-item">
                     ${row.addons.map(a => `+ ${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ''} (₱${(a.price * a.quantity).toFixed(2)})`).join('<br>')}
                 </div>` : ''}
+            ${noteDisplayHTML}
+            ${noteEditorHTML}
             ${hasIssue ? `
                 <div class="stock-warning stock-warning-danger">
                     <i class="fas fa-exclamation-circle"></i>
@@ -1324,6 +1446,22 @@ function buildCartItemHTML(row, index) {
                 </button>
             </div>
         </div>`;
+}
+
+// Allow Enter to save, Escape to cancel note editor
+function handleNoteKeydown(e, index) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(index); }
+    if (e.key === 'Escape') { cancelNoteEdit(index); }
+}
+
+// HTML escape helper
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // ============================================================
@@ -1505,6 +1643,20 @@ document.querySelectorAll('.menu-item-card').forEach(card => {
                     <button class="btn btn-outline-secondary btn-sm" type="button" onclick="incModalQty()">+</button>
                 </div>
                 <small class="text-muted mt-1 d-block">Max available (standalone): ${maxQty}</small>
+            </div>
+
+            <!-- ── ORDER NOTE FIELD ── -->
+            <div class="note-field-wrapper">
+                <div class="note-field-label">
+                    <i class="fas fa-pen-to-square"></i>
+                    Order Note <span style="font-weight:400;opacity:0.7">(optional)</span>
+                </div>
+                <textarea id="modalItemNote" rows="2" maxlength="300"
+                          placeholder="e.g. No sugar, less ice, extra hot, lactose-free milk..."></textarea>
+                <div class="note-field-hint">
+                    <i class="fas fa-circle-info me-1"></i>
+                    Special instructions for the kitchen — max 300 characters
+                </div>
             </div>`;
 
         document.getElementById('addonsContent').innerHTML = html;
@@ -1526,6 +1678,7 @@ function toggleAddonQty(addonId) {
 document.getElementById('addToCartBtn').addEventListener('click', function () {
     const qtyInput = document.getElementById('modalItemQty');
     const itemQty  = Math.max(1, parseInt(qtyInput?.value) || 1);
+    const noteVal  = (document.getElementById('modalItemNote')?.value || '').trim();
 
     const addons = Array.from(document.querySelectorAll('#addonsContent input[type="checkbox"]:checked'))
         .map(cb => ({
@@ -1540,17 +1693,16 @@ document.getElementById('addToCartBtn').addEventListener('click', function () {
         showStockErrorModal(`Cannot add "${currentItem.name}" — combined order exceeds stock`, check.missingIngredients);
         return;
     }
-    addToCartWithQuantity(currentItem, addons, itemQty);
+    addToCartWithQuantity(currentItem, addons, itemQty, noteVal);
     hideModal('addonsModal');
 
-    // Auto-open drawer on mobile after adding first item
     if (isMobile() && cart.length === 1) {
         setTimeout(() => openCartDrawer(), 300);
     }
 });
 
 // ============================================================
-// COLLECT ORDER DATA (reads from whichever context is active)
+// COLLECT ORDER DATA
 // ============================================================
 function collectOrderData() {
     const mobile  = isMobile();
@@ -1565,7 +1717,7 @@ function collectOrderData() {
 }
 
 // ============================================================
-// SUBMIT ORDER (shared logic)
+// SUBMIT ORDER
 // ============================================================
 function doSubmitOrder() {
     if (cart.length === 0) { showErrorModal('Empty Cart', 'Please add items before submitting.'); return; }
@@ -1655,7 +1807,6 @@ document.querySelectorAll('.category-tab').forEach(tab => {
 document.addEventListener('DOMContentLoaded', () => {
     loadCart();
 
-    // Mark out-of-stock from JS stock data
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const id = card.dataset.itemId;
         if (!stockData[id] || stockData[id].has_stock) return;
@@ -1672,7 +1823,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setOrderType('dine_in', 'desktop');
     setOrderType('dine_in', 'mobile');
 
-    // Show mobile bottom bar on mobile
     if (isMobile()) {
         const bar = document.getElementById('mobileBottomBar');
         if (bar) bar.style.display = 'flex';
@@ -1680,7 +1830,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (drawer) drawer.style.display = 'flex';
     }
 
-    // Touch-to-swipe close on drawer
     let touchStartY = 0;
     const drawer = document.getElementById('mobileCartDrawer');
     if (drawer) {
@@ -1692,7 +1841,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Responsive re-check on resize
 window.addEventListener('resize', () => {
     const bar    = document.getElementById('mobileBottomBar');
     const drawer = document.getElementById('mobileCartDrawer');
@@ -1705,7 +1853,6 @@ window.addEventListener('resize', () => {
     }
 });
 
-// Auto-dismiss alerts
 setTimeout(() => {
     document.querySelectorAll('.alert').forEach(a => { try { new bootstrap.Alert(a).close(); } catch(e){} });
 }, 5000);

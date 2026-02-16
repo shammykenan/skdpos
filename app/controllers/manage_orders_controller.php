@@ -113,14 +113,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
 }
 
 // Fetch all orders
-$orders = getAllOrders($pdo);
+$orders = getAllOrdersWithItems($pdo);
 
-// Fetch items and addons for each order
+// Add items and addons to each order (like getOrderDetails does)
 foreach ($orders as &$order) {
-    $order['items'] = getOrderItems($pdo, $order['order_id']);
-    foreach ($order['items'] as &$item) {
-        $item['addons'] = getOrderItemAddons($pdo, $item['order_item_id']);
+    // Get order details with items (reuse getOrderDetails logic)
+    $details = getOrderDetails($pdo, $order['order_id']);
+    
+    if ($details) {
+        // Add items to the order
+        $order['items'] = $details['items'];
+    } else {
+        $order['items'] = [];
     }
+}
+
+// Debug: Check if items have notes
+if (!empty($orders) && !empty($orders[0]['items'])) {
+    error_log("First order has " . count($orders[0]['items']) . " items");
 }
 
 require_once __DIR__ . '/../views/kitchen/manage_orders.php';

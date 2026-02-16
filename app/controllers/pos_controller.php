@@ -73,7 +73,7 @@ foreach ($addons_map as $item_addons) {
     }
 }
 $addon_ids        = array_unique($addon_ids);
-$addon_stock_data = getAddonsStockInfo($pdo, $addon_ids);  // must return ingredients[] per addon (see note below)
+$addon_stock_data = getAddonsStockInfo($pdo, $addon_ids);
 
 // -------------------------
 // 3️⃣ Handle Order Submission
@@ -114,21 +114,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
 
     // =========================================================
     // 🔎 CUMULATIVE STOCK VALIDATION
-    // Sum ALL ingredient demands across every item + addon in the
-    // cart, then compare each ingredient total to actual stock.
-    // This prevents over-selling a shared ingredient (e.g. bacon
-    // used by both a menu item and an add-on).
     // =========================================================
-
-    // Step 1 – aggregate ingredient demand across the whole cart
-    $ingredient_demand = [];  // [ingredient_id => total_quantity_needed]
+    $ingredient_demand = [];
 
     foreach ($cart_data as $cart_item) {
         $item_id  = $cart_item['id'];
         $item_qty = (int)($cart_item['quantity'] ?? 1);
         if ($item_qty <= 0) continue;
 
-        // Ingredients consumed by the menu item itself
         $item_ingredients = getMenuItemIngredientStock($pdo, $item_id);
         foreach ($item_ingredients as $ing) {
             if ($ing['quantity_required'] <= 0) continue;
@@ -143,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             $ingredient_demand[$ing_id]['needed'] += $ing['quantity_required'] * $item_qty;
         }
 
-        // Ingredients consumed by each add-on in this cart row
         if (!empty($cart_item['addons'])) {
             foreach ($cart_item['addons'] as $ad) {
                 $addon_id  = (int)$ad['id'];
@@ -167,7 +159,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         }
     }
 
-    // Step 2 – compare each ingredient total demand to available stock
     foreach ($ingredient_demand as $ing_id => $info) {
         if ($info['needed'] > $info['available']) {
             $_SESSION['error'] = sprintf(
@@ -188,8 +179,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     $order_details = [];
 
     foreach ($cart_data as $cart_item) {
-        $item_id  = $cart_item['id'];
-        $item_qty = (int)($cart_item['quantity'] ?? 1);
+        $item_id   = $cart_item['id'];
+        $item_qty  = (int)($cart_item['quantity'] ?? 1);
+        // ── Sanitise and capture the per-item note ──
+        $item_note = isset($cart_item['note']) ? trim((string)$cart_item['note']) : '';
+        if ($item_note === '') $item_note = null;
         if ($item_qty <= 0) continue;
 
         $item = getMenuItemById($pdo, $item_id);
@@ -208,7 +202,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                 $addon_data = getAddonById($pdo, $addon_id);
                 if (!$addon_data) continue;
 
-                // Ensure add-on belongs to this item's category
                 if (!in_array($addon_id, array_column($addons_map[$item_id], 'addon_id'))) {
                     continue;
                 }
@@ -233,6 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             'quantity'   => $item_qty,
             'unit_price' => $unit_price,
             'line_total' => $line_total,
+            'item_note'  => $item_note,   // ← carry the note to the insert step
             'addons'     => $addons_for_item,
         ];
     }
@@ -264,19 +258,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             $total_amount
         );
 
-        // Fetch the generated order_number
         $stmt = $pdo->prepare("SELECT order_number FROM orders WHERE order_id = ?");
         $stmt->execute([$order_id]);
         $order        = $stmt->fetch(PDO::FETCH_ASSOC);
         $order_number = $order['order_number'];
 
         foreach ($order_details as $detail) {
+            // Pass item_note as the 6th argument (see updated model below)
             $order_item_id = createOrderItem(
                 $pdo,
                 $order_id,
                 $detail['item_id'],
                 $detail['quantity'],
-                $detail['unit_price']
+                $detail['unit_price'],
+                $detail['item_note']   // ← NEW
             );
 
             foreach ($detail['addons'] as $ad) {
@@ -289,10 +284,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                 );
             }
 
-            // Deduct ingredients for menu item
             deductIngredientsForItem($pdo, $detail['item_id'], $detail['quantity']);
 
-            // Deduct ingredients for each add-on
             foreach ($detail['addons'] as $ad) {
                 deductIngredientsForAddon($pdo, $ad['addon_id'], $ad['quantity']);
             }

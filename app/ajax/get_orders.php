@@ -1,39 +1,33 @@
 <?php
-// app/ajax/get_orders.php
-
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/posHelper.php';
-require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/itemsHelper.php'; // Add this for getOrderItems
 
-// Tell browser this is JSON
 header('Content-Type: application/json');
 
 try {
-    // Get all orders
+    // Get all orders (basic info)
     $orders = getAllOrders($pdo);
     
-    // Add items and addons to each order
+    // Add items to each order (same as we did in the controller)
     foreach ($orders as &$order) {
-        $order['items'] = getOrderItems($pdo, $order['order_id']);
+        // Get items with notes
+        $items = getOrderItems($pdo, $order['order_id']);
+        $order['items'] = is_array($items) ? $items : [];
         
+        // Add addons for each item
         foreach ($order['items'] as &$item) {
-            $item['addons'] = getOrderItemAddons($pdo, $item['order_item_id']);
+            $addons = getOrderItemAddons($pdo, $item['order_item_id']);
+            $item['addons'] = is_array($addons) ? $addons : [];
         }
     }
     
-    // Return success response
     echo json_encode([
         'success' => true,
         'data' => $orders,
         'count' => count($orders),
         'timestamp' => date('Y-m-d H:i:s')
     ]);
-    
 } catch (Exception $e) {
-    // Return error response
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-
+require_once 'posHelper.php';
 function getAllCategories(PDO $pdo) {
     $sql = "SELECT category_id, category_name FROM categories ORDER BY category_name";
     $stmt = $pdo->query($sql);
@@ -11,6 +11,7 @@ function getAllItems(PDO $pdo) {
     $stmt = $pdo->query($sql);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 function getAllItemsWithIngredients(PDO $pdo) {
     $sql = "SELECT 
                 mi.*, 
@@ -82,10 +83,18 @@ function getIngredientsForItem(PDO $pdo, $item_id) {
 }
 function getOrderItems(PDO $pdo, int $order_id): array {
     $stmt = $pdo->prepare("
-        SELECT oi.*, mi.item_name
+        SELECT oi.order_item_id,
+               oi.item_id,
+               oi.quantity,
+               oi.unit_price,
+               oi.subtotal,
+               oi.status,
+               oi.item_notes,        -- ← ADD THIS
+               mi.item_name
         FROM order_items oi
         JOIN menu_items mi ON oi.item_id = mi.item_id
         WHERE oi.order_id = ?
+        ORDER BY oi.order_item_id ASC
     ");
     $stmt->execute([$order_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -119,4 +128,16 @@ function getMaxOrderQuantityForItem($pdo, $item_id) {
         }
     }
     return $max_qty > 0 ? $max_qty : 0;
+}
+function getAllOrdersWithItems(PDO $pdo) {
+    // Get all orders
+    $orders = getAllOrders($pdo);
+    
+    // Add items to each order
+    foreach ($orders as &$order) {
+        $details = getOrderDetails($pdo, $order['order_id']);
+        $order['items'] = $details ? $details['items'] : [];
+    }
+    
+    return $orders;
 }
