@@ -55,7 +55,7 @@ switch ($page) {
         require_once BASE_PATH . '/app/controllers/manage_reports_controller.php';
         break;
     case 'print_receipt':
-    require_once BASE_PATH . '/app/controllers/print_receipt_controller.php';
+    require_once BASE_PATH . '/app/views/kitchen/receipt.php';
     exit;
     case 'logout':
         require_once BASE_PATH . '/config/logout.php';

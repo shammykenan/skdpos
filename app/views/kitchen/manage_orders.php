@@ -678,7 +678,7 @@
 
                     <!-- Totals & Payment -->
                     <div style="padding:1.2rem 1.8rem 1.6rem;display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:flex-end;">
-
+                    
                         <!-- Payment info -->
                         <div id="detailPaymentSection"
                              style="display:none;background:rgba(44,122,90,0.07);border:1px solid rgba(44,122,90,0.18);border-radius:18px;padding:1rem 1.4rem;min-width:200px;">
