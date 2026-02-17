@@ -19,6 +19,7 @@ $payment = $orderDetails['payment'];
 $payment_method = $payment['payment_method'] ?? '';
 $amount_paid    = $payment['amount_paid'] ?? 0;
 $change_amount  = $payment['change_amount'] ?? 0;
+$paid_at        = $payment['paid_at'] ?? $order['updated_at'] ?? null;
 
 // Calculate subtotal without 12% VAT
 $subtotal = $order['total_amount'] / 1.12;
@@ -262,6 +263,17 @@ $receipt_number = str_pad($order['order_number'], 8, '0', STR_PAD_LEFT);
             padding: 2px 0;
         }
 
+        .payment-row.paid-at {
+            border-bottom: 1px dashed #ccc;
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            color: #2c7a5a;
+        }
+
+        .payment-row.paid-at i {
+            margin-right: 3px;
+        }
+
         /* Footer */
         .footer {
             text-align: center;
@@ -323,6 +335,11 @@ $receipt_number = str_pad($order['order_number'], 8, '0', STR_PAD_LEFT);
             color: #000;
         }
 
+        .status-preparing {
+            background: #5e9b9e;
+            color: white;
+        }
+
         /* Print styles */
         @media print {
             body {
@@ -350,6 +367,11 @@ $receipt_number = str_pad($order['order_number'], 8, '0', STR_PAD_LEFT);
             }
             
             .item-notes {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .payment {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -492,9 +514,24 @@ $receipt_number = str_pad($order['order_number'], 8, '0', STR_PAD_LEFT);
             </div>
         </div>
 
-        <!-- Payment Details -->
+        <!-- Payment Details with Paid at -->
         <?php if ($order['status'] === 'completed' && !empty($payment)): ?>
         <div class="payment">
+            <!-- PAID AT - New field added -->
+            <div class="payment-row paid-at">
+                <span>
+                    <i class="fas fa-clock" style="font-size: 10px;"></i> 
+                    <strong>Paid at:</strong>
+                </span>
+                <span>
+                    <?php if ($paid_at): ?>
+                        <?= date('Y-m-d h:i:s A', strtotime($paid_at)) ?>
+                    <?php else: ?>
+                        <?= date('h:i:s A', strtotime($order['updated_at'])) ?>
+                    <?php endif; ?>
+                </span>
+            </div>
+            
             <div class="payment-row">
                 <span>Payment Method:</span>
                 <span><strong><?= strtoupper(htmlspecialchars($payment_method)) ?></strong></span>
@@ -536,10 +573,15 @@ $receipt_number = str_pad($order['order_number'], 8, '0', STR_PAD_LEFT);
                 Receipt sent to: <?= htmlspecialchars($order['customer_email']) ?>
             </div>
             <?php endif; ?>
+            
+            <!-- Transaction timestamp -->
+            <div style="margin-top: 5px; font-size: 8px; color: #999;">
+                Trans ID: <?= htmlspecialchars($receipt_number) ?>-<?= date('ymd', strtotime($order['created_at'])) ?>
+            </div>
         </div>
     </div>
 
-    <!-- Print Button (hidden when printing)
+    <!-- Print Button (hidden when printing) 
     <div class="print-btn no-print">
         <button onclick="window.print()">
             <i class="fas fa-print"></i> Print Receipt
