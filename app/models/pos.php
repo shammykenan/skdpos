@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/db.php';
 
 function createOrder(PDO $pdo, int $cashier_id, ?string $customer_name, ?string $table_number,string $order_type, string $order_source, float $subtotal, float $discount,float $total_amount): int {
     // Generate a unique order number: ORD-YYYYMMDD-XXXXXX
-    $order_number = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+    $order_number = 'SKD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
 
     $sql = "INSERT INTO orders (order_number, cashier_id, customer_name, table_number,
                  order_type, order_source, subtotal, discount, total_amount, status) VALUES
