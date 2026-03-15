@@ -2,500 +2,574 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login · Cafeteria POS</title>
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <style>
-        /* ------------------------------------------------------------
-           MODERN CAFETERIA PALETTE – Teal + Coral + Navy
-        ------------------------------------------------------------ */
         :root {
-            --primary: #0f4c5c;
-            --primary-dark: #0a3a47;
-            --primary-light: #1f7a8c;
-            --secondary: #ff6b4a;
+            --primary:         #0f4c5c;
+            --primary-dark:    #0a3a47;
+            --primary-light:   #1f7a8c;
+            --secondary:       #ff6b4a;
             --secondary-light: #ff8c70;
-            --accent: #fee440;
-            --navy: #1e2f4e;
-            --lavender: #e2e6f0;
-            --light-bg: #f8faff;
-            --warm-gray: #4a5568;
-            --border: #cbd5e0;
-            --success: #2c7a5a;
-            --danger: #d64045;
-            --warning: #f4b942;
-            --info: #5e9b9e;
-            --dark: #1a202c;
-            --light: #ffffff;
+            --accent:          #fee440;
+            --navy:            #1e2f4e;
+            --success:         #2c7a5a;
+            --danger:          #d64045;
         }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--light-bg);
-            color: var(--dark);
-            font-size: 14px;
-            line-height: 1.5;
+            font-family: 'Geist', sans-serif;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1.5rem;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(15, 76, 92, 0.03) 0%, transparent 30%),
-                radial-gradient(circle at 90% 80%, rgba(255, 107, 74, 0.03) 0%, transparent 35%);
-        }
-        
-        /* ------ MAIN AUTH CARD – matches dashboard card style ------ */
-        .auth-card {
-            background: white;
-            border-radius: 28px;
-            border: 1px solid rgba(203, 213, 224, 0.5);
-            box-shadow: 0 25px 40px -12px rgba(15, 76, 92, 0.2);
-            padding: 3rem 3rem;
-            width: 100%;
-            max-width: 520px;
-            margin: 0 auto;
+            flex-direction: column;
+            padding: 2rem 1rem;
+            background: var(--primary-dark);
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(4px);
-            transition: transform 0.25s, box-shadow 0.25s;
         }
-        
-        .auth-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 30px 50px -12px rgba(15, 76, 92, 0.3);
-            border-color: var(--primary-light);
+
+        /* ── coral accent bar ── */
+        .top-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--secondary);
+            z-index: 100;
         }
-        
-        .auth-card::before {
+
+        /* ══════════════════════════════════════════
+           BACKGROUND IMAGE
+        ══════════════════════════════════════════ */
+        .bg-image {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .bg-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .bg-image::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            opacity: 0.9;
+            inset: 0;
+            background: rgba(8, 30, 40, 0.68);
         }
-        
-        /* ============================================================
-           LOGO CONTAINER – LARGER, MORE PROMINENT
-        ============================================================ */
-        .logo-container {
-            text-align: center;
-            margin-bottom: 2rem;
+
+        /* ══════════════════════════════════════════
+           GLASS CARD
+        ══════════════════════════════════════════ */
+        .glass-card {
             position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 430px;
+            border-radius: 26px;
+            padding: 2.6rem 2.4rem 2.2rem;
+            background: rgba(255, 255, 255, 0.10);
+            backdrop-filter: blur(40px) saturate(1.8) brightness(1.05);
+            -webkit-backdrop-filter: blur(40px) saturate(1.8) brightness(1.05);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow:
+                0 2px 0 rgba(255, 255, 255, 0.30) inset,
+                0 -1px 0 rgba(0, 0, 0, 0.10) inset,
+                1px 0 0 rgba(255, 255, 255, 0.08) inset;
+            animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
-        
-        /* Larger logo frame */
-        .logo-frame {
-            width: 180px;  /* Increased from 120px */
-            height: 180px; /* Increased from 120px */
-            margin: 0 auto 1.5rem;
-            position: relative;
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 24px; right: 24px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(22px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+
+        /* ══════════════════════════════════════════
+           LOGO — centered stack
+        ══════════════════════════════════════════ */
+        .logo-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .logo-box {
+            width: 80px;
+            height: 80px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.26);
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        
-        /* Outer glow – larger */
-        .logo-frame::before {
-            content: '';
-            position: absolute;
-            top: -10px;
-            left: -10px;
-            right: -10px;
-            bottom: -10px;
-            border-radius: 48px; /* Increased to match larger size */
-            background: linear-gradient(145deg, var(--primary-light), var(--secondary-light));
-            opacity: 0.25;
-            z-index: 0;
-            filter: blur(2px);
-        }
-        
-        /* Inner white border – larger */
-        .logo-frame::after {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            border-radius: 44px; /* Increased */
-            background: white;
-            z-index: 1;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-        }
-        
-        /* The actual image – larger */
-        .logo-image {
-            width: 160px;  /* Increased from 110px */
-            height: 160px; /* Increased from 110px */
-            object-fit: contain;
-            border-radius: 40px; /* Increased */
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+            overflow: hidden;
             position: relative;
-            z-index: 2;
-            background: white;
-            padding: 15px; /* Increased padding for better presence */
-            box-shadow: 0 20px 30px -10px rgba(15, 76, 92, 0.3);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border: 3px solid transparent;
-            background-clip: padding-box;
+            flex-shrink: 0;
+            aspect-ratio: 1 / 1;
         }
-        
-        /* Hover effect – more dramatic for larger logo */
-        .auth-card:hover .logo-image {
-            transform: scale(1.05);
-            border: 3px solid var(--primary-light);
-            box-shadow: 0 25px 35px -8px rgba(15, 76, 92, 0.4);
-        }
-        
-        /* Decorative glow behind logo – larger */
-        .logo-glow {
+
+        .logo-box::after {
+            content: '';
             position: absolute;
-            width: 220px; /* Increased */
-            height: 220px; /* Increased */
-            background: radial-gradient(circle, rgba(255,107,74,0.15) 0%, transparent 70%);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 0;
-            filter: blur(8px);
+            top: 0; right: 0;
+            width: 16px; height: 16px;
+            background: var(--secondary);
+            border-radius: 0 22px 0 14px;
+            z-index: 2;
         }
-        
-        /* Brand title – adjusted spacing */
-        .form-title {
-            font-size: 2.2rem; /* Slightly larger */
-            font-weight: 700;
-            color: var(--navy);
-            margin-bottom: 0.25rem;
+
+        .logo-icon {
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 1.8rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center center;
+            border-radius: 22px;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-text { text-align: center; }
+
+        .logo-name {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.55rem;
+            font-weight: 400;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+            line-height: 1.1;
+            text-shadow: 0 1px 8px rgba(0,0,0,0.35);
+        }
+
+        .logo-sub {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.58);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+
+        /* ══════════════════════════════════════════
+           HEADINGS
+        ══════════════════════════════════════════ */
+        .card-heading {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2.1rem;
+            font-weight: 400;
+            color: #ffffff;
             letter-spacing: -0.02em;
             text-align: center;
+            line-height: 1.18;
+            margin-bottom: 0.4rem;
+            text-shadow: 0 1px 12px rgba(0,0,0,0.4);
         }
-        
-        .form-subtitle {
-            color: var(--warm-gray);
+
+        .card-heading em {
+            font-style: italic;
+            color: var(--secondary-light);
+        }
+
+        .card-sub {
+            font-size: 0.88rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.58);
             text-align: center;
             margin-bottom: 2rem;
-            font-size: 1rem; /* Slightly larger */
+            letter-spacing: 0.01em;
         }
-        
-        /* ------ FORM STYLES – matches dashboard forms ------ */
-        .form-label {
-            font-weight: 600;
-            color: var(--navy);
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem; /* Slightly larger */
-        }
-        
-        .form-control, .form-select {
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 0.85rem 1.2rem; /* Larger padding for better UX */
-            font-size: 1rem;
-            transition: all 0.2s;
-            background: white;
-            width: 100%;
-            height: auto;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1);
-            outline: none;
-        }
-        
-        .form-control::placeholder {
-            color: #a0aec0;
-            font-size: 0.95rem;
-        }
-        
-        /* ------ BUTTON – larger, more prominent ------ */
-        .btn {
-            padding: 0.9rem 1.8rem; /* Larger padding */
-            border-radius: 40px;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.18s;
-            letter-spacing: 0.3px;
-            border: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 8px 16px rgba(15, 76, 92, 0.15);
-        }
-        
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 12px 20px rgba(15, 76, 92, 0.25);
-        }
-        
-        .btn-primary:active {
-            transform: translateY(0);
-            box-shadow: 0 4px 8px rgba(15, 76, 92, 0.2);
-        }
-        
-        .btn-block {
-            width: 100%;
-        }
-        
-        /* ------ ALERTS – matches dashboard alerts ------ */
+
+        /* ══════════════════════════════════════════
+           ALERTS
+        ══════════════════════════════════════════ */
         .alert {
-            border-radius: 18px;
-            border: none;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1.5rem;
-            font-size: 0.95rem;
-            position: relative;
+            border-radius: 13px;
+            padding: 0.75rem 1rem;
+            font-size: 0.83rem;
+            display: flex;
+            gap: 0.6rem;
+            align-items: flex-start;
+            margin-bottom: 1.3rem;
+            background: rgba(214, 64, 69, 0.18);
+            border: 1px solid rgba(214, 64, 69, 0.32);
+            color: #ffc5c5;
         }
-        
+
         .alert-success {
-            background: rgba(44, 122, 90, 0.12);
-            color: #1e4a3b;
-            border-left: 6px solid var(--success);
+            background: rgba(44, 122, 90, 0.18);
+            border-color: rgba(44, 122, 90, 0.32);
+            color: #a5f3d0;
         }
-        
-        .alert-danger {
-            background: rgba(214, 64, 69, 0.08);
-            color: #9e3a34;
-            border-left: 6px solid var(--danger);
+
+        /* ══════════════════════════════════════════
+           FORM FIELDS
+        ══════════════════════════════════════════ */
+        .field-group { margin-bottom: 1.1rem; }
+
+        .field-label {
+            display: block;
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.72);
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            margin-bottom: 0.48rem;
         }
-        
-        .alert i {
-            margin-right: 0.5rem;
-        }
-        
-        /* ------ PASSWORD TOGGLE ------ */
-        .password-wrapper {
-            position: relative;
-        }
-        
-        .password-toggle {
+
+        .input-wrap { position: relative; }
+
+        .input-ico {
             position: absolute;
-            right: 16px;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 0.8rem;
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+
+        .input-wrap:focus-within .input-ico {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .glass-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            padding: 0.82rem 1rem 0.82rem 2.6rem;
+            font-family: 'Geist', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #ffffff;
+            outline: none;
+            transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.32);
+            font-weight: 300;
+        }
+
+        .glass-input:focus {
+            background: rgba(0, 0, 0, 0.25);
+            border-color: rgba(255, 255, 255, 0.35);
+            box-shadow:
+                0 0 0 3.5px rgba(31, 122, 140, 0.38),
+                0 1px 0 rgba(255, 255, 255, 0.06) inset;
+        }
+
+        /* ── autofill fix — prevents browser white background ── */
+        .glass-input:-webkit-autofill,
+        .glass-input:-webkit-autofill:hover,
+        .glass-input:-webkit-autofill:focus,
+        .glass-input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.32) inset !important;
+            box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.32) inset !important;
+            -webkit-text-fill-color: #ffffff !important;
+            caret-color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.35) !important;
+            transition: background-color 99999s ease-in-out 0s;
+        }
+
+        .pass-toggle {
+            position: absolute;
+            right: 0.9rem;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: var(--warm-gray);
             cursor: pointer;
-            font-size: 1.2rem;
-            padding: 0.25rem;
-            z-index: 5;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 0.88rem;
+            padding: 0.2rem;
+            transition: color 0.2s;
         }
-        
-        .password-toggle:hover {
-            color: var(--primary);
-        }
-        
-        /* ------ DECORATIVE ELEMENTS ------ */
-        .cafeteria-icon-row {
+
+        .pass-toggle:hover { color: rgba(255, 255, 255, 0.75); }
+
+        /* ══════════════════════════════════════════
+           FORGOT LINK
+        ══════════════════════════════════════════ */
+        .forgot-row {
             display: flex;
+            justify-content: flex-end;
+            margin: -0.15rem 0 1.4rem;
+        }
+
+        .glass-link {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.55);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .glass-link:hover { color: var(--secondary-light); }
+
+        /* ══════════════════════════════════════════
+           SIGN IN BUTTON
+        ══════════════════════════════════════════ */
+        .btn-signin {
+            width: 100%;
+            padding: 0.9rem;
+            border-radius: 12px;
+            font-family: 'Geist', sans-serif;
+            font-size: 0.93rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
             justify-content: center;
-            gap: 1.5rem;
-            margin: 2rem 0 0.5rem;
-            color: var(--primary-light);
-            font-size: 1.1rem;
-            opacity: 0.6;
+            gap: 0.55rem;
+            position: relative;
+            overflow: hidden;
+            background: var(--navy);
+            color: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.18) inset,
+                0 8px 22px rgba(0, 0, 0, 0.32);
+            transition: transform 0.18s, box-shadow 0.2s, background 0.2s;
+            -webkit-font-smoothing: antialiased;
         }
-        
-        .cafeteria-icon-row i {
-            transition: opacity 0.2s, color 0.2s;
+
+        .btn-signin::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: var(--secondary);
+            opacity: 0.75;
         }
-        
-        .cafeteria-icon-row i:hover {
-            opacity: 1;
-            color: var(--secondary);
-            transform: scale(1.1);
+
+        .btn-signin:hover {
+            background: #263d62;
+            transform: translateY(-2px);
+            box-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.18) inset,
+                0 14px 30px rgba(0, 0, 0, 0.42);
         }
-        
-        hr {
-            border: none;
-            border-top: 1px solid var(--border);
-            opacity: 0.5;
-            margin: 2rem 0 0.5rem;
+
+        .btn-signin:active { transform: translateY(0); }
+
+        /* ══════════════════════════════════════════
+           CAFETERIA FOOTER
+        ══════════════════════════════════════════ */
+        .cafe-footer {
+            margin-top: 1.8rem;
+            padding-top: 1.4rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.09);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
         }
-        
-        /* ------ RESPONSIVE – adjusted for larger logo ------ */
-        @media (max-width: 576px) {
-            .auth-card {
-                padding: 2rem 1.5rem;
-            }
-            
-            .form-title {
-                font-size: 2rem;
-            }
-            
-            .logo-frame {
-                width: 140px;
-                height: 140px;
-            }
-            
-            .logo-image {
-                width: 120px;
-                height: 120px;
-                padding: 10px;
-            }
-            
-            .logo-glow {
-                width: 180px;
-                height: 180px;
-            }
+
+        .cafe-tagline {
+            font-family: 'Instrument Serif', serif;
+            font-style: italic;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.48);
+            white-space: nowrap;
+        }
+
+        .cafe-icons {
+            display: flex;
+            gap: 0.85rem;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.88rem;
+            flex-shrink: 0;
+        }
+
+        .cafe-icons i { transition: color 0.2s; }
+        .cafe-icons i:hover { color: var(--secondary-light); }
+
+        /* ══════════════════════════════════════════
+           STAGGER ANIMATIONS
+        ══════════════════════════════════════════ */
+        .a1 { animation: fadeUp 0.55s 0.10s ease both; }
+        .a2 { animation: fadeUp 0.55s 0.18s ease both; }
+        .a3 { animation: fadeUp 0.55s 0.25s ease both; }
+        .a4 { animation: fadeUp 0.55s 0.32s ease both; }
+        .a5 { animation: fadeUp 0.55s 0.40s ease both; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+
+        /* ══════════════════════════════════════════
+           RESPONSIVE
+        ══════════════════════════════════════════ */
+        @media (max-width: 500px) {
+            .glass-card   { padding: 2rem 1.5rem 1.8rem; }
+            .card-heading { font-size: 1.75rem; }
         }
     </style>
 </head>
 <body>
-    <div class="container-fluid p-0">
-        <div class="row justify-content-center align-items-center min-vh-100 mx-0">
-            <div class="col-12 col-md-8 col-lg-6 col-xl-5 d-flex justify-content-center">
-                <div class="auth-card">
-                    
-                    <!-- ==================================================
-                         LOGO CONTAINER - LARGER, MORE PROMINENT
-                         ================================================== -->
-                    <div class="logo-container">
-                        <div class="logo-frame">
-                            <!-- Glow effect behind logo -->
-                            <div class="logo-glow"></div>
-                            
-                            <!-- YOUR IMAGE GOES HERE - NOW 160x160px -->
-                            <img src="<?=$baseUrl?>/assets/images/logo/logo.png" 
-                                 alt="Cafeteria POS" 
-                                 class="logo-image"
-                                 onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22160%22%20height%3D%22160%22%20viewBox%3D%220%200%20160%20160%22%3E%3Crect%20width%3D%22160%22%20height%3D%22160%22%20fill%3D%22%23f0f5fa%22%20rx%3D%2230%22%2F%3E%3Ctext%20x%3D%2280%22%20y%3D%22100%22%20font-size%3D%2260%22%20text-anchor%3D%22middle%22%20fill%3D%22%230f4c5c%22%20font-family%3D%22Inter%22%3E🍽%3C%2Ftext%3E%3C%2Fsvg%3E');">
-                        </div>
-                        
-                        <h1 class="form-title">Cafeteria POS</h1>
-                        <p class="form-subtitle">Sign in to continue to dashboard</p>
-                    </div>
 
-                    <!-- Alerts -->
-                    <?php if (!empty($success)): ?>
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <?php echo htmlspecialchars($success); ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    <?php endif; ?>
 
-                    <?php if (!empty($error)): ?>
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-circle me-2"></i>
-                            <?php echo htmlspecialchars($error); ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="form-container">
-                        <!-- Login Form -->
-                        <div id="loginForm" class="auth-form <?php echo (!isset($_SESSION['activeTab']) || $_SESSION['activeTab'] === 'login') ? 'active' : ''; ?>">
-                            <form action="index.php?page=login" method="POST">
-                                <!-- Username field -->
-                                <div class="mb-3">
-                                    <label class="form-label">Username</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" name="username" placeholder="Enter your username" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" required>
-                                    </div>
-                                </div>
-                                
-                                <!-- Password field with inline toggle -->
-                                <div class="mb-4">
-                                    <label class="form-label">Password</label>
-                                    <div class="password-wrapper">
-                                        <input type="password" class="form-control" id="passwordField" name="password" placeholder="••••••••" required>
-                                        <span class="password-toggle" onclick="togglePasswordVisibility()">
-                                            <i class="far fa-eye" id="toggleIcon"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                
-                                <button type="submit" name="login" class="btn btn-primary btn-block w-100">
-                                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                                </button>
-                            </form>
-
-                            <!-- Uncomment if you want register link -->
-                            <!--
-                            <div class="form-footer">
-                                <p>Don't have an account? <a href="#" id="showRegister">Create one</a></p>
-                            </div>
-                            -->
-                        </div>
-                    </div>
-                    
-                    <!-- Decorative cafeteria elements -->
-                    <hr>
-                    <div class="cafeteria-icon-row">
-                        <i class="fas fa-mug-saucer"></i>
-                        <i class="fas fa-utensils"></i>
-                        <i class="fas fa-bread-slice"></i>
-                        <i class="fas fa-carrot"></i>
-                        <i class="fas fa-cookie"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="bg-image">
+        <img src="<?=$baseUrl?>/assets/images/logo/bg.jpeg" alt="">
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
+    <div class="glass-card">
+
+        <!-- Logo -->
+        <div class="logo-row a1">
+            <div class="logo-box">
+                <img src="<?=$baseUrl?>/assets/images/logo/logo.png"
+                     alt="Cafeteria POS"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <span class="logo-icon" style="display:none;">
+                    <i class="fas fa-utensils"></i>
+                </span>
+            </div>
+            <div class="logo-text">
+                <div class="logo-name">Cafeteria POS</div>
+                <div class="logo-sub">Management System</div>
+            </div>
+        </div>
+
+        <!-- Heading -->
+        <h1 class="card-heading a2">Good to see<br>you <em>again</em></h1>
+        <p class="card-sub a2">Sign in to manage today's service</p>
+
+        <!-- Alerts -->
+        <?php if (!empty($success)): ?>
+        <div class="alert alert-success">
+            <i class="fas fa-circle-check"></i>
+            <?php echo htmlspecialchars($success); ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($error)): ?>
+        <div class="alert">
+            <i class="fas fa-exclamation-circle"></i>
+            <?php echo htmlspecialchars($error); ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Form -->
+        <form action="<?php echo $baseUrl; ?>/index.php?page=login" method="POST" autocomplete="on">
+
+            <div class="field-group a3">
+                <label class="field-label" for="username">Username</label>
+                <div class="input-wrap">
+                    <i class="fas fa-user input-ico"></i>
+                    <input
+                        class="glass-input"
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>"
+                        autocomplete="username"
+                        required>
+                </div>
+            </div>
+
+            <div class="field-group a3">
+                <label class="field-label" for="passwordField">Password</label>
+                <div class="input-wrap">
+                    <i class="fas fa-lock input-ico"></i>
+                    <input
+                        class="glass-input"
+                        type="password"
+                        id="passwordField"
+                        name="password"
+                        placeholder="••••••••"
+                        autocomplete="current-password"
+                        required>
+                    <button type="button" class="pass-toggle" onclick="togglePass()" aria-label="Toggle password visibility">
+                        <i class="far fa-eye" id="toggleIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="forgot-row a3">
+                <a href="#" class="glass-link">Forgot password?</a>
+            </div>
+
+            <button type="submit" name="login" class="btn-signin a4">
+                <i class="fas fa-arrow-right-to-bracket"></i>
+                Sign In
+            </button>
+
+        </form>
+
+        <!-- Cafeteria footer -->
+        <div class="cafe-footer a5">
+            <span class="cafe-tagline">Serving great meals, every day.</span>
+            <div class="cafe-icons">
+                <i class="fas fa-mug-saucer"></i>
+                <i class="fas fa-utensils"></i>
+                <i class="fas fa-bread-slice"></i>
+                <i class="fas fa-carrot"></i>
+                <i class="fas fa-cookie"></i>
+            </div>
+        </div>
+
+    </div>
+
     <script>
-        // Password visibility toggle
-        function togglePasswordVisibility(fieldId = 'passwordField', iconElement = null) {
-            const passwordInput = document.getElementById(fieldId);
-            let toggleIcon;
-            
-            if (iconElement) {
-                toggleIcon = iconElement.querySelector('i');
-            } else {
-                toggleIcon = document.getElementById('toggleIcon');
-            }
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            }
+        function togglePass() {
+            const field = document.getElementById('passwordField');
+            const icon  = document.getElementById('toggleIcon');
+            const isHidden = field.type === 'password';
+            field.type = isHidden ? 'text' : 'password';
+            icon.classList.toggle('fa-eye',       !isHidden);
+            icon.classList.toggle('fa-eye-slash',  isHidden);
         }
-        
-        // Auto-dismiss alerts after 5 seconds
+
+        // Auto-dismiss alerts after 5s
         setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+            document.querySelectorAll('.alert').forEach(el => {
+                el.style.transition = 'opacity 0.4s';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 400);
             });
         }, 5000);
     </script>
+
 </body>
 </html>

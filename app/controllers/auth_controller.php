@@ -21,11 +21,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
+    // Validate input
     if (empty($username) || empty($password)) {
         $_SESSION['error'] = 'Username and password are required.';
         header('Location: ' . $baseUrl . '/index.php?page=login');
         exit;
     }
+    // Check IP-based rate limit
+    checkLoginRateLimit($pdo, $baseUrl);
+    // Record this attempt as failed (assume fail)
+    recordLoginAttempt($pdo, $username, false);
 
     // Authenticate user
     $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username AND is_active = 1");
@@ -33,18 +38,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user && password_verify($password, $user['password_hash'])) {
+        clearLoginAttempts($pdo, $_SERVER['REMOTE_ADDR']);
+        // Mark last attempt as successful
+        $stmt = $pdo->prepare("
+            UPDATE login_attempts
+            SET success = 1
+            WHERE ip_address = :ip
+            ORDER BY attempt_time DESC
+            LIMIT 1
+        ");
+        $stmt->execute([':ip' => $_SERVER['REMOTE_ADDR']]);
+
         // Set session
         $_SESSION['user_id'] = $user['user_id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['full_name'] = $user['full_name'];
 
-        // Update last login
+        // Update last login timestamp
         $stmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE user_id = :id");
         $stmt->execute([':id' => $user['user_id']]);
-
-        // Set login success message
-        $_SESSION['login_success'] = true;
 
         // Redirect based on role
         switch ($user['role']) {
@@ -62,7 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 header('Location: ' . $baseUrl . '/index.php?page=login');
                 exit;
         }
+
     } else {
+        // Wrong credentials, error message
         $_SESSION['error'] = 'Invalid username or password.';
         header('Location: ' . $baseUrl . '/index.php?page=login');
         exit;
