@@ -449,7 +449,7 @@
 
 
     <div class="bg-image">
-        <img src="<?=$baseUrl?>/assets/images/logo/bg.jpeg" alt="">
+        <img src="<?=$baseUrl?>/assets/images/logo/background.jpeg" alt="bg image">
     </div>
 
     <div class="glass-card">
@@ -527,7 +527,7 @@
             </div>
 
             <div class="forgot-row a3">
-                <a href="#" class="glass-link">Forgot password?</a>
+                <a href="index.php?page=forgot_password" class="glass-link">Forgot password?</a>
             </div>
 
             <button type="submit" name="login" class="btn-signin a4">
