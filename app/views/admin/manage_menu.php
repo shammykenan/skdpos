@@ -55,7 +55,7 @@
             line-height: 1.5;
         }
         
-        /* ------ TOPBAR – modern & sleek ------ */
+        /* ------ TOPBAR ------ */
         .topbar {
             position: fixed;
             top: 0;
@@ -113,7 +113,7 @@
             color: white;
         }
         
-        /* ------ SIDEBAR – clean & minimal ------ */
+        /* ------ SIDEBAR ------ */
         .sidebar {
             position: fixed;
             top: var(--topbar-height);
@@ -128,18 +128,10 @@
             box-shadow: 2px 0 12px rgba(0,0,0,0.02);
         }
         
-        .sidebar::-webkit-scrollbar {
-            width: 5px;
-        }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
         
-        .sidebar::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 8px;
-        }
-        
-        .sidebar-nav {
-            padding: 2rem 0.75rem;
-        }
+        .sidebar-nav { padding: 2rem 0.75rem; }
         
         .nav-section-title {
             padding: 0.6rem 1.2rem;
@@ -152,9 +144,7 @@
             margin-top: 0.8rem;
         }
         
-        .nav-item {
-            margin: 0.2rem 0.6rem;
-        }
+        .nav-item { margin: 0.2rem 0.6rem; }
         
         .nav-link {
             display: flex;
@@ -168,25 +158,11 @@
             font-size: 0.95rem;
         }
         
-        .nav-link:hover {
-            background: var(--lavender);
-            color: var(--primary-dark);
-        }
+        .nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
+        .nav-link.active { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(15, 76, 92, 0.2); }
+        .nav-link i { width: 24px; margin-right: 0.85rem; font-size: 1.2rem; text-align: center; }
         
-        .nav-link.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 6px 12px rgba(15, 76, 92, 0.2);
-        }
-        
-        .nav-link i {
-            width: 24px;
-            margin-right: 0.85rem;
-            font-size: 1.2rem;
-            text-align: center;
-        }
-        
-        /* ------ MAIN CONTENT – spacious & balanced ------ */
+        /* ------ MAIN CONTENT ------ */
         .main-content {
             margin-left: var(--sidebar-width);
             margin-top: var(--topbar-height);
@@ -195,7 +171,7 @@
             transition: margin-left 0.2s;
         }
         
-        /* ------ PAGE HEADER – modern typography ------ */
+        /* ------ PAGE HEADER ------ */
         .page-header {
             margin-bottom: 2.2rem;
             display: flex;
@@ -215,10 +191,7 @@
             gap: 0.7rem;
         }
         
-        .page-header h1 i {
-            color: var(--secondary);
-            font-size: 2.1rem;
-        }
+        .page-header h1 i { color: var(--secondary); font-size: 2.1rem; }
         
         .breadcrumb {
             background: none;
@@ -227,22 +200,18 @@
             font-size: 0.9rem;
         }
         
-        .breadcrumb-item a {
-            color: var(--warm-gray);
-            text-decoration: none;
-            font-weight: 500;
-        }
+        .breadcrumb-item a { color: var(--warm-gray); text-decoration: none; font-weight: 500; }
+        .breadcrumb-item a:hover { color: var(--primary); }
+        .breadcrumb-item.active { color: var(--primary-dark); font-weight: 600; }
         
-        .breadcrumb-item a:hover {
-            color: var(--primary);
+        /* ------ HEADER ACTION BUTTONS ------ */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
         }
-        
-        .breadcrumb-item.active {
-            color: var(--primary-dark);
-            font-weight: 600;
-        }
-        
-        /* ------ ADD BUTTON – prominent but clean ------ */
+
         .btn-add {
             background: var(--primary);
             color: white;
@@ -255,6 +224,8 @@
             display: flex;
             align-items: center;
             gap: 0.6rem;
+            cursor: pointer;
+            text-decoration: none;
         }
         
         .btn-add:hover {
@@ -263,12 +234,30 @@
             box-shadow: 0 10px 18px rgba(15, 76, 92, 0.25);
             color: white;
         }
-        
-        .btn-add i {
-            font-size: 1rem;
+
+        .btn-add-category {
+            background: white;
+            color: var(--primary);
+            padding: 0.7rem 1.6rem;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: 2px solid var(--primary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            cursor: pointer;
+        }
+
+        .btn-add-category:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 18px rgba(15, 76, 92, 0.18);
         }
         
-        /* ------ STATS CARDS – modern glassmorphism ------ */
+        /* ------ STATS CARDS ------ */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -284,7 +273,6 @@
             transition: all 0.25s;
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(4px);
             box-shadow: 0 8px 20px rgba(15, 76, 92, 0.04);
             display: flex;
             align-items: center;
@@ -294,12 +282,9 @@
         .stat-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             height: 4px;
             background: linear-gradient(90deg, var(--primary), var(--secondary));
-            opacity: 0.9;
         }
         
         .stat-card.secondary::before { background: var(--secondary); }
@@ -307,42 +292,22 @@
         .stat-card.warning::before { background: var(--warning); }
         .stat-card.success::before { background: var(--success); }
         
-        .stat-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 16px 28px rgba(15, 76, 92, 0.08);
-            border-color: var(--primary-light);
-        }
+        .stat-card:hover { transform: translateY(-6px); box-shadow: 0 16px 28px rgba(15, 76, 92, 0.08); border-color: var(--primary-light); }
         
         .stat-card .icon {
-            width: 60px;
-            height: 60px;
+            width: 60px; height: 60px;
             border-radius: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             font-size: 1.8rem;
             background: linear-gradient(145deg, #f0f5fa, white);
             color: var(--primary);
             border: 1px solid rgba(15, 76, 92, 0.1);
         }
         
-        .stat-card .label {
-            font-size: 0.8rem;
-            color: var(--warm-gray);
-            margin-bottom: 0.25rem;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            font-weight: 700;
-        }
+        .stat-card .label { font-size: 0.8rem; color: var(--warm-gray); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
+        .stat-card .value { font-size: 1.9rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
         
-        .stat-card .value {
-            font-size: 1.9rem;
-            font-weight: 700;
-            color: var(--navy);
-            line-height: 1.1;
-        }
-        
-        /* ------ CARD – modern, clean ------ */
+        /* ------ CARD ------ */
         .card {
             background: white;
             border-radius: 24px;
@@ -352,9 +317,7 @@
             transition: box-shadow 0.2s;
         }
         
-        .card:hover {
-            box-shadow: 0 14px 26px rgba(15, 76, 92, 0.06);
-        }
+        .card:hover { box-shadow: 0 14px 26px rgba(15, 76, 92, 0.06); }
         
         .card-header {
             background: white;
@@ -363,9 +326,7 @@
             border-radius: 24px 24px 0 0;
         }
         
-        .card-body {
-            padding: 1.6rem 1.8rem;
-        }
+        .card-body { padding: 1.6rem 1.8rem; }
         
         .card-title {
             font-size: 1.18rem;
@@ -376,17 +337,9 @@
             gap: 0.6rem;
         }
         
-        /* ------ TABLE – crisp & modern ------ */
-        .table-container {
-            overflow-x: auto;
-            margin: 0;
-        }
-        
-        .table {
-            margin: 0;
-            border-collapse: separate;
-            border-spacing: 0;
-        }
+        /* ------ TABLE ------ */
+        .table-container { overflow-x: auto; margin: 0; }
+        .table { margin: 0; border-collapse: separate; border-spacing: 0; }
         
         .table thead th {
             background: #f2f6fc;
@@ -408,25 +361,14 @@
             background: white;
         }
         
-        .table tbody tr:hover td {
-            background-color: #fafcff;
-        }
+        .table tbody tr:hover td { background-color: #fafcff; }
         
-        /* ------ ITEM IMAGE & PLACEHOLDER ------ */
-        .item-img {
-            width: 54px;
-            height: 54px;
-            object-fit: cover;
-            border-radius: 14px;
-            border: 1px solid var(--border);
-        }
+        /* ------ ITEM IMAGE ------ */
+        .item-img { width: 54px; height: 54px; object-fit: cover; border-radius: 14px; border: 1px solid var(--border); }
         
         .item-img-placeholder {
-            width: 54px;
-            height: 54px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 54px; height: 54px;
+            display: flex; align-items: center; justify-content: center;
             background: #f2f6fc;
             border-radius: 14px;
             border: 1px solid var(--border);
@@ -445,7 +387,7 @@
             font-weight: 600;
         }
         
-        /* ------ INGREDIENT TAGS – new style for ingredients column ------ */
+        /* ------ INGREDIENT TAGS ------ */
         .ingredient-tag {
             display: inline-block;
             padding: 0.25rem 0.6rem;
@@ -458,292 +400,116 @@
             white-space: nowrap;
         }
         
-        .ingredient-list {
-            max-width: 250px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-        }
-        
-        .ingredient-tooltip {
-            position: relative;
-            cursor: help;
-        }
+        .ingredient-list { max-width: 250px; display: flex; flex-wrap: wrap; gap: 0.25rem; }
         
         /* ------ BADGES ------ */
-        .badge {
-            padding: 0.45rem 1rem;
-            border-radius: 30px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            letter-spacing: 0.3px;
-        }
-        
+        .badge { padding: 0.45rem 1rem; border-radius: 30px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.3px; }
         .bg-success { background: var(--success) !important; }
         .bg-danger { background: var(--danger) !important; }
         .bg-warning { background: var(--warning) !important; color: #1a202c; }
         
-        /* ------ ACTION BUTTONS – EDIT ONLY ------ */
-        .action-btns {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
-        }
+        /* ------ ACTION BUTTONS ------ */
+        .action-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
         
         .btn-icon {
-            width: 38px;
-            height: 38px;
-            padding: 0;
+            width: 38px; height: 38px; padding: 0;
             border-radius: 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            display: inline-flex; align-items: center; justify-content: center;
             background: #f2f6fc;
             border: none;
             color: var(--primary);
             transition: all 0.15s;
         }
         
-        .btn-icon:hover {
-            background: var(--secondary);
-            color: white;
-            transform: scale(0.95);
-        }
+        .btn-icon:hover { background: var(--secondary); color: white; transform: scale(0.95); }
         
-        .btn-icon.btn-edit {
-            background: #fff3e0;
-            color: #b85a1a;
-            border: 1px solid rgba(244, 185, 66, 0.2);
-        }
-        
-        .btn-icon.btn-edit:hover {
-            background: var(--warning);
-            color: white;
-        }
+        .btn-icon.btn-edit { background: #fff3e0; color: #b85a1a; border: 1px solid rgba(244, 185, 66, 0.2); }
+        .btn-icon.btn-edit:hover { background: var(--warning); color: white; }
         
         /* ------ SEARCH BOX ------ */
-        .search-box {
-            position: relative;
-        }
+        .search-box { position: relative; }
+        .search-box i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--warm-gray); z-index: 10; }
+        .search-box .form-control { padding-left: 2.8rem; border-radius: 30px; }
         
-        .search-box i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--warm-gray);
-            z-index: 10;
-        }
+        /* ------ MODAL ------ */
+        .modal { padding-right: 0 !important; }
+        .modal-dialog { margin: 1.75rem auto; display: flex; align-items: center; min-height: calc(100% - 3.5rem); }
+        .modal-dialog-centered { display: flex; align-items: center; min-height: calc(100% - 3.5rem); }
         
-        .search-box .form-control {
-            padding-left: 2.8rem;
-            border-radius: 30px;
-        }
+        .modal-content { border-radius: 28px; border: none; box-shadow: 0 25px 40px rgba(0,0,0,0.12); width: 100%; }
+        .modal-header { border-bottom: 1px solid var(--border); padding: 1.6rem 1.8rem; border-radius: 28px 28px 0 0; }
+        .modal-body { padding: 1.8rem; }
+        .modal-footer { border-top: 1px solid var(--border); padding: 1.5rem 1.8rem; border-radius: 0 0 28px 28px; }
         
-        /* ------ MODAL – PERFECTLY CENTERED, FULLY ACCESSIBLE ------ */
-        .modal {
-            padding-right: 0 !important;
-        }
+        .modal-title { font-size: 1.3rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
         
-        .modal-dialog {
-            margin: 1.75rem auto;
-            display: flex;
-            align-items: center;
-            min-height: calc(100% - 3.5rem);
-        }
+        /* ------ FORM ------ */
+        .form-label { font-weight: 600; color: var(--navy); margin-bottom: 0.5rem; font-size: 0.85rem; }
+        .form-control, .form-select { border: 1px solid var(--border); border-radius: 14px; padding: 0.65rem 1rem; font-size: 0.9rem; transition: all 0.2s; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1); }
+        .input-group-text { background: #f2f6fc; border: 1px solid var(--border); border-radius: 14px 0 0 14px; color: var(--primary-dark); font-weight: 500; }
         
-        .modal-dialog-centered {
-            display: flex;
-            align-items: center;
-            min-height: calc(100% - 3.5rem);
-        }
-        
-        .modal-content {
-            border-radius: 28px;
-            border: none;
-            box-shadow: 0 25px 40px rgba(0,0,0,0.12);
-            width: 100%;
-        }
-        
-        .modal-header {
-            border-bottom: 1px solid var(--border);
-            padding: 1.6rem 1.8rem;
-            border-radius: 28px 28px 0 0;
-        }
-        
-        .modal-body {
-            padding: 1.8rem;
-        }
-        
-        .modal-footer {
-            border-top: 1px solid var(--border);
-            padding: 1.5rem 1.8rem;
-            border-radius: 0 0 28px 28px;
-        }
-        
-        .modal-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--navy);
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-        
-        /* ------ FORM STYLING – inside modal ------ */
-        .form-label {
-            font-weight: 600;
-            color: var(--navy);
-            margin-bottom: 0.5rem;
-            font-size: 0.85rem;
-        }
-        
-        .form-control, .form-select {
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 0.65rem 1rem;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1);
-        }
-        
-        .input-group-text {
-            background: #f2f6fc;
-            border: 1px solid var(--border);
-            border-radius: 14px 0 0 14px;
-            color: var(--primary-dark);
-            font-weight: 500;
-        }
-        
-        /* ------ IMAGE PREVIEW (modal) ------ */
-        .image-preview-container {
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 0.75rem;
-            background: #fafcff;
-        }
-        
-        .image-preview {
-            max-width: 100%;
-            max-height: 140px;
-            border-radius: 14px;
-            display: block;
-            margin: 0 auto;
-        }
-        
-        .image-preview-placeholder {
-            border: 2px dashed var(--border);
-            border-radius: 16px;
-            padding: 0.75rem;
-            background: #f8faff;
-        }
+        /* ------ IMAGE PREVIEW ------ */
+        .image-preview-container { border: 1px solid var(--border); border-radius: 16px; padding: 0.75rem; background: #fafcff; }
+        .image-preview { max-width: 100%; max-height: 140px; border-radius: 14px; display: block; margin: 0 auto; }
+        .image-preview-placeholder { border: 2px dashed var(--border); border-radius: 16px; padding: 0.75rem; background: #f8faff; }
         
         /* ------ ALERTS ------ */
-        .alert {
-            border-radius: 18px;
-            border: none;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1.8rem;
+        .alert { border-radius: 18px; border: none; padding: 1rem 1.5rem; margin-bottom: 1.8rem; }
+        .alert-success { background: rgba(44, 122, 90, 0.12); color: #1e4a3b; border-left: 6px solid var(--success); }
+        .alert-danger { background: rgba(214, 64, 69, 0.08); color: #9e3a34; border-left: 6px solid var(--danger); }
+
+        /* ------ ADD CATEGORY MODAL specifics ------ */
+        .category-modal-icon {
+            width: 52px; height: 52px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(15,76,92,0.1), rgba(31,122,140,0.08));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            color: var(--primary);
+            flex-shrink: 0;
         }
+
+        .char-counter {
+            font-size: 0.75rem;
+            color: var(--warm-gray);
+            text-align: right;
+            margin-top: 0.3rem;
+        }
+
+        .char-counter.over { color: var(--danger); font-weight: 600; }
         
-        .alert-success {
-            background: rgba(44, 122, 90, 0.12);
-            color: #1e4a3b;
-            border-left: 6px solid var(--success);
-        }
-        
-        .alert-danger {
-            background: rgba(214, 64, 69, 0.08);
-            color: #9e3a34;
-            border-left: 6px solid var(--danger);
-        }
-        
-        /* ------ RESPONSIVE – even & clean ------ */
-        @media (max-width: 1199.98px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-        }
+        /* ------ RESPONSIVE ------ */
+        @media (max-width: 1199.98px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
         
         @media (max-width: 991.98px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            .sidebar.show {
-                transform: translateX(0);
-            }
-            .main-content {
-                margin-left: 0;
-                padding: 1.8rem;
-            }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 1.8rem; }
             .sidebar-overlay {
-                position: fixed;
-                top: var(--topbar-height);
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(15, 76, 92, 0.2);
-                backdrop-filter: blur(3px);
-                z-index: 1025;
-                display: none;
+                position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0;
+                background: rgba(15, 76, 92, 0.2); backdrop-filter: blur(3px);
+                z-index: 1025; display: none;
             }
-            .sidebar-overlay.show {
-                display: block;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .sidebar-overlay.show { display: block; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
         
         @media (max-width: 767.98px) {
             .main-content { padding: 1.2rem; }
             .stats-grid { grid-template-columns: 1fr; }
             .page-header h1 { font-size: 1.8rem; }
+            .header-actions { width: 100%; }
+            .btn-add, .btn-add-category { flex: 1; justify-content: center; }
             
-            /* mobile table stacking */
-            .table thead {
-                display: none;
-            }
-            .table tbody tr {
-                display: block;
-                margin-bottom: 1.2rem;
-                border: 1px solid var(--border);
-                border-radius: 20px;
-                background: white;
-            }
-            .table tbody td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 0.9rem 1.2rem;
-                border-bottom: 1px solid #edf2f7;
-            }
-            .table tbody td:last-child {
-                border-bottom: none;
-            }
-            .table tbody td::before {
-                content: attr(data-label);
-                font-weight: 700;
-                color: var(--warm-gray);
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .action-btns {
-                justify-content: flex-end;
-            }
-            
-            .modal-dialog {
-                margin: 0.5rem;
-                min-height: calc(100% - 1rem);
-            }
-            
-            .ingredient-list {
-                max-width: 100%;
-                justify-content: flex-end;
-            }
+            .table thead { display: none; }
+            .table tbody tr { display: block; margin-bottom: 1.2rem; border: 1px solid var(--border); border-radius: 20px; background: white; }
+            .table tbody td { display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1.2rem; border-bottom: 1px solid #edf2f7; }
+            .table tbody td:last-child { border-bottom: none; }
+            .table tbody td::before { content: attr(data-label); font-weight: 700; color: var(--warm-gray); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+            .action-btns { justify-content: flex-end; }
+            .modal-dialog { margin: 0.5rem; min-height: calc(100% - 1rem); }
+            .ingredient-list { max-width: 100%; justify-content: flex-end; }
         }
         
         @media (max-width: 480px) {
@@ -753,9 +519,7 @@
         }
         
         /* ------ ANIMATION ------ */
-        .fade-in {
-            animation: modernFade 0.4s ease forwards;
-        }
+        .fade-in { animation: modernFade 0.4s ease forwards; }
         
         @keyframes modernFade {
             from { opacity: 0.6; transform: translateY(6px); }
@@ -764,7 +528,7 @@
     </style>
 </head>
 <body>
-    <!-- TOPBAR - modern cafeteria -->
+    <!-- TOPBAR -->
     <div class="topbar d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
             <button class="mobile-menu-btn d-lg-none" id="menuToggle">
@@ -804,53 +568,45 @@
             <div class="nav-section-title">DASHBOARD</div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link">
-                    <i class="fas fa-tachometer-alt"></i>
-                    Dashboard
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
                 </a>
             </div>
             
             <div class="nav-section-title">MANAGEMENT</div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="nav-link active">
-                    <i class="fas fa-utensils"></i>
-                    Menu Items
+                    <i class="fas fa-utensils"></i> Menu Items
                 </a>
             </div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="nav-link">
-                    <i class="fas fa-tags"></i>
-                    Recipes
+                    <i class="fas fa-tags"></i> Recipes
                 </a>
             </div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link">
-                    <i class="fas fa-boxes"></i>
-                    Ingredients
+                    <i class="fas fa-boxes"></i> Ingredients
                 </a>
             </div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_addons" class="nav-link">
-                    <i class="fas fa-plus-circle"></i>
-                    Add-ons
+                    <i class="fas fa-plus-circle"></i> Add-ons
                 </a>
             </div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link">
-                    <i class="fas fa-users"></i>
-                    User Management
+                    <i class="fas fa-users"></i> User Management
                 </a>
             </div>
             <div class="nav-section-title">SALES</div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link">
-                    <i class="fas fa-cash-register"></i>
-                    POS System
+                    <i class="fas fa-cash-register"></i> POS System
                 </a>
             </div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link">
-                    <i class="fas fa-receipt"></i>
-                    Orders
+                    <i class="fas fa-receipt"></i> Orders
                 </a>
             </div>
         </div>
@@ -858,7 +614,7 @@
     
     <!-- MAIN CONTENT -->
     <div class="main-content" id="mainContent">
-        <!-- Page Header with ADD BUTTON -->
+
         <div class="page-header">
             <div>
                 <h1>
@@ -872,9 +628,15 @@
                     </ol>
                 </nav>
             </div>
-            <button type="button" class="btn-add" data-bs-toggle="modal" data-bs-target="#addMenuItemModal">
-                <i class="fas fa-plus-circle"></i> Add New Item
-            </button>
+
+            <div class="header-actions">
+                <button type="button" class="btn-add-category" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                    <i class="fas fa-folder-plus"></i> Add Category
+                </button>
+                <button type="button" class="btn-add" data-bs-toggle="modal" data-bs-target="#addMenuItemModal">
+                    <i class="fas fa-plus-circle"></i> Add New Item
+                </button>
+            </div>
         </div>
         
         <!-- Alerts -->
@@ -897,39 +659,28 @@
         <!-- Statistics Cards -->
         <div class="stats-grid">
             <div class="stat-card primary fade-in">
-                <div class="icon">
-                    <i class="fas fa-utensils"></i>
-                </div>
+                <div class="icon"><i class="fas fa-utensils"></i></div>
                 <div>
                     <div class="label">Total Items</div>
                     <div class="value"><?= $totalItems ?? 0 ?></div>
                 </div>
             </div>
-            
             <div class="stat-card success fade-in" style="animation-delay: 0.1s">
-                <div class="icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
+                <div class="icon"><i class="fas fa-check-circle"></i></div>
                 <div>
                     <div class="label">Available Items</div>
                     <div class="value"><?= count($availableItems ?? []) ?></div>
                 </div>
             </div>
-            
             <div class="stat-card info fade-in" style="animation-delay: 0.2s">
-                <div class="icon">
-                    <i class="fas fa-percentage"></i>
-                </div>
+                <div class="icon"><i class="fas fa-percentage"></i></div>
                 <div>
                     <div class="label">Average Margin</div>
                     <div class="value"><?= number_format($avgProfitMargin ?? 0, 1) ?>%</div>
                 </div>
             </div>
-            
             <div class="stat-card warning fade-in" style="animation-delay: 0.3s">
-                <div class="icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
+                <div class="icon"><i class="fas fa-chart-line"></i></div>
                 <div>
                     <div class="label">Potential Profit</div>
                     <div class="value">₱<?= number_format($totalProfit ?? 0, 2) ?></div>
@@ -937,7 +688,7 @@
             </div>
         </div>
         
-        <!-- Menu Items List - FULL WIDTH, WITH INGREDIENTS COLUMN -->
+        <!-- Menu Items Table -->
         <div class="row">
             <div class="col-12">
                 <div class="card fade-in">
@@ -972,7 +723,7 @@
                                             <th>Image</th>
                                             <th>Item</th>
                                             <th>Category</th>
-                                            <th>Ingredients</th> <!-- NEW COLUMN -->
+                                            <th>Ingredients</th>
                                             <th>Price</th>
                                             <th>Profit</th>
                                             <th>Status</th>
@@ -982,23 +733,17 @@
                                     <tbody>
                                         <?php foreach ($menu_items ?? [] as $item): ?>
                                             <?php 
-                                            // Parse recipe_details from GROUP_CONCAT
-                                            // Format: "Coffee Beans:0.1|Milk:0.25|Sugar:0.05"
                                             $ingredients_list = [];
-                                                if (!empty($item['recipe_details'])) {
-                                                    $pairs = explode('|', $item['recipe_details']);
-                                                    foreach ($pairs as $pair) {
-                                                        $parts = explode(':', $pair);
-                                                        if (count($parts) === 3) { 
-                                                            list($name, $qty, $unit) = $parts;
-                                                            $ingredients_list[] = [
-                                                                'name' => $name,
-                                                                'quantity' => $qty,
-                                                                'unit' => $unit
-                                                            ];
-                                                        }
+                                            if (!empty($item['recipe_details'])) {
+                                                $pairs = explode('|', $item['recipe_details']);
+                                                foreach ($pairs as $pair) {
+                                                    $parts = explode(':', $pair);
+                                                    if (count($parts) === 3) { 
+                                                        list($name, $qty, $unit) = $parts;
+                                                        $ingredients_list[] = ['name' => $name, 'quantity' => $qty, 'unit' => $unit];
                                                     }
                                                 }
+                                            }
                                             ?>
                                             <tr>
                                                 <td data-label="Image">
@@ -1007,9 +752,7 @@
                                                              alt="<?= htmlspecialchars($item['item_name']) ?>" 
                                                              class="item-img">
                                                     <?php else: ?>
-                                                        <div class="item-img-placeholder">
-                                                            <i class="fas fa-image"></i>
-                                                        </div>
+                                                        <div class="item-img-placeholder"><i class="fas fa-image"></i></div>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td data-label="Item">
@@ -1021,26 +764,24 @@
                                                     <?php endif; ?>
                                                 </td>
                                                 <td data-label="Category">
-                                                    <span class="category-tag">
-                                                        <?= htmlspecialchars($item['category_name']) ?>
-                                                    </span>
+                                                    <span class="category-tag"><?= htmlspecialchars($item['category_name']) ?></span>
                                                 </td>
                                                 <td data-label="Ingredients">
-                                                        <?php if (!empty($ingredients_list)): ?>
-                                                            <div class="ingredient-list">
-                                                                <?php foreach ($ingredients_list as $ing): ?>
-                                                                    <span class="ingredient-tag" title="<?= htmlspecialchars($ing['name']) ?>: <?= htmlspecialchars($ing['quantity']) . ' ' . htmlspecialchars($ing['unit']) ?>">
-                                                                        <?= htmlspecialchars($ing['name']) ?>
-                                                                        <?php if ($ing['quantity'] > 0): ?>
-                                                                            <small class="ms-1 opacity-75"><?= number_format($ing['quantity'], 2) ?> <?= htmlspecialchars($ing['unit']) ?></small>
-                                                                        <?php endif; ?>
-                                                                    </span>
-                                                                <?php endforeach; ?>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <span class="text-muted fst-italic">No recipe</span>
-                                                        <?php endif; ?>
-                                                    </td>
+                                                    <?php if (!empty($ingredients_list)): ?>
+                                                        <div class="ingredient-list">
+                                                            <?php foreach ($ingredients_list as $ing): ?>
+                                                                <span class="ingredient-tag" title="<?= htmlspecialchars($ing['name']) ?>: <?= htmlspecialchars($ing['quantity']) . ' ' . htmlspecialchars($ing['unit']) ?>">
+                                                                    <?= htmlspecialchars($ing['name']) ?>
+                                                                    <?php if ($ing['quantity'] > 0): ?>
+                                                                        <small class="ms-1 opacity-75"><?= number_format($ing['quantity'], 2) ?> <?= htmlspecialchars($ing['unit']) ?></small>
+                                                                    <?php endif; ?>
+                                                                </span>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <span class="text-muted fst-italic">No recipe</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td data-label="Price">
                                                     <div class="fw-semibold" style="color: var(--success);">₱<?= number_format($item['price'], 2) ?></div>
                                                     <small class="text-muted">Cost: ₱<?= number_format($item['cost_price'], 2) ?></small>
@@ -1051,9 +792,7 @@
                                                     $margin = $item['price'] > 0 ? ($profit / $item['price']) * 100 : 0;
                                                     $badgeClass = $margin >= 30 ? 'success' : ($margin >= 20 ? 'warning' : 'danger');
                                                     ?>
-                                                    <span class="badge bg-<?= $badgeClass ?>">
-                                                        ₱<?= number_format($profit, 2) ?>
-                                                    </span>
+                                                    <span class="badge bg-<?= $badgeClass ?>">₱<?= number_format($profit, 2) ?></span>
                                                     <small class="text-muted d-block mt-1"><?= number_format($margin, 1) ?>%</small>
                                                 </td>
                                                 <td data-label="Status">
@@ -1067,7 +806,6 @@
                                                            class="btn-icon btn-edit" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
-                                                        <!-- DELETE BUTTON REMOVED -->
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1078,6 +816,119 @@
                         <?php endif; ?>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ADD CATEGORY MODAL ========== -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCategoryModalLabel">
+                        <div class="category-modal-icon me-2">
+                            <i class="fas fa-folder-plus"></i>
+                        </div>
+                        Add New Category
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" id="addCategoryForm" novalidate>
+                    <div class="modal-body">
+                        <input type="hidden" name="add_category" value="1">
+
+                        <div class="mb-1">
+                            <label for="modal_category_name" class="form-label">
+                                Category Name <span class="text-danger">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="modal_category_name"
+                                name="category_name"
+                                placeholder="e.g., Hot Beverages, Snacks, Desserts…"
+                                maxlength="80"
+                                required
+                                autocomplete="off"
+                            >
+                            <div class="char-counter" id="catCharCounter">0 / 80</div>
+                            <div class="invalid-feedback">Please enter a category name.</div>
+                        </div>
+
+                        <div id="dupWarning" class="alert alert-danger py-2 px-3 mt-3 mb-0 d-none" role="alert" style="font-size: 0.82rem;">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            A category with this name already exists.
+                        </div>
+
+                        <!-- Existing Categories List -->
+                        <div class="mt-4">
+                            <div class="form-label mb-2">Existing Categories</div>
+                            <?php if (empty($categories)): ?>
+                                <p class="text-muted fst-italic" style="font-size:0.85rem;">No categories yet.</p>
+                            <?php else: ?>
+                                <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 14px;">
+                                    <?php foreach ($categories as $cat): ?>
+                                        <div class="d-flex align-items-center justify-content-between px-3 py-2" style="border-bottom: 1px solid #edf2f7;">
+                                            <span style="font-size: 0.88rem; color: var(--navy); font-weight: 500;">
+                                                <?= htmlspecialchars($cat['category_name']) ?>
+                                            </span>
+                                            <div class="d-flex gap-2">
+                                                <!-- Edit -->
+                                                <button type="button"
+                                                    class="btn-icon btn-edit"
+                                                    style="width:30px;height:30px;font-size:0.75rem;"
+                                                    title="Edit"
+                                                    onclick="catEditInline(<?= $cat['category_id'] ?>, <?= htmlspecialchars(json_encode($cat['category_name'])) ?>)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <!-- Delete -->
+                                                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" style="margin:0;"
+                                                      onsubmit="return confirm('Delete \'<?= htmlspecialchars(addslashes($cat['category_name'])) ?>\'? This cannot be undone.')">
+                                                    <input type="hidden" name="delete_category" value="1">
+                                                    <input type="hidden" name="category_id" value="<?= $cat['category_id'] ?>">
+                                                    <button type="submit"
+                                                        class="btn-icon"
+                                                        style="width:30px;height:30px;font-size:0.75rem;background:#fff0f0;color:var(--danger);border:1px solid rgba(214,64,69,0.2);"
+                                                        title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Inline Edit Form -->
+                        <div id="catEditSection" class="mt-3 p-3 d-none" style="background:#f8faff;border:1px solid var(--border);border-radius:14px;">
+                            <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu">
+                                <input type="hidden" name="update_category" value="1">
+                                <input type="hidden" name="category_id" id="editCatId">
+                                <label class="form-label mb-1" style="font-size:0.82rem;">Rename Category</label>
+                                <div class="d-flex gap-2">
+                                    <input type="text" class="form-control" name="category_name" id="editCatName" maxlength="80" required style="border-radius:10px;">
+                                    <button type="submit" class="btn btn-primary btn-sm px-3" style="border-radius:10px;white-space:nowrap;">
+                                        <i class="fas fa-save me-1"></i> Save
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" style="border-radius:10px;" onclick="document.getElementById('catEditSection').classList.add('d-none')">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" id="saveCategoryBtn">
+                            <i class="fas fa-folder-plus me-2"></i>Add Category
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1144,22 +995,18 @@
                             <label for="modal_image" class="form-label">Item Image</label>
                             <input type="file" class="form-control" id="modal_image" name="image" accept="image/*">
                             <small class="text-muted d-block mt-1">Max 2MB. Allowed: JPG, PNG, GIF, WebP</small>
-                            
                             <div class="image-preview-placeholder mt-2 d-none" id="modalImagePreviewContainer">
                                 <img id="modalImagePreview" class="image-preview" alt="Preview">
                             </div>
                         </div>
                         
-                        <!-- Note about ingredients -->
                         <div class="alert alert-info mt-3 mb-0">
                             <i class="fas fa-info-circle me-2"></i>
                             <small>Ingredients are managed through the <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="alert-link">Recipes page</a>.</small>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                            Cancel
-                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>Add Item
                         </button>
@@ -1169,7 +1016,7 @@
         </div>
     </div>
     
-    <!-- ========== EDIT MODAL – dynamically triggered if $item_to_edit is set ========== -->
+    <!-- ========== EDIT MODAL ========== -->
     <?php if (isset($item_to_edit) && !empty($item_to_edit)): ?>
     <div class="modal fade" id="editMenuItemModal" tabindex="-1" aria-labelledby="editMenuItemModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1231,7 +1078,6 @@
                         
                         <div class="mb-3">
                             <label for="edit_image" class="form-label">Item Image</label>
-                            
                             <?php if (!empty($item_to_edit['image_url'])): ?>
                                 <div class="image-preview-container mb-3">
                                     <img src="<?= $baseUrl . '/' . htmlspecialchars($item_to_edit['image_url']) ?>" 
@@ -1239,15 +1085,11 @@
                                 </div>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="delete_image" value="1" id="deleteImage">
-                                    <label class="form-check-label text-danger small" for="deleteImage">
-                                        Remove current image
-                                    </label>
+                                    <label class="form-check-label text-danger small" for="deleteImage">Remove current image</label>
                                 </div>
                             <?php endif; ?>
-                            
                             <input type="file" class="form-control" id="edit_image" name="image" accept="image/*">
                             <small class="text-muted d-block mt-1">Max 2MB. Leave empty to keep current image.</small>
-                            
                             <div class="image-preview-placeholder mt-2 d-none" id="editImagePreviewContainer">
                                 <img id="editImagePreview" class="image-preview" alt="Preview">
                             </div>
@@ -1257,22 +1099,17 @@
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="edit_is_available" name="is_available" value="1"
                                        <?= $item_to_edit['is_available'] ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="edit_is_available">
-                                    Available for ordering
-                                </label>
+                                <label class="form-check-label" for="edit_is_available">Available for ordering</label>
                             </div>
                         </div>
                         
-                        <!-- Note about ingredients -->
                         <div class="alert alert-info mt-3 mb-0">
                             <i class="fas fa-info-circle me-2"></i>
                             <small>To edit ingredients, go to <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="alert-link">Recipes Management</a>.</small>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn btn-outline-secondary">
-                            Cancel
-                        </a>
+                        <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn btn-outline-secondary">Cancel</a>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Update Item
                         </button>
@@ -1282,7 +1119,6 @@
         </div>
     </div>
     <script>
-        // Auto-show edit modal if we're in edit mode
         document.addEventListener('DOMContentLoaded', function() {
             const editModal = new bootstrap.Modal(document.getElementById('editMenuItemModal'));
             editModal.show();
@@ -1294,10 +1130,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Mobile menu toggle
-        const menuToggle = document.getElementById('menuToggle');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        // ── Mobile sidebar toggle ──────────────────────────────────
+        const menuToggle      = document.getElementById('menuToggle');
+        const sidebar         = document.getElementById('sidebar');
+        const sidebarOverlay  = document.getElementById('sidebarOverlay');
         
         menuToggle?.addEventListener('click', () => {
             sidebar.classList.toggle('show');
@@ -1309,67 +1145,117 @@
             sidebarOverlay.classList.remove('show');
         });
         
-        // Search functionality
+        // ── Search ────────────────────────────────────────────────
         const searchInput = document.getElementById('searchInput');
         searchInput?.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('table tbody tr');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            document.querySelectorAll('table tbody tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(searchTerm) ? '' : 'none';
             });
         });
         
-        // Image preview for ADD modal
-        const modalImageInput = document.getElementById('modal_image');
-        const modalImagePreview = document.getElementById('modalImagePreview');
-        const modalPreviewContainer = document.getElementById('modalImagePreviewContainer');
-        
-        modalImageInput?.addEventListener('change', function(e) {
+        // ── Image preview – Add modal ─────────────────────────────
+        document.getElementById('modal_image')?.addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    modalImagePreview.src = e.target.result;
-                    modalPreviewContainer.classList.remove('d-none');
-                };
-                reader.readAsDataURL(file);
-            }
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('modalImagePreview').src = e.target.result;
+                document.getElementById('modalImagePreviewContainer').classList.remove('d-none');
+            };
+            reader.readAsDataURL(file);
         });
         
-        // Image preview for EDIT modal
-        const editImageInput = document.getElementById('edit_image');
-        const editImagePreview = document.getElementById('editImagePreview');
-        const editPreviewContainer = document.getElementById('editImagePreviewContainer');
-        
-        editImageInput?.addEventListener('change', function(e) {
+        // ── Image preview – Edit modal ────────────────────────────
+        document.getElementById('edit_image')?.addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    editImagePreview.src = e.target.result;
-                    editPreviewContainer.classList.remove('d-none');
-                };
-                reader.readAsDataURL(file);
-            }
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('editImagePreview').src = e.target.result;
+                document.getElementById('editImagePreviewContainer').classList.remove('d-none');
+            };
+            reader.readAsDataURL(file);
         });
-        
-        // Auto-dismiss alerts
+
+        // ── Add Category modal ────────────────────────────────────
+        (function () {
+            const catNameInput    = document.getElementById('modal_category_name');
+            const charCounter     = document.getElementById('catCharCounter');
+            const dupWarning      = document.getElementById('dupWarning');
+            const saveCategoryBtn = document.getElementById('saveCategoryBtn');
+            const addCategoryForm = document.getElementById('addCategoryForm');
+
+            const existingCategories = new Set(
+                <?php
+                    $catNames = array_map(fn($c) => strtolower($c['category_name']), $categories ?? []);
+                    echo json_encode($catNames);
+                ?>
+            );
+
+            catNameInput?.addEventListener('input', function () {
+                const len = this.value.length;
+                charCounter.textContent = `${len} / 80`;
+                charCounter.classList.toggle('over', len >= 80);
+                const isDup = existingCategories.has(this.value.trim().toLowerCase());
+                dupWarning.classList.toggle('d-none', !isDup);
+                catNameInput.classList.remove('is-invalid');
+            });
+
+            // ← NEW: button click handler instead of form submit
+            saveCategoryBtn?.addEventListener('click', function () {
+                const name = catNameInput.value.trim();
+                if (!name) {
+                    catNameInput.classList.add('is-invalid');
+                    catNameInput.focus();
+                    return;
+                }
+                if (existingCategories.has(name.toLowerCase())) {
+                    dupWarning.classList.remove('d-none');
+                    catNameInput.focus();
+                    return;
+                }
+                catNameInput.classList.remove('is-invalid');
+                addCategoryForm.submit(); // ← explicitly submit
+            });
+
+            // Enter key still works too
+            catNameInput?.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveCategoryBtn.click();
+                }
+            });
+
+            document.getElementById('addCategoryModal')?.addEventListener('hidden.bs.modal', function () {
+                addCategoryForm.reset();
+                catNameInput.classList.remove('is-invalid');
+                dupWarning.classList.add('d-none');
+                charCounter.textContent = '0 / 80';
+                charCounter.classList.remove('over');
+            });
+        })();
+
+        // ── Auto-dismiss alerts after 5 s ────────────────────────
         setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+            document.querySelectorAll('.alert').forEach(alert => {
+                try { new bootstrap.Alert(alert).close(); } catch {}
             });
         }, 5000);
 
-        // FIX: Ensure modal backdrop is properly removed when modals are closed
-        document.addEventListener('hidden.bs.modal', function (event) {
-            // Remove any lingering backdrops
+        // ── Category inline edit ──────────────────────────────────
+        function catEditInline(id, name) {
+            document.getElementById('editCatId').value   = id;
+            document.getElementById('editCatName').value = name;
+            document.getElementById('catEditSection').classList.remove('d-none');
+            document.getElementById('editCatName').focus();
+        }
+
+        // ── Clean up Bootstrap modal artefacts ───────────────────
+        document.addEventListener('hidden.bs.modal', function () {
             document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
             document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+            document.body.style.overflow    = '';
             document.body.style.paddingRight = '';
         });
     </script>

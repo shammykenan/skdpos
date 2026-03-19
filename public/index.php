@@ -24,7 +24,6 @@ switch ($page) {
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/admin_manage_menu_controller.php';
         break;
-
     case 'manage_ingredients':
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/admin_manage_ingredients_controller.php';
