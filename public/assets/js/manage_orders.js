@@ -63,27 +63,19 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================
 async function refreshOrders() {
     if (isRefreshing) return;
-    
     isRefreshing = true;
-    
+
     try {
         const response = await fetch(AJAX_URL, {
-            method: 'GET',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'Cache-Control': 'no-cache' }
         });
-        
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        
         if (!data.success) throw new Error(data.error || 'Unknown error');
-        
+
         updateOrdersTable(data.data || []);
-        updateFilterCounts(data.data || []);
-        
+        updateFilterCounts(data.counts, data.total);  // ← pass server counts
+
     } catch (error) {
         console.error('❌ Refresh error:', error);
     } finally {
@@ -340,20 +332,20 @@ function getActionButtonsHTML(order) {
     return html;
 }
 
-function updateFilterCounts(orders) {
-    const counts = {
-        all: orders.length,
-        pending: orders.filter(o => o.status === 'pending').length,
-        preparing: orders.filter(o => o.status === 'preparing').length,
-        completed: orders.filter(o => o.status === 'completed').length,
-        cancelled: orders.filter(o => o.status === 'cancelled').length
+function updateFilterCounts(counts, total) {
+    const data = {
+        all:       total       ?? 0,
+        pending:   counts?.pending   ?? 0,
+        preparing: counts?.preparing ?? 0,
+        completed: counts?.completed ?? 0,
+        cancelled: counts?.cancelled ?? 0
     };
-    
-    Object.keys(counts).forEach(status => {
+
+    Object.keys(data).forEach(status => {
         const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
         if (tab) {
             const countSpan = tab.querySelector('.filter-count');
-            if (countSpan) countSpan.textContent = counts[status];
+            if (countSpan) countSpan.textContent = data[status];
         }
     });
 }

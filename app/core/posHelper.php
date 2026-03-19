@@ -11,9 +11,26 @@ function generateUniqueOrderNumber($pdo) {
 
     return $number;
 }
-function getAllOrders(PDO $pdo) {
-    $sql = "SELECT o.*, u.username AS cashier_name FROM orders o JOIN users u ON o.cashier_id = u.user_id ORDER BY created_at DESC";
-    $stmt = $pdo->query($sql);
+function getAllOrders(PDO $pdo, ?int $cashierId = null): array {
+    $sql = "
+        SELECT 
+            o.*,
+            u.full_name AS cashier_name
+        FROM orders o
+        LEFT JOIN users u ON o.cashier_id = u.user_id
+    ";
+
+    $params = [];
+
+    if ($cashierId !== null) {
+        $sql .= " WHERE o.cashier_id = :cashier_id";
+        $params[':cashier_id'] = $cashierId;
+    }
+
+    $sql .= " ORDER BY o.created_at DESC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 function getOrderById(PDO $pdo, int $order_id) {

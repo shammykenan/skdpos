@@ -841,6 +841,12 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
                     Orders
                 </a>
             </div>
+            <<div class="nav-item">
+                <a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    Reports
+                </a>
+            </div>
         </div>
     </div>
     

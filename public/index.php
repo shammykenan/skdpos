@@ -4,7 +4,7 @@ session_start();
 define('BASE_PATH', realpath(__DIR__ . '/../'));
 
 require_once BASE_PATH . '/config/db.php';
-require_once BASE_PATH . '/app/core/AuthHelper.php';
+require_once BASE_PATH . '/app/core/authHelper.php';
 $page = $_GET['page'] ?? 'login';
 
 switch ($page) {
@@ -43,6 +43,10 @@ switch ($page) {
     case 'manage_pos':
         requireRole(['cashier', 'admin']);
         require_once BASE_PATH . '/app/controllers/pos_controller.php';
+        break;
+    case 'reports':
+        requireRole(['cashier', 'admin']);
+        require_once BASE_PATH . '/app/controllers/view_reports_controller.php';
         break;
     //kitchen
     case 'manage_orders':

@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-require_once 'posHelper.php';
 function getAllCategories(PDO $pdo) {
     $sql = "SELECT category_id, category_name FROM categories ORDER BY category_name";
     $stmt = $pdo->query($sql);
@@ -129,15 +128,13 @@ function getMaxOrderQuantityForItem($pdo, $item_id) {
     }
     return $max_qty > 0 ? $max_qty : 0;
 }
-function getAllOrdersWithItems(PDO $pdo) {
-    // Get all orders
-    $orders = getAllOrders($pdo);
-    
-    // Add items to each order
+function getAllOrdersWithItems(PDO $pdo, ?int $cashierId = null): array {
+    $orders = getAllOrders($pdo, $cashierId);  // pass filter down
+
     foreach ($orders as &$order) {
         $details = getOrderDetails($pdo, $order['order_id']);
         $order['items'] = $details ? $details['items'] : [];
     }
-    
+
     return $orders;
 }
