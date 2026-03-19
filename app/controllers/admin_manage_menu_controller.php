@@ -312,7 +312,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) 
     header("Location: $baseUrl/index.php?page=manage_menu");
     exit;
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_menu_item'])) {
+    $item_id = (int) ($_POST['item_id'] ?? 0);
 
+    if ($item_id > 0) {
+        if (deleteMenuItem($pdo, $item_id)) {
+            $_SESSION['success'] = 'Menu item deleted successfully.';
+        } else {
+            $_SESSION['error'] = 'Cannot delete menu item: it has been ordered before.';
+        }
+    } else {
+        $_SESSION['error'] = 'Invalid menu item.';
+    }
+
+    header("Location: index.php?page=manage_menu");
+    exit;
+}
 // ================================================================
 // MENU ITEM: EDIT pre-populate (GET)
 // ================================================================

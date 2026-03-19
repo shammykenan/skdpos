@@ -425,7 +425,15 @@
         
         .btn-icon.btn-edit { background: #fff3e0; color: #b85a1a; border: 1px solid rgba(244, 185, 66, 0.2); }
         .btn-icon.btn-edit:hover { background: var(--warning); color: white; }
-        
+        .btn-icon.btn-delete {
+            background: rgba(214,64,69,0.08);
+            color: var(--danger);
+            border: 1px solid rgba(214,64,69,0.15);
+        }
+        .btn-icon.btn-delete:hover {
+            background: var(--danger);
+            color: white;
+        }
         /* ------ SEARCH BOX ------ */
         .search-box { position: relative; }
         .search-box i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--warm-gray); z-index: 10; }
@@ -803,9 +811,15 @@
                                                 <td data-label="Actions" class="text-end">
                                                     <div class="action-btns">
                                                         <a href="<?= $baseUrl ?>/index.php?page=manage_menu&edit=<?= $item['item_id'] ?>" 
-                                                           class="btn-icon btn-edit" title="Edit">
+                                                        class="btn-icon btn-edit" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
+                                                        <!-- Delete -->
+                                                        <button type="button" class="btn-icon btn-delete"
+                                                                onclick="confirmDeleteItem(<?= $item['item_id'] ?>, '<?= htmlspecialchars(addslashes($item['item_name'])) ?>')"
+                                                                title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -819,7 +833,44 @@
             </div>
         </div>
     </div>
-
+    <!-- DELETE MENU ITEM CONFIRM MODAL -->
+    <div class="modal fade" id="deleteMenuItemModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="border-bottom:none; padding-bottom:0;">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center pt-0">
+                    <div style="width:70px;height:70px;border-radius:22px;
+                                background:rgba(214,64,69,0.1);color:var(--danger);
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:2rem;margin:0 auto 1.2rem;">
+                        <i class="fas fa-trash"></i>
+                    </div>
+                    <h4 style="color:var(--navy);font-weight:700;" class="mb-2">Delete Menu Item?</h4>
+                    <p class="text-muted mb-1">You are about to delete:</p>
+                    <p id="deleteMenuItemName" style="color:var(--danger);font-size:1.05rem;font-weight:600;" class="mb-3"></p>
+                    <div class="p-3 rounded-3 mb-1" style="background:rgba(214,64,69,0.06);border:1px dashed rgba(214,64,69,0.3);">
+                        <small class="text-muted">
+                            <i class="fas fa-exclamation-triangle me-1" style="color:var(--danger)"></i>
+                            This cannot be undone. Items that have been ordered cannot be deleted.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:none; gap:0.75rem;">
+                    <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal">Cancel</button>
+                    <form method="POST" action="index.php?page=manage_menu" style="flex:1;">
+                        <input type="hidden" name="delete_menu_item" value="1">
+                        <input type="hidden" name="item_id" id="deleteMenuItemId">
+                        <button type="submit" class="btn w-100"
+                                style="background:var(--danger);color:white;border:none;border-radius:40px;padding:0.6rem;">
+                            <i class="fas fa-trash me-2"></i> Yes, Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- ========== ADD CATEGORY MODAL ========== -->
     <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
@@ -1177,7 +1228,11 @@
             };
             reader.readAsDataURL(file);
         });
-
+        function confirmDeleteItem(id, name) {
+            document.getElementById('deleteMenuItemId').value = id;
+            document.getElementById('deleteMenuItemName').textContent = name;
+            new bootstrap.Modal(document.getElementById('deleteMenuItemModal')).show();
+        }
         // ── Add Category modal ────────────────────────────────────
         (function () {
             const catNameInput    = document.getElementById('modal_category_name');

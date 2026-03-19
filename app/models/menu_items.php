@@ -35,3 +35,18 @@ function updateMenuItem(PDO $pdo, int $item_id, string $item_name, string $descr
         ':is_available'=> $is_available
     ]);
 }
+function deleteMenuItem(PDO $pdo, int $item_id): bool {
+    // 1. Check if menu item exists in any order
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM order_items WHERE item_id = :item_id");
+    $stmt->execute([':item_id' => $item_id]);
+    $inOrders = $stmt->fetchColumn();
+
+    if ($inOrders > 0) {
+        // Cannot delete
+        return false;
+    }
+
+    // 2. Safe to delete; recipes will be deleted automatically (ON DELETE CASCADE)
+    $stmt = $pdo->prepare("DELETE FROM menu_items WHERE item_id = :item_id");
+    return $stmt->execute([':item_id' => $item_id]);
+}
