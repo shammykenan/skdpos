@@ -5,6 +5,7 @@ require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../models/pos.php';
+require_once __DIR__ . '/../core/addonsHelper.php';   // ← needed for getAddonsForMenuItem()
 require_once __DIR__ . '/../core/authHelper.php';
 
 requireRole(['admin', 'cashier']);
@@ -13,7 +14,7 @@ $baseUrl = $_ENV['BASE_URL'] ?? '';
 // -------------------------
 // 1️⃣ Auth check
 // -------------------------
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin','cashier'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'cashier'])) {
     $_SESSION['error'] = 'Access denied. Please log in as admin or cashier.';
     header("Location: index.php?page=login");
     exit;
@@ -28,9 +29,10 @@ foreach ($menu_items as &$item) {
 }
 unset($item);
 
+// ── Build addons_map: only show add-ons whose ingredient exists in the item's recipe ──
 $addons_map = [];
 foreach ($menu_items as $item) {
-    $addons_map[$item['item_id']] = getAddonsForItemCategory($pdo, $item['category_id']);
+    $addons_map[(int)$item['item_id']] = getAddonsForMenuItem($pdo, (int)$item['item_id']);
 }
 
 // Build stock_data with full ingredient details for each menu item
@@ -38,30 +40,30 @@ $stock_data = [];
 foreach ($menu_items as $item) {
     $ingredients = getMenuItemIngredientStock($pdo, $item['item_id']);
 
-    $max_qty = PHP_INT_MAX;
+    $max_qty             = PHP_INT_MAX;
     $limiting_ingredient = null;
 
     foreach ($ingredients as $ing) {
         if ($ing['quantity_required'] <= 0) continue;
         $possible_qty = floor($ing['stock_quantity'] / $ing['quantity_required']);
         if ($possible_qty < $max_qty) {
-            $max_qty = $possible_qty;
+            $max_qty             = $possible_qty;
             $limiting_ingredient = [
                 'name'              => $ing['ingredient_name'],
                 'stock'             => $ing['stock_quantity'],
-                'required_per_unit' => $ing['quantity_required']
+                'required_per_unit' => $ing['quantity_required'],
             ];
         }
     }
 
-    $max_qty  = ($max_qty === PHP_INT_MAX || $max_qty < 0) ? 0 : $max_qty;
+    $max_qty   = ($max_qty === PHP_INT_MAX || $max_qty < 0) ? 0 : $max_qty;
     $has_stock = $max_qty > 0;
 
     $stock_data[$item['item_id']] = [
         'has_stock'           => $has_stock,
         'max_quantity'        => $max_qty,
         'limiting_ingredient' => $limiting_ingredient,
-        'ingredients'         => $ingredients   // full ingredient rows for JS cumulative check
+        'ingredients'         => $ingredients, // full ingredient rows for JS cumulative check
     ];
 }
 
@@ -181,7 +183,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     foreach ($cart_data as $cart_item) {
         $item_id   = $cart_item['id'];
         $item_qty  = (int)($cart_item['quantity'] ?? 1);
-        // ── Sanitise and capture the per-item note ──
         $item_note = isset($cart_item['note']) ? trim((string)$cart_item['note']) : '';
         if ($item_note === '') $item_note = null;
         if ($item_qty <= 0) continue;
@@ -202,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                 $addon_data = getAddonById($pdo, $addon_id);
                 if (!$addon_data) continue;
 
+                // Security check: only allow add-ons that belong to this item's recipe
                 if (!in_array($addon_id, array_column($addons_map[$item_id], 'addon_id'))) {
                     continue;
                 }
@@ -226,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             'quantity'   => $item_qty,
             'unit_price' => $unit_price,
             'line_total' => $line_total,
-            'item_note'  => $item_note,   // ← carry the note to the insert step
+            'item_note'  => $item_note,
             'addons'     => $addons_for_item,
         ];
     }
@@ -264,14 +266,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         $order_number = $order['order_number'];
 
         foreach ($order_details as $detail) {
-            // Pass item_note as the 6th argument (see updated model below)
             $order_item_id = createOrderItem(
                 $pdo,
                 $order_id,
                 $detail['item_id'],
                 $detail['quantity'],
                 $detail['unit_price'],
-                $detail['item_note']   // ← NEW
+                $detail['item_note']
             );
 
             foreach ($detail['addons'] as $ad) {
