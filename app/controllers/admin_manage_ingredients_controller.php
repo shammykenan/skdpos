@@ -59,16 +59,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ingredient'])) {
     exit;
 }
 
-/*
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ingredient'])) {
     $ingredient_id = (int) ($_POST['ingredient_id'] ?? 0);
+
     if ($ingredient_id > 0) {
-        deleteIngredient($pdo, $ingredient_id);
-        $_SESSION['success'] = 'Ingredient deleted successfully.';
+        // Call the function and check if deletion was successful
+        if (deleteIngredient($pdo, $ingredient_id)) {
+            $_SESSION['success'] = 'Ingredient deleted successfully.';
+        } else {
+            $_SESSION['error'] = 'Cannot delete ingredient: it is in use in recipes or add-ons.';
+        }
+    } else {
+        $_SESSION['error'] = 'Invalid ingredient selected.';
     }
+
     header("Location: index.php?page=manage_ingredients");
     exit;
-}*/
+}
 
 // Fetch all ingredients
 $ingredients = getAllIngredients($pdo);

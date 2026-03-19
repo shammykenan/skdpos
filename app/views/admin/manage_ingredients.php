@@ -271,7 +271,15 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
         .btn-add i {
             font-size: 1rem;
         }
-        
+        .btn-icon.btn-delete {
+            background: rgba(214,64,69,0.08);
+            color: var(--danger);
+            border: 1px solid rgba(214,64,69,0.15);
+        }
+        .btn-icon.btn-delete:hover {
+            background: var(--danger);
+            color: white;
+        }
         /* ------ FILTER TABS – modern & clean ------ */
         .filter-section {
             margin-bottom: 1.5rem;
@@ -1051,7 +1059,12 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
                                                                 title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <!-- DELETE BUTTON REMOVED -->
+                                                        <!-- Delete -->
+                                                        <button type="button" class="btn-icon btn-delete"
+                                                                onclick="confirmDelete(<?= $i['ingredient_id'] ?>, '<?= htmlspecialchars(addslashes($i['ingredient_name'])) ?>')"
+                                                                title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1061,6 +1074,42 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
                             </div>
                         <?php endif; ?>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="border-bottom:none; padding-bottom:0;">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center pt-0">
+                    <div style="width:70px;height:70px;border-radius:22px;background:rgba(214,64,69,0.1);
+                                color:var(--danger);display:flex;align-items:center;justify-content:center;
+                                font-size:2rem;margin:0 auto 1.2rem;">
+                        <i class="fas fa-trash"></i>
+                    </div>
+                    <h4 style="color:var(--navy);font-weight:700;" class="mb-2">Delete Ingredient?</h4>
+                    <p class="text-muted mb-1">You are about to delete:</p>
+                    <p id="deleteIngredientName" style="color:var(--danger);font-size:1.05rem;font-weight:600;" class="mb-3"></p>
+                    <div class="p-3 rounded-3 mb-1" style="background:rgba(214,64,69,0.06);border:1px dashed rgba(214,64,69,0.3);">
+                        <small class="text-muted">
+                            <i class="fas fa-exclamation-triangle me-1" style="color:var(--danger)"></i>
+                            This cannot be undone. Ingredients used in recipes or add-ons cannot be deleted.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:none; gap:0.75rem;">
+                    <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal">Cancel</button>
+                    <form method="POST" action="index.php?page=manage_ingredients" style="flex:1;">
+                        <input type="hidden" name="delete_ingredient" value="1">
+                        <input type="hidden" name="ingredient_id" id="deleteIngredientId">
+                        <button type="submit" class="btn w-100"
+                                style="background:var(--danger);color:white;border:none;border-radius:40px;padding:0.6rem;">
+                            <i class="fas fa-trash me-2"></i> Yes, Delete
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -1285,7 +1334,11 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
             currentSearchTerm = this.value.toLowerCase();
             filterTable();
         });
-        
+        function confirmDelete(id, name) {
+            document.getElementById('deleteIngredientId').value = id;
+            document.getElementById('deleteIngredientName').textContent = name;
+            new bootstrap.Modal(document.getElementById('deleteConfirmModal')).show();
+        }
         // ============================================================
         // FILTER FUNCTION - Combines unit, status, and search
         // ============================================================
@@ -1340,6 +1393,7 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
             document.body.style.overflow = '';
             document.body.style.paddingRight = '';
         });
+        
     </script>
 </body>
 </html>

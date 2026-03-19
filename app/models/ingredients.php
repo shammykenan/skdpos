@@ -37,8 +37,23 @@ function getIngredientsForAddon(PDO $pdo, int $addon_id) {
     $stmt->execute([$addon_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-/*function deleteIngredient(PDO $pdo, int $ingredient_id): bool {
-    $sql = "DELETE FROM ingredients WHERE ingredient_id = :ingredient_id";
-    $stmt = $pdo->prepare($sql);
+function deleteIngredient(PDO $pdo, int $ingredient_id): bool {
+    // 1. Check if ingredient is used in recipes
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM recipes WHERE ingredient_id = :ingredient_id");
+    $stmt->execute([':ingredient_id' => $ingredient_id]);
+    $inRecipes = $stmt->fetchColumn();
+
+    // 2. Check if ingredient is used in addons
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM addons WHERE ingredient_id = :ingredient_id");
+    $stmt->execute([':ingredient_id' => $ingredient_id]);
+    $inAddons = $stmt->fetchColumn();
+
+    // 3. If used anywhere, cannot delete
+    if ($inRecipes > 0 || $inAddons > 0) {
+        return false; // deletion not allowed
+    }
+
+    // 4. Safe to delete
+    $stmt = $pdo->prepare("DELETE FROM ingredients WHERE ingredient_id = :ingredient_id");
     return $stmt->execute([':ingredient_id' => $ingredient_id]);
-}*/
+}
