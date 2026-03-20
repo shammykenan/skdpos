@@ -1164,4 +1164,27 @@ body {
         font-size: 0.75rem;
         padding: 0.4rem 0.6rem;
     }
+    /* ── Add these to your existing manage_orders.css ── */
+
+/* Item-level status badges (inside the Items column) */
+.badge-item-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-item-preparing {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-item-ready {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+/* Order status badge — add 'ready' colour */
+.status-badge.status-ready {
+    background: #d1fae5;
+    color: #065f46;
+}
 }
