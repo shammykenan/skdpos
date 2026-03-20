@@ -641,6 +641,36 @@
         
         <div class="d-flex align-items-center gap-3">
             <!-- Notifications -->
+             <div class="dropdown">
+    <button class="notification-btn" type="button" data-bs-toggle="dropdown"
+            title="Database Backup &amp; Restore">
+        <i class="fas fa-database"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end" style="min-width:220px;border-radius:16px;padding:.6rem;">
+        <li>
+            <h6 class="dropdown-header"
+                style="font-size:.7rem;letter-spacing:.7px;text-transform:uppercase;color:#4a5568;">
+                Database
+            </h6>
+        </li>
+        <li>
+            <a class="dropdown-item" style="border-radius:10px;"
+               href="<?= $baseUrl ?>/index.php?page=backup_database&action=export">
+                <i class="fas fa-download me-2" style="color:#0f4c5c;width:16px;text-align:center;"></i>
+                Export Backup
+                <small class="text-muted ms-1">.sql</small>
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" style="border-radius:10px;"
+               href="<?= $baseUrl ?>/index.php?page=backup_database&action=import"
+               onclick="return confirm('Importing will overwrite all existing data.\nMake sure you have a current backup.\n\nContinue?')">
+                <i class="fas fa-upload me-2" style="color:#ff6b4a;width:16px;text-align:center;"></i>
+                Import / Restore
+            </a>
+        </li>
+    </ul>
+</div>
             <div class="dropdown">
                 <button class="notification-btn" type="button" id="notificationDropdown" data-bs-toggle="dropdown">
                     <i class="far fa-bell"></i>

@@ -159,9 +159,9 @@ $tab_meta = $is_admin ? [
         </a>
     </div>
     <div style="display:flex;align-items:center;gap:.8rem;">
-        <span class="role-badge role-<?= $role ?>">
+        <!--<span class="role-badge role-<?= $role ?>">
             <i class="fas fa-<?= $is_admin ? 'crown' : 'cash-register' ?> me-1"></i><?= ucfirst($role) ?>
-        </span>
+        </span>-->
         <div class="dropdown">
             <button class="btn btn-link text-decoration-none dropdown-toggle" type="button" data-bs-toggle="dropdown" style="color:var(--navy);font-weight:600;">
                 <i class="far fa-user-circle me-2" style="font-size:1.5rem;color:var(--secondary);"></i>

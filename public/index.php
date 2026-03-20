@@ -12,6 +12,9 @@ switch ($page) {
     case 'login':
         require_once BASE_PATH . '/app/controllers/auth_controller.php';
         break;
+    case 'backup_database':
+        require_once BASE_PATH . '/app/controllers/backup_database.php';
+        break;
     case 'manage_users':
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/admin_manage_users_controller.php';
