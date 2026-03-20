@@ -1,26 +1,10 @@
-<?php
-/**
- * manage_recipes.view.php
- * Pure view — expects:
- *   $recipes      array of rows: recipe_id, item_id, item_name,
- *                                ingredient_id, ingredient_name,
- *                                quantity_required, unit
- *   $menu_items   array: item_id, item_name, image_url
- *   $ingredients  array: ingredient_id, ingredient_name
- *   $baseUrl      string
- *   $_SESSION['success'] / $_SESSION['error']  (optional flash messages)
- */
-
-// $grouped is built by the controller (manage_recipes_controller.php)
-// Each entry: ['item_id', 'item_name', 'image_url', 'rows' => [...recipe rows]]
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
     <title>Recipe Management - Cafeteria POS</title>
-
+<link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->

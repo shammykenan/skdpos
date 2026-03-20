@@ -15,7 +15,7 @@ $months_list = [
     9=>'September',10=>'October',11=>'November',12=>'December'
 ];
 
-function peso(float $v): string { return '&#8369;' . number_format($v, 2); }
+function peso(float $v): string { return '₱' . number_format($v, 2); }
 
 $tab_meta = $is_admin ? [
     'daily'    => ['fas fa-calendar-day',  'Daily'],
@@ -36,6 +36,7 @@ $tab_meta = $is_admin ? [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports &ndash; Cafeteria POS</title>
+    <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -97,7 +98,7 @@ $tab_meta = $is_admin ? [
         .stat-card.c-warning::before{background:var(--warning);}
         .s-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:1rem;background:linear-gradient(145deg,#f0f5fa,white);color:var(--primary);border:1px solid rgba(15,76,92,.1);}
         .s-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--warm-gray);margin-bottom:.4rem;}
-        .s-value{font-size:1.9rem;font-weight:700;color:var(--navy);line-height:1.1;}
+        .s-value{font-size:1.9rem;font-weight:700;color:var(--navy);line-height:1.1;word-break:break-word;overflow-wrap:anywhere;}
         .s-sub{font-size:.82rem;color:var(--warm-gray);margin-top:.4rem;}
         .rpt-card{background:white;border-radius:20px;border:1px solid rgba(203,213,224,.5);box-shadow:0 6px 16px rgba(15,76,92,.03);margin-bottom:1.8rem;}
         .rpt-card-header{padding:1.2rem 1.6rem;border-bottom:1px solid rgba(203,213,224,.5);display:flex;align-items:center;justify-content:space-between;}
@@ -133,16 +134,113 @@ $tab_meta = $is_admin ? [
         .receipt-row:last-of-type{border-bottom:none;}
         .receipt-row .rl{color:var(--warm-gray);font-size:.9rem;}
         .receipt-row .rv{font-weight:600;color:var(--dark);font-size:.9rem;}
-        .receipt-total{background:var(--primary);color:white;border-radius:14px;padding:1.1rem 1.4rem;margin:1.2rem 0;display:flex;justify-content:space-between;align-items:center;}
+        .receipt-total{background:var(--primary);color:white;border-radius:14px;padding:1.1rem 1.4rem;margin:1.2rem 0;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;}
         .receipt-total .tl{font-size:.85rem;font-weight:600;opacity:.85;text-transform:uppercase;letter-spacing:.5px;}
         .receipt-total .tv{font-size:1.8rem;font-weight:700;}
         .receipt-sig{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1.8rem;padding-top:1.2rem;border-top:2px dashed var(--border);}
         .sig-block .sig-line{border-bottom:1.5px solid var(--dark);height:40px;margin-bottom:.4rem;}
         .sig-block .sig-label{font-size:.78rem;color:var(--warm-gray);text-align:center;}
         .receipt-footer{text-align:center;margin-top:1.2rem;font-size:.8rem;color:var(--warm-gray);}
-        @media(max-width:991.98px){.sidebar{transform:translateX(-100%);}.sidebar.show{transform:translateX(0);}.main-content{margin-left:0;padding:1.5rem;}}
-        @media(max-width:767.98px){.main-content{padding:1rem;}.stats-grid{grid-template-columns:1fr 1fr;}.report-tabs{gap:.3rem;}.report-tab{padding:.45rem .9rem;font-size:.8rem;}}
-        @media(max-width:480px){.stats-grid{grid-template-columns:1fr;}.topbar .logo span{display:none;}.topbar{padding:0 1rem;}}
+
+        /* ── Site Footer ── */
+        .site-footer{background:white;border-top:1px solid var(--border);padding:1.4rem 2.2rem;margin-left:var(--sidebar-width);color:var(--warm-gray);}
+        .site-footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;}
+        /* Filter input natural width on desktop, full-width on mobile */
+        .filter-input-date{width:170px;}
+        .filter-input-month{width:150px;}
+        .filter-input-year{width:100px;}
+        .filter-input-range{width:160px;}
+        /* Filter action buttons group */
+        .filter-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+
+        /* ════════════════════════════════════════
+           RESPONSIVE BREAKPOINTS
+        ════════════════════════════════════════ */
+
+        /* ── Tablet & below (sidebar collapses) ── */
+        @media (max-width: 991.98px) {
+            .sidebar{transform:translateX(-100%);}
+            .sidebar.show{transform:translateX(0);}
+            .main-content{margin-left:0;padding:1.5rem;}
+            /* Footer no longer needs to clear sidebar */
+            .site-footer{margin-left:0;}
+            /* Page header tighter */
+            .page-header{margin-bottom:1.4rem;}
+            .page-header h1{font-size:1.7rem;}
+            /* Stat values slightly smaller */
+            .s-value{font-size:1.6rem;}
+            /* Card headers may wrap — allow it */
+            .rpt-card-header{flex-wrap:wrap;gap:.5rem;}
+        }
+
+        /* ── Phone landscape / small tablet ── */
+        @media (max-width: 767.98px) {
+            .main-content{padding:1rem;}
+            /* Stats: 2-col grid */
+            .stats-grid{grid-template-columns:1fr 1fr;gap:1rem;}
+            .stat-card{padding:1.1rem;}
+            .s-icon{width:38px;height:38px;font-size:1.1rem;margin-bottom:.6rem;}
+            .s-value{font-size:1.4rem;}
+            /* Tabs */
+            .report-tabs{padding:.7rem .8rem;gap:.35rem;}
+            .report-tab{padding:.4rem .75rem;font-size:.78rem;}
+            /* Filter bar: everything stacks, inputs go full width */
+            .filter-bar{padding:.9rem 1rem;gap:.6rem;flex-direction:column;align-items:stretch;}
+            .filter-bar label{margin-bottom:-.3rem;}
+            .filter-input-date,
+            .filter-input-month,
+            .filter-input-year,
+            .filter-input-range,
+            .filter-bar .form-control,
+            .filter-bar .form-select{width:100% !important;}
+            .filter-actions{width:100%;}
+            .filter-actions .btn-apply,
+            .filter-actions .btn-print,
+            .filter-bar .btn-apply,
+            .filter-bar .btn-print{flex:1;justify-content:center;}
+            /* Cards */
+            .rpt-card-header{padding:.9rem 1rem;}
+            .rpt-card-body{padding:1rem;}
+            .rpt-card-body.p-0{padding:0;}
+            .rpt-card-title{font-size:.95rem;}
+            /* Tables: tighter padding */
+            table.rpt-table thead th{padding:.65rem .8rem;font-size:.7rem;}
+            table.rpt-table tbody td{padding:.65rem .8rem;font-size:.82rem;}
+            /* Receipt */
+            .receipt{padding:1.2rem 1rem;}
+            .receipt-total .tv{font-size:1.4rem;}
+            .receipt-row .rl,.receipt-row .rv{font-size:.82rem;}
+            /* Footer stacks */
+            .site-footer{padding:1rem 1.2rem;}
+            .site-footer-inner{flex-direction:column;align-items:flex-start;gap:.25rem;font-size:.82rem;}
+            /* Page header */
+            .page-header h1{font-size:1.4rem;}
+            .page-header{margin-bottom:1rem;}
+        }
+
+        /* ── Phone portrait ── */
+        @media (max-width: 480px) {
+            .topbar{padding:0 .75rem;}
+            .topbar .logo span{display:none;}
+            .topbar .logo{font-size:1.3rem;}
+            /* Stats go single column */
+            .stats-grid{grid-template-columns:1fr;}
+            /* Tabs: hide icons to save width */
+            .report-tab i{display:none;}
+            .report-tab{padding:.4rem .65rem;font-size:.75rem;}
+            /* Page heading */
+            .page-header h1{font-size:1.2rem;gap:.4rem;}
+            .page-header h1 i{font-size:1rem;}
+            /* Receipt signatures stack */
+            .receipt-sig{grid-template-columns:1fr;gap:1rem;}
+            /* Table cells: ultra-compact */
+            table.rpt-table thead th{padding:.5rem .6rem;font-size:.65rem;letter-spacing:.3px;}
+            table.rpt-table tbody td{padding:.5rem .6rem;font-size:.78rem;}
+            /* Reduce card border-radius on tiny screens */
+            .rpt-card{border-radius:14px;}
+            .stat-card{border-radius:14px;}
+        }
+
         .fade-in{animation:fadeUp .35s ease forwards;}
         @keyframes fadeUp{from{opacity:.4;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
     </style>
@@ -159,9 +257,6 @@ $tab_meta = $is_admin ? [
         </a>
     </div>
     <div style="display:flex;align-items:center;gap:.8rem;">
-        <!--<span class="role-badge role-<?= $role ?>">
-            <i class="fas fa-<?= $is_admin ? 'crown' : 'cash-register' ?> me-1"></i><?= ucfirst($role) ?>
-        </span>-->
         <div class="dropdown">
             <button class="btn btn-link text-decoration-none dropdown-toggle" type="button" data-bs-toggle="dropdown" style="color:var(--navy);font-weight:600;">
                 <i class="far fa-user-circle me-2" style="font-size:1.5rem;color:var(--secondary);"></i>
@@ -234,9 +329,11 @@ $tab_meta = $is_admin ? [
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="myshift">
         <label>Date</label>
-        <input type="date" name="date" class="form-control" style="width:170px;" value="<?= $filter_date ?>" max="<?= $today ?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> View</button>
-        <a href="<?= $baseUrl ?>/index.php?page=reports&tab=closeout&date=<?= $filter_date ?>" class="btn-print"><i class="fas fa-print"></i> Print Close-out</a>
+        <input type="date" name="date" class="form-control filter-input-date" value="<?= $filter_date ?>" max="<?= $today ?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> View</button>
+            <a href="<?= $baseUrl ?>/index.php?page=reports&tab=closeout&date=<?= $filter_date ?>" class="btn-print"><i class="fas fa-print"></i> Print Close-out</a>
+        </div>
     </form>
     <div class="stats-grid fade-in">
         <div class="stat-card"><div class="s-icon"><i class="fas fa-money-bill-wave"></i></div><div class="s-label">My Sales Today</div><div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div><div class="s-sub">Net: <?= peso((float)($s['net_revenue']??0)) ?></div></div>
@@ -283,9 +380,11 @@ $tab_meta = $is_admin ? [
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="closeout">
         <label>Date</label>
-        <input type="date" name="date" class="form-control" style="width:170px;" value="<?= $filter_date ?>" max="<?= $today ?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Load</button>
-        <button type="button" class="btn-print" onclick="printCloseout()"><i class="fas fa-print"></i> Print Receipt</button>
+        <input type="date" name="date" class="form-control filter-input-date" value="<?= $filter_date ?>" max="<?= $today ?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Load</button>
+            <button type="button" class="btn-print" onclick="printCloseout()"><i class="fas fa-print"></i> Print Receipt</button>
+        </div>
     </form>
     <div class="closeout-wrap fade-in">
         <div class="receipt">
@@ -323,11 +422,10 @@ $tab_meta = $is_admin ? [
     // =====================================================================
     elseif ($tab === 'inventory'):
     ?>
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <span style="font-size:.9rem;color:var(--warm-gray);">Items at or below their alert threshold.</span>
         <button class="btn-print" onclick="printA4('inventory-content', 'Stock Alert Report')"><i class="fas fa-print"></i> Print</button>
-    </div>
-    <div id="inventory-content">
+    </div>    <div id="inventory-content">
     <div class="rpt-card fade-in">
         <div class="rpt-card-header">
             <div class="rpt-card-title"><i class="fas fa-exclamation-triangle"></i> Low / Out of Stock</div>
@@ -371,9 +469,11 @@ $tab_meta = $is_admin ? [
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="daily">
         <label>Date</label>
-        <input type="date" name="date" class="form-control" style="width:170px;" value="<?= $filter_date ?>" max="<?= $today ?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
-        <button type="button" class="btn-print" onclick="printDaily()"><i class="fas fa-print"></i> Print</button>
+        <input type="date" name="date" class="form-control filter-input-date" value="<?= $filter_date ?>" max="<?= $today ?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
+            <button type="button" class="btn-print" onclick="printDaily()"><i class="fas fa-print"></i> Print</button>
+        </div>
     </form>
     <div class="stats-grid fade-in">
         <div class="stat-card"><div class="s-icon"><i class="fas fa-money-bill-wave"></i></div><div class="s-label">Gross Revenue</div><div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div><div class="s-sub">Net: <?=peso((float)($s['net_revenue']??0))?></div></div>
@@ -432,13 +532,15 @@ $tab_meta = $is_admin ? [
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="monthly">
         <label>Month</label>
-        <select name="month" class="form-select" style="width:150px;">
+        <select name="month" class="form-select filter-input-month">
             <?php foreach($months_list as $n=>$nm): ?><option value="<?=$n?>" <?=$n===$filter_month?'selected':''?>><?=$nm?></option><?php endforeach; ?>
         </select>
         <label>Year</label>
-        <input type="number" name="year" class="form-control" style="width:100px;" value="<?=$filter_year?>" min="2020" max="<?=date('Y')?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
-        <button type="button" class="btn-print" onclick="printA4('monthly-content', 'Monthly Report &mdash; <?= $months_list[$filter_month] ?> <?= $filter_year ?>')"><i class="fas fa-print"></i> Print</button>
+        <input type="number" name="year" class="form-control filter-input-year" value="<?=$filter_year?>" min="2020" max="<?=date('Y')?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
+            <button type="button" class="btn-print" onclick="printA4('monthly-content', 'Monthly Report &mdash; <?= $months_list[$filter_month] ?> <?= $filter_year ?>')"><i class="fas fa-print"></i> Print</button>
+        </div>
     </form>
     <div class="stats-grid fade-in">
         <div class="stat-card"><div class="s-icon"><i class="fas fa-money-bill-wave"></i></div><div class="s-label">Gross Revenue</div><div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div><div class="s-sub">Net: <?=peso((float)($s['net_revenue']??0))?></div></div>
@@ -508,10 +610,10 @@ $tab_meta = $is_admin ? [
     <script>(function(){
         const dd=<?=json_encode(array_column($data['daily_chart']??[],'sale_date'))?>;
         const dr=<?=json_encode(array_column($data['daily_chart']??[],'revenue'))?>;
-        if(dd.length) new Chart(document.getElementById('monthlyTrend').getContext('2d'),{type:'line',data:{labels:dd.map(d=>{const p=d.split('-');return p[2]+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1];}),datasets:[{label:'Revenue',data:dr,backgroundColor:'rgba(15,76,92,.07)',borderColor:'#0f4c5c',borderWidth:2.5,tension:.35,fill:true,pointBackgroundColor:'#ff6b4a',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'&#8369;'+v.toLocaleString()}},x:{grid:{display:false}}}}});
+        if(dd.length) new Chart(document.getElementById('monthlyTrend').getContext('2d'),{type:'line',data:{labels:dd.map(d=>{const p=d.split('-');return p[2]+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1];}),datasets:[{label:'Revenue',data:dr,backgroundColor:'rgba(15,76,92,.07)',borderColor:'#0f4c5c',borderWidth:2.5,tension:.35,fill:true,pointBackgroundColor:'#ff6b4a',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'₱'+v.toLocaleString()}},x:{grid:{display:false}}}}});
         const cl=<?=json_encode(array_column($data['categories']??[],'category_name'))?>;
         const cv=<?=json_encode(array_column($data['categories']??[],'revenue'))?>;
-        if(cl.length) new Chart(document.getElementById('monthlyCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': &#8369;'+parseFloat(ctx.raw).toLocaleString()}}}}});
+        if(cl.length) new Chart(document.getElementById('monthlyCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': ₱'+parseFloat(ctx.raw).toLocaleString()}}}}});
     })();</script>
 
     <?php
@@ -527,11 +629,13 @@ $tab_meta = $is_admin ? [
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="yearly">
         <label>Year</label>
-        <select name="year" class="form-select" style="width:120px;">
+        <select name="year" class="form-select filter-input-month">
             <?php foreach(($data['available_years']??[$filter_year]) as $yr): ?><option value="<?=$yr?>" <?=$yr==$filter_year?'selected':''?>><?=$yr?></option><?php endforeach; ?>
         </select>
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
-        <button type="button" class="btn-print" onclick="printA4('yearly-content', 'Yearly Report &mdash; <?= $filter_year ?>')"><i class="fas fa-print"></i> Print</button>
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
+            <button type="button" class="btn-print" onclick="printA4('yearly-content', 'Yearly Report &mdash; <?= $filter_year ?>')"><i class="fas fa-print"></i> Print</button>
+        </div>
     </form>
     <div class="stats-grid fade-in">
         <div class="stat-card"><div class="s-icon"><i class="fas fa-money-bill-wave"></i></div><div class="s-label">Gross Revenue <?=$filter_year?></div><div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div><div class="s-sub">Net: <?=peso((float)($s['net_revenue']??0))?></div></div>
@@ -578,7 +682,7 @@ $tab_meta = $is_admin ? [
     <script>(function(){
         const ml=<?=json_encode(array_slice($monthly_labels,0))?>;
         const md=<?=json_encode(array_map(fn($k)=>(float)($s[$k]??0),$monthly_keys))?>;
-        new Chart(document.getElementById('yearlyBar').getContext('2d'),{type:'bar',data:{labels:ml,datasets:[{label:'Revenue',data:md,backgroundColor:md.map(v=>v===Math.max(...md)?'#ff6b4a':'rgba(15,76,92,.65)'),borderRadius:8,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'&#8369;'+v.toLocaleString()}},x:{grid:{display:false}}}}});
+        new Chart(document.getElementById('yearlyBar').getContext('2d'),{type:'bar',data:{labels:ml,datasets:[{label:'Revenue',data:md,backgroundColor:md.map(v=>v===Math.max(...md)?'#ff6b4a':'rgba(15,76,92,.65)'),borderRadius:8,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'₱'+v.toLocaleString()}},x:{grid:{display:false}}}}});
     })();</script>
 
     <?php
@@ -590,10 +694,12 @@ $tab_meta = $is_admin ? [
     <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="products">
-        <label>From</label><input type="date" name="start" id="rpt-start" class="form-control" style="width:160px;" value="<?=$range_start?>" max="<?=$today?>">
-        <label>To</label><input type="date" name="end" id="rpt-end" class="form-control" style="width:160px;" value="<?=$range_end?>" min="<?=$range_start?>" max="<?=$today?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
-        <button type="button" class="btn-print" onclick="printA4('products-content','Products Report')"><i class="fas fa-print"></i> Print</button>
+        <label>From</label><input type="date" name="start" id="rpt-start" class="form-control filter-input-range" value="<?=$range_start?>" max="<?=$today?>">
+        <label>To</label><input type="date" name="end" id="rpt-end" class="form-control filter-input-range" value="<?=$range_end?>" min="<?=$range_start?>" max="<?=$today?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
+            <button type="button" class="btn-print" onclick="printA4('products-content','Products Report')"><i class="fas fa-print"></i> Print</button>
+        </div>
     </form>
     <div id="products-content">
     <div class="row g-4">
@@ -619,7 +725,7 @@ $tab_meta = $is_admin ? [
         </div>
     </div>
     </div><!-- /products-content -->
-    <script>(function(){const cl=<?=json_encode(array_column($data['categories']??[],'category_name'))?>;const cv=<?=json_encode(array_column($data['categories']??[],'revenue'))?>;if(cl.length) new Chart(document.getElementById('prodCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': &#8369;'+parseFloat(ctx.raw).toLocaleString()}}}}});})();</script>
+    <script>(function(){const cl=<?=json_encode(array_column($data['categories']??[],'category_name'))?>;const cv=<?=json_encode(array_column($data['categories']??[],'revenue'))?>;if(cl.length) new Chart(document.getElementById('prodCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': ₱'+parseFloat(ctx.raw).toLocaleString()}}}}});})();</script>
 
     <?php
     // =====================================================================
@@ -630,10 +736,12 @@ $tab_meta = $is_admin ? [
     <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="staff">
-        <label>From</label><input type="date" name="start" id="rpt-start" class="form-control" style="width:160px;" value="<?=$range_start?>" max="<?=$today?>">
-        <label>To</label><input type="date" name="end" id="rpt-end" class="form-control" style="width:160px;" value="<?=$range_end?>" min="<?=$range_start?>" max="<?=$today?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
-        <button type="button" class="btn-print" onclick="printA4('staff-content','Staff Performance Report')"><i class="fas fa-print"></i> Print</button>
+        <label>From</label><input type="date" name="start" id="rpt-start" class="form-control filter-input-range" value="<?=$range_start?>" max="<?=$today?>">
+        <label>To</label><input type="date" name="end" id="rpt-end" class="form-control filter-input-range" value="<?=$range_end?>" min="<?=$range_start?>" max="<?=$today?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
+            <button type="button" class="btn-print" onclick="printA4('staff-content','Staff Performance Report')"><i class="fas fa-print"></i> Print</button>
+        </div>
     </form>
     <div id="staff-content">
     <div class="row g-4">
@@ -682,10 +790,12 @@ $tab_meta = $is_admin ? [
     <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="audit">
-        <label>From</label><input type="date" name="start" id="rpt-start" class="form-control" style="width:160px;" value="<?=$range_start?>" max="<?=$today?>">
-        <label>To</label><input type="date" name="end" id="rpt-end" class="form-control" style="width:160px;" value="<?=$range_end?>" min="<?=$range_start?>" max="<?=$today?>">
-        <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
-        <button type="button" class="btn-print" onclick="printA4('audit-content','Audit Report')"><i class="fas fa-print"></i> Print</button>
+        <label>From</label><input type="date" name="start" id="rpt-start" class="form-control filter-input-range" value="<?=$range_start?>" max="<?=$today?>">
+        <label>To</label><input type="date" name="end" id="rpt-end" class="form-control filter-input-range" value="<?=$range_end?>" min="<?=$range_start?>" max="<?=$today?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Apply</button>
+            <button type="button" class="btn-print" onclick="printA4('audit-content','Audit Report')"><i class="fas fa-print"></i> Print</button>
+        </div>
     </form>
     <div id="audit-content">
     <div class="rpt-card fade-in">
@@ -741,8 +851,11 @@ $tab_meta = $is_admin ? [
 
 </div><!-- /main-content -->
 
-<footer style="background:white;border-top:1px solid var(--border);padding:1.4rem 2.2rem;margin-left:var(--sidebar-width);color:var(--warm-gray);">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+<!-- ================================================================
+     FOOTER — uses .site-footer class so margin-left is responsive
+     ================================================================ -->
+<footer class="site-footer">
+    <div class="site-footer-inner">
         <div><strong>Copyright &copy; <?= date('Y') ?> DinewithDin - Cafeteria.</strong> All rights reserved.</div>
         <div><b>Version</b> 1.0.0</div>
     </div>
@@ -768,30 +881,18 @@ sidebarOverlay?.addEventListener('click', () => { sidebar.classList.remove('show
 })();
 
 /* ================================================================
-   SHARED: open a popup and write HTML into it, then print
-   ================================================================ */
-/* ================================================================
-   openPrintTab(html) — opens a real blob: URL tab (not about:blank)
-   Chrome treats blob: URLs as proper pages, auto-prints, then closes.
-   Same behaviour as print_receipt.php but without a server round-trip.
+   openPrintTab(html) — opens a blob: URL tab, auto-prints, closes
    ================================================================ */
 function openPrintTab(html) {
-    // Build a Blob from the HTML string and create an object URL
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     var url  = URL.createObjectURL(blob);
-
-    // Open the blob URL in a new tab — Chrome shows it as a real page
     var tab = window.open(url, '_blank');
     if (!tab) {
         alert('Please allow pop-ups for this site to enable printing.');
         URL.revokeObjectURL(url);
         return;
     }
-
-    // Clean up the object URL after the tab loads (memory management)
-    tab.addEventListener('load', function() {
-        URL.revokeObjectURL(url);
-    });
+    tab.addEventListener('load', function() { URL.revokeObjectURL(url); });
 }
 
 /* ================================================================
@@ -837,7 +938,6 @@ function printCloseout() {
         '<div class="footer">' + footer + '</div>' +
         '</body></html>';
 
-    // Add auto-print + close script inside the HTML (same as print_receipt.php)
     html = html.replace('</body></html>',
         '<script>' +
         'window.addEventListener(\'load\', function() {' +
@@ -852,7 +952,7 @@ function printCloseout() {
 }
 
 /* ================================================================
-   printDaily() — 80mm thermal, data from PHP (accurate, no DOM scraping)
+   printDaily() — 80mm thermal, data from PHP
    ================================================================ */
 var _dailyData = <?php
     if ($tab === 'daily'):
@@ -891,7 +991,6 @@ function printDaily() {
     var d = _dailyData;
     if (!d) { alert('No daily data to print. Please load the Daily tab first.'); return; }
 
-    // Summary rows
     var sumRows =
         row('Report date',      d.date) +
         row('Printed at',       d.printed_at) +
@@ -905,7 +1004,6 @@ function printDaily() {
         row('Avg order value',  '₱' + d.avg_order) +
         row('Active cashiers',  d.active_cashiers);
 
-    // Top items section
     var itemSection = '';
     if (d.top_items && d.top_items.length) {
         var itemRows = '';
@@ -924,7 +1022,6 @@ function printDaily() {
             '<tbody>' + itemRows + '</tbody></table>';
     }
 
-    // Cashier breakdown
     var cashSection = '';
     if (d.cashiers && d.cashiers.length) {
         var cashRows = '';
@@ -1014,7 +1111,6 @@ function printA4(contentId, title) {
         'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;}' +
         '.print-title{font-size:16px;font-weight:bold;text-align:center;margin-bottom:2px;}' +
         '.print-sub{font-size:10px;text-align:center;color:#555;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #000;}' +
-        /* strip screen-only chrome */
         '.rpt-card{margin-bottom:12px;page-break-inside:avoid;}' +
         '.rpt-card-header{font-size:12px;font-weight:bold;padding:6px 0;border-bottom:1px solid #ccc;margin-bottom:6px;}' +
         '.rpt-card-title i{display:none;}' +
@@ -1026,7 +1122,7 @@ function printA4(contentId, title) {
         '.mini-bar{display:none;}' +
         '.rpt-badge{border:1px solid #999;padding:1px 4px;border-radius:2px;font-size:9px;}' +
         '.no-data{text-align:center;padding:12px;color:#888;font-style:italic;}' +
-        'canvas{display:none!important;}' +  /* charts won't render in popup */
+        'canvas{display:none!important;}' +
         '.s-icon,.s-label,.s-sub{display:none;}' +
         '.stats-grid{display:none;}' +
         '</style></head><body>' +

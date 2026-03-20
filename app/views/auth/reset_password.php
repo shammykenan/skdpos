@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reset Password · Cafeteria POS</title>
-
+  <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -423,8 +423,6 @@
   </style>
 </head>
 <body>
-
-  <div class="top-bar"></div>
 
   <div class="bg-image">
     <img src="<?=$baseUrl?>/assets/images/logo/background.jpeg" alt="">
