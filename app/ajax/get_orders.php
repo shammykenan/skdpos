@@ -10,38 +10,85 @@ try {
     $isAdmin       = hasRole('admin');
     $isKitchen     = hasRole('kitchen');
 
-    $sql    = "SELECT o.*, u.full_name AS cashier_name FROM orders o LEFT JOIN users u ON o.cashier_id = u.user_id";
+    // ── Pagination & filter params ─────────────────────────────────────
+    $limit  = max(1, (int) ($_GET['limit']  ?? 10));
+    $offset = max(0, (int) ($_GET['offset'] ?? 0));
+    $status = $_GET['status'] ?? 'all';
+    $search = trim($_GET['search'] ?? '');
+
+    // ── WHERE clauses ──────────────────────────────────────────────────
+    $where  = [];
     $params = [];
 
     if (!$isAdmin && !$isKitchen) {
-        $sql .= " WHERE o.cashier_id = :cashier_id";
+        $where[] = "o.cashier_id = :cashier_id";
         $params[':cashier_id'] = $currentUserId;
     }
 
-    $sql .= " ORDER BY o.created_at DESC";
+    if ($status !== 'all' && in_array($status, ['pending', 'preparing', 'completed', 'cancelled'])) {
+        $where[] = "o.status = :status";
+        $params[':status'] = $status;
+    }
+
+    if ($search !== '') {
+        $where[] = "(o.order_number LIKE :search
+                     OR o.customer_name LIKE :search
+                     OR o.table_number  LIKE :search)";
+        $params[':search'] = '%' . $search . '%';
+    }
+
+    $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    // ── Filtered total (for pagination) ───────────────────────────────
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM orders o $whereSQL");
+    $countStmt->execute($params);
+    $filteredTotal = (int) $countStmt->fetchColumn();
+
+    // ── Main query — oldest first (ASC) ───────────────────────────────
+    $sql = "
+        SELECT o.*, u.full_name AS cashier_name
+        FROM orders o
+        LEFT JOIN users u ON o.cashier_id = u.user_id
+        $whereSQL
+        ORDER BY 
+    CASE o.status 
+        WHEN 'pending'   THEN 1
+        WHEN 'preparing' THEN 2
+        WHEN 'completed' THEN 3
+        WHEN 'cancelled' THEN 4
+    END ASC,
+    o.created_at ASC
+        LIMIT :limit OFFSET :offset
+    ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+    $stmt->bindValue(':limit',  $limit,  PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Status counts
-    $countSql    = "SELECT status, COUNT(*) as cnt FROM orders";
-    $countParams = [];
+    // ── Grand total counts per status (always unfiltered by tab/search) 
+    $cWhere  = [];
+    $cParams = [];
     if (!$isAdmin && !$isKitchen) {
-        $countSql .= " WHERE cashier_id = :cashier_id";
-        $countParams[':cashier_id'] = $currentUserId;
+        $cWhere[] = "cashier_id = :cashier_id";
+        $cParams[':cashier_id'] = $currentUserId;
     }
-    $countSql .= " GROUP BY status";
-    $countStmt = $pdo->prepare($countSql);
-    $countStmt->execute($countParams);
+    $cWhereSQL = $cWhere ? 'WHERE ' . implode(' AND ', $cWhere) : '';
+
+    $countAllStmt = $pdo->prepare("SELECT status, COUNT(*) AS cnt FROM orders $cWhereSQL GROUP BY status");
+    $countAllStmt->execute($cParams);
     $statusCounts = ['pending' => 0, 'preparing' => 0, 'completed' => 0, 'cancelled' => 0];
     $total = 0;
-    foreach ($countStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    foreach ($countAllStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $statusCounts[$row['status']] = (int) $row['cnt'];
         $total += (int) $row['cnt'];
     }
 
-    // Attach items and addons inline
+    // ── Attach items + addons ──────────────────────────────────────────
     foreach ($orders as &$order) {
         $itemStmt = $pdo->prepare("
             SELECT oi.order_item_id, oi.item_id, oi.quantity,
@@ -71,11 +118,14 @@ try {
     unset($order);
 
     echo json_encode([
-        'success'   => true,
-        'data'      => $orders,
-        'total'     => $total,
-        'counts'    => $statusCounts,
-        'timestamp' => date('Y-m-d H:i:s')
+        'success'        => true,
+        'data'           => $orders,
+        'total'          => $total,          // grand total across all statuses
+        'filtered_total' => $filteredTotal,  // total matching current filter/search
+        'counts'         => $statusCounts,
+        'has_more'       => ($offset + $limit) < $filteredTotal,
+        'next_offset'    => $offset + $limit,
+        'timestamp'      => date('Y-m-d H:i:s'),
     ]);
 
 } catch (Exception $e) {
