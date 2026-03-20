@@ -789,6 +789,7 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-nav">
+            <?php if (hasRole('admin')): ?>
             <div class="nav-section-title">DASHBOARD</div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link">
@@ -841,12 +842,13 @@ $units = ['kg'=>'Kilogram', 'g'=>'Gram', 'l'=>'Liter', 'ml'=>'Milliliter', 'pcs'
                     Orders
                 </a>
             </div>
-            <<div class="nav-item">
+            <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link">
                     <i class="fas fa-chart-bar"></i>
                     Reports
                 </a>
             </div>
+            <?php endif; ?>
         </div>
     </div>
     

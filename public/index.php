@@ -1,6 +1,7 @@
 <?php
+ini_set('session.cookie_path', '/');
 session_start();
-
+date_default_timezone_set('Asia/Manila');
 define('BASE_PATH', realpath(__DIR__ . '/../'));
 
 require_once BASE_PATH . '/config/db.php';

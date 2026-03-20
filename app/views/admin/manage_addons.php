@@ -706,6 +706,7 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-nav">
+            <?php if (hasRole('admin')): ?>
             <div class="nav-section-title">DASHBOARD</div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link">
@@ -764,6 +765,7 @@
                     Reports
                 </a>
             </div>
+            <?php endif; ?>
         </div>
     </div>
     

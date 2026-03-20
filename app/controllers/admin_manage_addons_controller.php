@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/addons.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
-$baseUrl = getenv('BASE_URL') ?: 'http://localhost/coffee_shop/public';
+$baseUrl = $_ENV['BASE_URL'] ?? '';
 // Auth check
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     $_SESSION['error'] = 'Access denied. Please log in as an admin.';

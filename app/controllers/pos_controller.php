@@ -234,16 +234,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     }
 
     // ============================================================
-    // 🔥 TAX CALCULATION – 12% VAT
+    // 💰 ORDER TOTALS
     // ============================================================
-    $discount      = 0;
-    $vatable_sales = $subtotal;
-    $vat           = $vatable_sales * 0.12;
-    $vat_exempt    = 0;
-    $vat_discount  = 0;
-    $total_amount  = $vatable_sales + $vat - $vat_discount - $discount;
-    $amount_due    = $total_amount;
-    $rounded_total = round($total_amount, 2);
+    $discount     = 0;
+    $total_amount = $subtotal - $discount;
+    $amount_due   = $total_amount;
 
     try {
         $pdo->beginTransaction();

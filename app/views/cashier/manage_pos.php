@@ -926,8 +926,6 @@
                     </div>
 
                     <div class="cart-summary d-none" id="cartSummary">
-                        <div class="cart-summary-row"><span>Subtotal:</span><span id="subtotal">₱0.00</span></div>
-                        <div class="cart-summary-row"><span>VAT (12%):</span><span id="vatAmount">₱0.00</span></div>
                         <div class="cart-summary-row total"><span>Total:</span><span id="total">₱0.00</span></div>
                     </div>
 
@@ -1011,8 +1009,6 @@
 
     <div class="drawer-footer">
         <div class="cart-summary d-none" id="cartSummaryMobile">
-            <div class="cart-summary-row"><span>Subtotal:</span><span id="subtotalM">₱0.00</span></div>
-            <div class="cart-summary-row"><span>VAT (12%):</span><span id="vatAmountM">₱0.00</span></div>
             <div class="cart-summary-row total"><span>Total:</span><span id="totalM">₱0.00</span></div>
         </div>
         <div class="mt-2">
@@ -1244,13 +1240,11 @@ function addToCartWithQuantity(item, addons, quantity, note) {
         return;
     }
 
-    // NOTE: items with notes are never merged (each note is unique to an order row)
     const trimmedNote = (note || '').trim();
     if (!trimmedNote) {
-        // No note — try to merge with an identical existing row
         const existingIndex = cart.findIndex(row => {
             if (row.id !== item.id) return false;
-            if ((row.note || '') !== '') return false; // rows with notes don't merge
+            if ((row.note || '') !== '') return false;
             if (row.addons.length !== addons.length) return false;
             const rowKey = row.addons.map(a => `${a.id}:${a.quantity}`).sort().join('|');
             const newKey = addons.map(a => `${a.id}:${a.quantity}`).sort().join('|');
@@ -1320,10 +1314,7 @@ function removeFromCart(index) {
 // ============================================================
 // NOTE OPERATIONS (inline editing in cart)
 // ============================================================
-
-// Show inline note editor for a cart row
 function showNoteEditor(index) {
-    // Close any other open editor first
     document.querySelectorAll('.cart-item-note-editor').forEach(el => {
         const i = parseInt(el.dataset.index);
         if (!isNaN(i)) cancelNoteEdit(i);
@@ -1395,7 +1386,6 @@ function buildCartItemHTML(row, index) {
     const hasIssue       = row.hasStockIssue === true;
     const note           = row.note || '';
 
-    // Build note section HTML
     const noteDisplayHTML = note
         ? `<div class="cart-item-note" data-note-display="${index}" onclick="showNoteEditor(${index})">
                <i class="fas fa-pen-to-square"></i>
@@ -1454,13 +1444,11 @@ function buildCartItemHTML(row, index) {
         </div>`;
 }
 
-// Allow Enter to save, Escape to cancel note editor
 function handleNoteKeydown(e, index) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(index); }
     if (e.key === 'Escape') { cancelNoteEdit(index); }
 }
 
-// HTML escape helper
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')
@@ -1475,12 +1463,10 @@ function escapeHtml(str) {
 // ============================================================
 function renderCart() {
     const totalItems = cart.reduce((s, r) => s + r.quantity, 0);
-    const subtotal   = cart.reduce((sum, row) => {
+    const total      = cart.reduce((sum, row) => {
         const addonsSubtotal = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
         return sum + (row.price + addonsSubtotal) * row.quantity;
     }, 0);
-    const vat   = subtotal * 0.12;
-    const total = subtotal + vat;
 
     const emptyHTML = `
         <div class="empty-cart">
@@ -1505,9 +1491,7 @@ function renderCart() {
         if (dSubmitBtn) { dSubmitBtn.classList.toggle('d-none', cart.length === 0); dSubmitBtn.disabled = hasStockIssues; }
         if (dSubmitMsg) dSubmitMsg.classList.toggle('d-none', !hasStockIssues || cart.length === 0);
         if (cart.length > 0) {
-            document.getElementById('subtotal').textContent  = `₱${subtotal.toFixed(2)}`;
-            document.getElementById('vatAmount').textContent = `₱${vat.toFixed(2)}`;
-            document.getElementById('total').textContent     = `₱${total.toFixed(2)}`;
+            document.getElementById('total').textContent = `₱${total.toFixed(2)}`;
         }
     }
 
@@ -1522,9 +1506,7 @@ function renderCart() {
         if (mSubmitBtn) { mSubmitBtn.classList.toggle('d-none', cart.length === 0); mSubmitBtn.disabled = hasStockIssues; }
         if (mSubmitMsg) mSubmitMsg.classList.toggle('d-none', !hasStockIssues || cart.length === 0);
         if (cart.length > 0) {
-            document.getElementById('subtotalM').textContent  = `₱${subtotal.toFixed(2)}`;
-            document.getElementById('vatAmountM').textContent = `₱${vat.toFixed(2)}`;
-            document.getElementById('totalM').textContent     = `₱${total.toFixed(2)}`;
+            document.getElementById('totalM').textContent = `₱${total.toFixed(2)}`;
         }
     }
 
