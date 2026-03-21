@@ -10,10 +10,12 @@ try {
     $isAdmin       = hasRole('admin');
     $isKitchen     = hasRole('kitchen');
 
-    $limit  = max(1, (int) ($_GET['limit']  ?? 10));
-    $offset = max(0, (int) ($_GET['offset'] ?? 0));
-    $status = $_GET['status'] ?? 'all';
-    $search = trim($_GET['search'] ?? '');
+    $limit     = max(1, (int) ($_GET['limit']     ?? 10));
+    $offset    = max(0, (int) ($_GET['offset']    ?? 0));
+    $status    = $_GET['status']    ?? 'all';
+    $search    = trim($_GET['search']    ?? '');
+    $dateFrom  = trim($_GET['date_from'] ?? '');
+    $dateTo    = trim($_GET['date_to']   ?? '');
 
     $validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
 
@@ -36,6 +38,17 @@ try {
                      OR o.customer_name LIKE :search
                      OR o.table_number  LIKE :search)";
         $params[':search'] = '%' . $search . '%';
+    }
+
+    // Date filter — match on DATE(created_at)
+    if ($dateFrom !== '') {
+        $where[] = "DATE(o.created_at) >= :date_from";
+        $params[':date_from'] = $dateFrom;
+    }
+
+    if ($dateTo !== '') {
+        $where[] = "DATE(o.created_at) <= :date_to";
+        $params[':date_to'] = $dateTo;
     }
 
     $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';

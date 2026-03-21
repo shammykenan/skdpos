@@ -64,12 +64,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 
         updateOrderStatus($pdo, $order_id, 'completed', date('Y-m-d H:i:s'));
 
-        // Sync item statuses — mark all non-cancelled items as 'ready' (terminal kitchen state)
+        // Sync item statuses — mark all non-cancelled items as 'completed'
         $pdo->prepare("
             UPDATE order_items
-            SET status = 'ready'
+            SET status = 'completed'
             WHERE order_id = ?
-              AND status NOT IN ('ready', 'cancelled')
+              AND status != 'cancelled'
         ")->execute([$order_id]);
 
         $pdo->commit();

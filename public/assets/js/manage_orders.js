@@ -13,6 +13,8 @@ const ITEM_STATUS_URL  = '/coffee_shop/app/ajax/update_order_item_status.php';
 
 let currentFilter     = 'all';
 let currentSearch     = '';
+let currentDateFrom   = '';
+let currentDateTo     = '';
 let currentPage       = 1;
 let totalPages        = 1;
 let filteredTotal     = 0;
@@ -136,6 +138,8 @@ function buildURL(offset, limit) {
         status: currentFilter,
         search: currentSearch,
     });
+    if (currentDateFrom) params.set('date_from', currentDateFrom);
+    if (currentDateTo)   params.set('date_to',   currentDateTo);
     return `${AJAX_URL}?${params}`;
 }
 
@@ -624,19 +628,7 @@ function buildItemCardHTML(item, orderStatus) {
     const canUpdate = (userRole === 'kitchen' || userRole === 'admin');
     const orderDone = (orderStatus === 'completed' || orderStatus === 'cancelled');
     const itemStatus = item.item_status || 'pending';
-    const isReady    = itemStatus === 'ready' || itemStatus === 'cancelled';
-
-    const statusConfig = {
-        pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
-        preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
-        ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
-        cancelled: { label: 'Cancelled', icon: 'fa-ban',             cls: 'item-status-cancelled' },
-    };
-
-    // If order is completed, display all non-cancelled items as "Completed"
-    const displayStatus = (orderStatus === 'completed' && itemStatus !== 'cancelled')
-        ? 'completed'
-        : itemStatus;
+    const isReady = itemStatus === 'ready' || itemStatus === 'completed' || itemStatus === 'cancelled';
 
     const displayConfig = {
         pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
@@ -646,7 +638,7 @@ function buildItemCardHTML(item, orderStatus) {
         cancelled: { label: 'Cancelled', icon: 'fa-ban',             cls: 'item-status-cancelled' },
     };
 
-    const sc = displayConfig[displayStatus] || displayConfig.pending;
+    const sc = displayConfig[itemStatus] || displayConfig.pending;
 
     const badge = `<span class="item-status-badge ${sc.cls}">
         <i class="fas ${sc.icon}"></i> ${sc.label}
@@ -683,7 +675,7 @@ function buildItemCardHTML(item, orderStatus) {
            </div>`
         : '';
 
-    return `<div class="item-card item-card-${displayStatus}" data-item-id="${item.order_item_id}" data-item-notes="${escapeHtml(item.item_notes || '')}" data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
+    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}" data-item-notes="${escapeHtml(item.item_notes || '')}" data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
                 <div class="item-card-header">
                     <div class="item-card-name">
                         <span class="item-name-text">${escapeHtml(item.item_name)}</span>
@@ -990,6 +982,97 @@ function setupEventListeners() {
             document.body.style.overflow = '';
         });
     }
+
+    // ── Date filter ──
+    const dateFrom    = document.getElementById('dateFrom');
+    const dateTo      = document.getElementById('dateTo');
+    const btnToday    = document.getElementById('btnToday');
+    const btnYesterday= document.getElementById('btnYesterday');
+    const btnThisWeek = document.getElementById('btnThisWeek');
+    const btnClear    = document.getElementById('btnClearDate');
+
+    function todayStr(offsetDays = 0) {
+        const d = new Date();
+        d.setDate(d.getDate() + offsetDays);
+        return d.toISOString().split('T')[0];
+    }
+
+    // Set max on both inputs to today — prevents future dates
+    const today = todayStr();
+    if (dateFrom) dateFrom.max = today;
+    if (dateTo)   dateTo.max   = today;
+
+    function applyDateFilter() {
+        const from = dateFrom?.value || '';
+        const to   = dateTo?.value   || '';
+
+        // Auto-correct overlap: if from > to, snap the other input
+        if (from && to && from > to) {
+            // Whichever was just changed caused the conflict — fix the other
+            if (document.activeElement === dateFrom) {
+                // User changed From to something after To → push To forward
+                if (dateTo) dateTo.value = from;
+            } else {
+                // User changed To to something before From → pull From back
+                if (dateFrom) dateFrom.value = to;
+            }
+        }
+
+        // Re-read after corrections
+        currentDateFrom = dateFrom?.value || '';
+        currentDateTo   = dateTo?.value   || '';
+
+        // Keep min/max in sync so the calendar itself blocks invalid picks
+        if (dateFrom && currentDateTo)   dateFrom.max = currentDateTo;
+        if (dateTo   && currentDateFrom) dateTo.min   = currentDateFrom;
+
+        // Reset bounds that no longer apply
+        if (dateFrom && !currentDateTo)   dateFrom.max = today;
+        if (dateTo   && !currentDateFrom) dateTo.min   = '';
+
+        const hasDate = currentDateFrom || currentDateTo;
+        if (btnClear) btnClear.style.display = hasDate ? '' : 'none';
+        loadPage(1);
+    }
+
+    dateFrom?.addEventListener('change', applyDateFilter);
+    dateTo?.addEventListener('change',   applyDateFilter);
+
+    btnToday?.addEventListener('click', () => {
+        if (dateFrom) { dateFrom.value = today; dateFrom.max = today; dateFrom.min = ''; }
+        if (dateTo)   { dateTo.value   = today; dateTo.max   = today; dateTo.min   = today; }
+        applyDateFilter();
+    });
+
+    btnYesterday?.addEventListener('click', () => {
+        const y = todayStr(-1);
+        if (dateFrom) { dateFrom.value = y; dateFrom.min = ''; dateFrom.max = today; }
+        if (dateTo)   { dateTo.value   = y; dateTo.min   = y;  dateTo.max   = today; }
+        applyDateFilter();
+    });
+
+    btnThisWeek?.addEventListener('click', () => {
+        const now = new Date();
+        const day = now.getDay();
+        const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
+        // Cap end of week at today so "this week" never goes into future
+        const endOfWeek = new Date(mon); endOfWeek.setDate(mon.getDate() + 6);
+        const sun = endOfWeek > now ? now : endOfWeek;
+        const monStr = mon.toISOString().split('T')[0];
+        const sunStr = sun.toISOString().split('T')[0];
+        if (dateFrom) { dateFrom.value = monStr; dateFrom.min = ''; dateFrom.max = sunStr; }
+        if (dateTo)   { dateTo.value   = sunStr; dateTo.min   = monStr; dateTo.max = today; }
+        applyDateFilter();
+    });
+
+    btnClear?.addEventListener('click', () => {
+        if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
+        if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
+        currentDateFrom = '';
+        currentDateTo   = '';
+        btnClear.style.display = 'none';
+        loadPage(1);
+    });
 
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {

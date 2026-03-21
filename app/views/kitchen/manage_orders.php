@@ -163,6 +163,20 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Date filter row -->
+            <div class="date-filter-row">
+                <i class="fas fa-calendar-alt date-filter-icon"></i>
+                <input type="date" class="date-filter-input" id="dateFrom" title="From">
+                <span class="date-filter-sep">—</span>
+                <input type="date" class="date-filter-input" id="dateTo" title="To">
+                <button type="button" class="date-shortcut-btn" id="btnToday">Today</button>
+                <button type="button" class="date-shortcut-btn" id="btnYesterday">Yesterday</button>
+                <button type="button" class="date-shortcut-btn" id="btnThisWeek">This week</button>
+                <button type="button" class="date-clear-btn" id="btnClearDate" style="display:none;">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
         </div>
     </div>
 
