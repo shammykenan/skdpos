@@ -1,18 +1,8 @@
 /**
  * ============================================
  * ORDERS MANAGEMENT — Item-level tracking
- *
- * Kitchen tracks individual ORDER ITEMS:
- *   item: pending → preparing → ready
- *
- * Order status auto-computed from items:
- *   all pending → order pending
- *   mixed       → order preparing
- *   all ready   → order ready  ← cashier sees Collect Payment button
- *
- * Cashier actions on ORDERS only:
- *   ready   → completed  (payment modal)
- *   pending → cancelled
+ * Enhanced Kitchen UX: confirmation step before
+ * updating item status to prevent accidental taps.
  * ============================================
  */
 
@@ -29,9 +19,10 @@ let filteredTotal     = 0;
 let isLoading         = false;
 let isRefreshing      = false;
 let refreshTimer      = null;
-let currentOrderTotal = 0;
+let currentOrderTotal  = 0;
+let currentOrdersCache = {}; // orderId -> {items, orderStatus, orderNumber} — kept fresh on every render
 
-let paymentModal, cancelOrderModal, orderDetailsModal;
+let paymentModal, cancelOrderModal, orderDetailsModal, kitchenItemsModal;
 
 // ============================================
 // INITIALIZATION
@@ -42,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function () {
             paymentModal      = new bootstrap.Modal(document.getElementById('paymentModal'));
             cancelOrderModal  = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
             orderDetailsModal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+            kitchenItemsModal = new bootstrap.Modal(document.getElementById('kitchenItemsModal'));
         }
     } catch (e) {
         console.error('Modal init error:', e);
@@ -51,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
     loadPage(1);
     startAutoRefresh();
 
-    console.log('✅ Orders management initialized (item-level tracking)');
+    console.log('✅ Orders management initialized (item-level tracking + kitchen confirm UX)');
 });
 
 // ============================================
@@ -101,16 +93,22 @@ async function refreshOrders() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Unknown error');
 
-        // Always re-render silently — no toast, no notification
-        renderTableRows(data.data || []);
         updateFilterCounts(data.counts, data.total);
 
-        // Update pagination if total changed
-        const newTotal = data.filtered_total || 0;
-        if (newTotal !== filteredTotal) {
+        const newTotal   = data.filtered_total || 0;
+        const freshData  = data.data || [];
+        const tbody      = document.getElementById('ordersTableBody');
+        const existingCount = tbody ? tbody.querySelectorAll('tr[data-order-id]').length : 0;
+
+        // If row count changed (new order arrived or fell off the page), full re-render
+        if (newTotal !== filteredTotal || existingCount !== freshData.length) {
             filteredTotal = newTotal;
             totalPages    = Math.max(1, Math.ceil(filteredTotal / PAGE_LIMIT));
+            renderTableRows(freshData);
             renderPagination();
+        } else {
+            // Same rows — surgically patch only what changed (no DOM wipe = no flicker)
+            patchTableRows(freshData);
         }
 
     } catch (err) {
@@ -160,47 +158,80 @@ function renderTableRows(orders) {
     if (table)    table.style.display = '';
     if (noResult) noResult.classList.add('d-none');
 
+    // Refresh cache
+    orders.forEach(o => { currentOrdersCache[String(o.order_id)] = o; });
+
     tbody.innerHTML = orders.map(order => createOrderRowHTML(order)).join('');
 }
 
-function patchExistingRows(orders) {
+// ============================================
+// SMART PATCH — surgically update only changed cells
+// ============================================
+function patchTableRows(orders) {
+    const tbody = document.getElementById('ordersTableBody');
+    if (!tbody) return;
+
     orders.forEach(order => {
-        const row = document.querySelector(`tr[data-order-id="${order.order_id}"]`);
+        const row = tbody.querySelector(`tr[data-order-id="${order.order_id}"]`);
         if (!row) return;
 
-        // Patch order status badge + actions if status changed
-        const currentOrderStatus = row.getAttribute('data-status');
-        if (currentOrderStatus !== order.status) {
-            row.setAttribute('data-status', order.status);
-            const statusCell = row.querySelector('td[data-label="Status"]');
-            if (statusCell) statusCell.innerHTML = getOrderStatusBadge(order.status);
+        const currentStatus = row.getAttribute('data-status');
+        const newStatus     = (order.status || 'pending').toLowerCase();
+
+        // -- Order status badge + actions + total color (only when order status changed) --
+        if (currentStatus !== newStatus) {
+            row.setAttribute('data-status', newStatus);
+            const statusCell  = row.querySelector('td[data-label="Status"]');
             const actionsCell = row.querySelector('td[data-label="Actions"]');
+            const totalSpan   = row.querySelector('td[data-label="Total"] span');
+            if (statusCell)  statusCell.innerHTML  = getOrderStatusBadge(newStatus);
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML(order);
+            if (totalSpan) {
+                totalSpan.className = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
+            }
         }
 
-        // Patch individual item badges
-        const itemsCell = row.querySelector('td[data-label="Items"]');
-        if (itemsCell && order.items) {
-            order.items.forEach(item => {
-                const itemEl = itemsCell.querySelector(`[data-item-id="${item.order_item_id}"]`);
-                if (!itemEl) return;
-                const badge = itemEl.querySelector('.item-status-badge');
-                if (badge && badge.textContent.trim().toLowerCase() !== item.item_status) {
-                    badge.className   = `item-status-badge badge-item-${item.item_status}`;
-                    badge.textContent = capitalize(item.item_status);
+        // -- Refresh summary dots in items cell --
+        if (order.items) {
+            const itemsCell = row.querySelector('.items-cell');
+            if (itemsCell) {
+                const tally = { pending: 0, preparing: 0, ready: 0 };
+                order.items.forEach(i => { const s = i.item_status || 'pending'; tally[s] = (tally[s] || 0) + 1; });
+                const dotsCfg = [
+                    { key: 'pending',   color: '#f59e0b', icon: 'fa-hourglass-half' },
+                    { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
+                    { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
+                ];
+                const summaryRow = itemsCell.querySelector('.items-summary-row');
+                if (summaryRow) {
+                    const noteCount = order.items.filter(i => i.item_notes && i.item_notes.trim()).length;
+                    const hasAddons = order.items.some(i => i.addons && i.addons.length > 0);
+                    const notesDot  = noteCount > 0
+                        ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>`
+                        : '';
+                    const addonsDot = hasAddons ? `<span class="items-has-addons-dot"><i class="fas fa-plus-circle"></i></span>` : '';
+                    summaryRow.innerHTML = dotsCfg
+                        .filter(d => tally[d.key] > 0)
+                        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;">
+                            <i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}
+                        </span>`).join('') + notesDot + addonsDot;
                 }
-                const btn = itemEl.querySelector('.item-status-btn');
-                if (btn && item.item_status === 'ready') {
-                    btn.remove();
-                }
-            });
+            }
+        }
+
+        // -- Update cache --
+        currentOrdersCache[String(order.order_id)] = order;
+
+        // -- Live-patch open kitchen modal if it belongs to this order --
+        const openModal = document.getElementById('kitchenItemsModal');
+        if (openModal && openModal.classList.contains('show')) {
+            if (openModal.getAttribute('data-open-order-id') === String(order.order_id)) {
+                patchKitchenItemsModal(order);
+            }
         }
     });
 }
 
-// ============================================
-// PAGINATION
-// ============================================
 function renderPagination() {
     let container = document.getElementById('paginationContainer');
     if (!container) {
@@ -296,7 +327,7 @@ function updateFilterLabel() {
 }
 
 // ============================================
-// SPINNER / ERROR / TOAST
+// SPINNER / ERROR
 // ============================================
 function showTableSpinner(show) {
     let spinner = document.getElementById('tableSpinner');
@@ -305,7 +336,7 @@ function showTableSpinner(show) {
             spinner = document.createElement('tr');
             spinner.id = 'tableSpinner';
             spinner.innerHTML = `
-                <td colspan="9" class="text-center py-4">
+                <td colspan="8" class="text-center py-4">
                     <div class="spinner-border spinner-border-sm me-2"
                          style="color:var(--primary);" role="status"></div>
                     <span class="text-muted" style="font-size:0.875rem;">Loading orders…</span>
@@ -322,32 +353,11 @@ function showError() {
     const tbody = document.getElementById('ordersTableBody');
     if (tbody) tbody.innerHTML = `
         <tr>
-            <td colspan="9" class="text-center py-4 text-danger">
+            <td colspan="8" class="text-center py-4 text-danger">
                 <i class="fas fa-exclamation-circle me-2"></i>
                 Failed to load orders. Please refresh the page.
             </td>
         </tr>`;
-}
-
-function showNewOrdersToast() {
-    let toast = document.getElementById('newOrdersToast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'newOrdersToast';
-        toast.style.cssText = [
-            'position:fixed', 'bottom:1.5rem', 'right:1.5rem', 'z-index:9999',
-            'background:var(--primary,#4a90e2)', 'color:#fff',
-            'padding:0.75rem 1.25rem', 'border-radius:12px',
-            'box-shadow:0 4px 16px rgba(0,0,0,0.18)',
-            'font-size:0.9rem', 'font-weight:600', 'cursor:pointer',
-            'display:flex', 'align-items:center', 'gap:0.5rem',
-        ].join(';');
-        toast.innerHTML = `<i class="fas fa-bell"></i> New orders arrived — click to refresh`;
-        toast.addEventListener('click', () => { loadPage(1); toast.remove(); });
-        document.body.appendChild(toast);
-    }
-    clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => toast.remove(), 8000);
 }
 
 // ============================================
@@ -359,6 +369,10 @@ function createOrderRowHTML(order) {
         order.customer_name || 'walk-in',
         order.table_number  || '',
     ].join(' ').toLowerCase();
+
+    const total      = parseFloat(order.total_amount || 0);
+    const subtotalEx = total / 1.12;
+    const vat        = total - subtotalEx;
 
     return `
         <tr data-status="${(order.status || 'pending').toLowerCase()}"
@@ -372,13 +386,17 @@ function createOrderRowHTML(order) {
             <td data-label="Customer">
                 <div class="fw-medium" style="color:var(--navy);">${escapeHtml(order.customer_name || 'Walk-in')}</div>
                 <small class="text-muted">${formatDate(order.created_at)}</small>
-                ${order.table_number ? `<div><small class="text-muted"><i class="fas fa-chair me-1"></i>Table ${escapeHtml(order.table_number)}</small></div>` : ''}
+                ${order.table_number ? `<div class="table-number-badge"><i class="fas fa-chair"></i> Table ${escapeHtml(order.table_number)}</div>` : ''}
             </td>
             <td data-label="Order Type">${getOrderTypeBadge(order.order_type)}</td>
-            <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status)}</td>
-            <td data-label="Notes">${getOrderNotesHTML(order.items || [])}</td>
-            <td data-label="Subtotal"><span class="price">₱${formatPrice(order.subtotal)}</span></td>
-            <td data-label="Total"><span class="price">₱${formatPrice(order.total_amount)}</span></td>
+            <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status, order.order_id)}</td>
+            <td data-label="Subtotal">
+                <span class="price-subtotal">₱${formatPrice(subtotalEx)}</span>
+                <div class="price-vat">+₱${formatPrice(vat)} VAT (12%)</div>
+            </td>
+            <td data-label="Total">
+                <span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">₱${formatPrice(order.total_amount)}</span>
+            </td>
             <td data-label="Status">${getOrderStatusBadge(order.status)}</td>
             <td data-label="Actions">${getOrderActionsHTML(order)}</td>
         </tr>`;
@@ -400,70 +418,50 @@ function getOrderStatusBadge(status) {
 }
 
 /**
- * Items column — shows each item with its own status badge.
- * Kitchen/admin see ▶ Start and ✓ Ready buttons per item.
+ * Items column:
+ * - 1–2 items → render cards directly inline, no button needed
+ * - 3+ items  → compact summary + "View items" button opens modal
  */
-function getOrderItemsHTML(items, orderStatus) {
-    if (!items || items.length === 0) return '<span class="text-muted">No items</span>';
+function getOrderItemsHTML(items, orderStatus, orderId) {
+    if (!items || items.length === 0) return '<span class="text-muted fst-italic" style="font-size:0.8rem;">No items</span>';
 
-    const userRole  = window.userRole || '';
-    const canUpdate = (userRole === 'kitchen' || userRole === 'admin');
-    const orderDone = (orderStatus === 'completed' || orderStatus === 'cancelled');
+    const tally = { pending: 0, preparing: 0, ready: 0 };
+    items.forEach(i => { const s = i.item_status || 'pending'; tally[s] = (tally[s] || 0) + 1; });
 
-    return '<ul class="order-items" style="list-style:none;padding:0;margin:0;">' +
-        items.map(item => {
-            const itemStatus = item.item_status || 'pending';
-            const isReady    = itemStatus === 'ready';
+    const dotsCfg = [
+        { key: 'pending',   color: '#f59e0b', icon: 'fa-hourglass-half' },
+        { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
+        { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
+    ];
+    const dotsHTML = dotsCfg
+        .filter(d => tally[d.key] > 0)
+        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;">
+            <i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}
+        </span>`).join('');
 
-            const badge = `<span class="item-status-badge badge-item-${itemStatus}"
-                                  style="font-size:0.68rem;padding:2px 8px;border-radius:20px;
-                                         font-weight:600;display:inline-block;margin-left:4px;">
-                               ${capitalize(itemStatus)}
-                           </span>`;
+    const namePreview = items.slice(0, 2).map(i =>
+        `<span class="item-name-chip">${escapeHtml(i.item_name)}${parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : ''}</span>`
+    ).join('');
+    const moreChip = items.length > 2
+        ? `<span class="item-name-chip item-name-more">+${items.length - 2} more</span>`
+        : '';
 
-            let actionBtn = '';
-            if (canUpdate && !orderDone && !isReady) {
-                const nextStatus = itemStatus === 'pending' ? 'preparing' : 'ready';
-                const btnLabel   = itemStatus === 'pending'
-                    ? '<i class="fas fa-fire-burner"></i> Start'
-                    : '<i class="fas fa-bell"></i> Ready';
-                const btnColor   = itemStatus === 'pending'
-                    ? 'background:#f59e0b;color:#fff;'
-                    : 'background:#10b981;color:#fff;';
-                actionBtn = `<button type="button"
-                                     class="item-status-btn"
-                                     style="border:none;border-radius:6px;padding:2px 8px;
-                                            font-size:0.72rem;font-weight:600;cursor:pointer;
-                                            margin-left:4px;${btnColor}"
-                                     data-order-item-id="${item.order_item_id}"
-                                     data-next-status="${nextStatus}">
-                                 ${btnLabel}
-                             </button>`;
-            }
+    const noteCount = items.filter(i => i.item_notes && i.item_notes.trim()).length;
+    const hasAddons = items.some(i => i.addons && i.addons.length > 0);
+    const notesDot  = noteCount > 0
+        ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>`
+        : '';
+    const addonsDot = hasAddons ? `<span class="items-has-addons-dot" title="Has add-ons"><i class="fas fa-plus-circle"></i></span>` : '';
 
-            let addonsHTML = '';
-            if (item.addons && item.addons.length > 0) {
-                addonsHTML = '<ul style="margin:2px 0 0 10px;padding:0;list-style:none;">';
-                item.addons.forEach(a => {
-                    addonsHTML += `<li style="font-size:0.78rem;color:var(--warm-gray);">
-                        <i class="fas fa-plus" style="font-size:0.6rem;margin-right:3px;"></i>
-                        ${escapeHtml(a.addon_name)} ×${a.quantity || 1}
-                    </li>`;
-                });
-                addonsHTML += '</ul>';
-            }
-
-            return `<li data-item-id="${item.order_item_id}"
-                        style="padding:4px 0;border-bottom:1px dashed #eef0f3;">
-                        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;">
-                            <span class="item-name" style="font-weight:500;">${escapeHtml(item.item_name)}</span>
-                            <span style="color:var(--warm-gray);font-size:0.82rem;">×${item.quantity || 1}</span>
-                            ${badge}
-                            ${actionBtn}
-                        </div>
-                        ${addonsHTML}
-                    </li>`;
-        }).join('') + '</ul>';
+    return `<div class="items-cell" data-order-id="${orderId}">
+        <div class="items-summary-row">
+            ${dotsHTML}${notesDot}${addonsDot}
+        </div>
+        <div class="items-name-row">${namePreview}${moreChip}</div>
+        <button type="button" class="items-manage-btn" data-order-id="${orderId}">
+            <i class="fas fa-chevron-right"></i> Manage items
+        </button>
+    </div>`;
 }
 
 function getOrderNotesHTML(items) {
@@ -477,12 +475,6 @@ function getOrderNotesHTML(items) {
     return notes || '<span class="text-muted">—</span>';
 }
 
-/**
- * Order-level actions:
- *   ready   → "Collect Payment" button  (cashier/admin)
- *   pending → "Cancel" button           (cashier/admin)
- *   others  → informational badge only
- */
 function getOrderActionsHTML(order) {
     const userRole  = window.userRole || '';
     const isAdmin   = userRole === 'admin';
@@ -543,8 +535,10 @@ function getOrderActionsHTML(order) {
 // ITEM STATUS UPDATE
 // ============================================
 async function updateItemStatus(orderItemId, nextStatus, btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating…</span>';
+    }
 
     try {
         const formData = new FormData();
@@ -556,28 +550,43 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
         if (!data.success) throw new Error(data.error || 'Update failed');
 
-        // Update item badge in DOM
-        const itemEl = btn.closest('[data-item-id]');
-        if (itemEl) {
-            const badge = itemEl.querySelector('.item-status-badge');
+        // Update item card in DOM
+        const itemCard = btn ? btn.closest('[data-item-id]') : document.querySelector(`[data-item-id="${orderItemId}"]`);
+        if (itemCard) {
+            // Update card class
+            itemCard.className = `item-card item-card-${data.item_status}`;
+
+            const statusConfig = {
+                pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
+                preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
+                ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
+            };
+            const sc = statusConfig[data.item_status] || statusConfig.pending;
+
+            // Update badge
+            const badge = itemCard.querySelector('.item-status-badge');
             if (badge) {
-                badge.className   = `item-status-badge badge-item-${data.item_status}`;
-                badge.textContent = capitalize(data.item_status);
+                badge.className   = `item-status-badge ${sc.cls}`;
+                badge.innerHTML   = `<i class="fas ${sc.icon}"></i> ${sc.label}`;
             }
 
+            // Remove action area if ready
             if (data.item_status === 'ready') {
-                btn.remove();
-            } else {
-                const nn  = 'ready';
+                const actionArea = itemCard.querySelector('.item-card-actions');
+                if (actionArea) actionArea.remove();
+            } else if (btn) {
+                // Update button for next action
+                const nn = 'ready';
                 btn.setAttribute('data-next-status', nn);
-                btn.style.background = '#10b981';
-                btn.innerHTML = '<i class="fas fa-bell"></i> Ready';
+                btn.setAttribute('data-current-status', data.item_status);
+                btn.className = 'item-status-btn item-action-ready';
+                btn.innerHTML = '<i class="fas fa-check"></i> <span>Mark Ready</span>';
                 btn.disabled  = false;
             }
         }
 
         // Update order status badge + actions if order status changed
-        const row = btn.closest('tr');
+        const row = btn ? btn.closest('tr') : null;
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
             const statusCell = row.querySelector('td[data-label="Status"]');
@@ -597,24 +606,211 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
     } catch (err) {
         console.error('❌ Item status update error:', err);
-        btn.disabled  = false;
-        btn.innerHTML = '⚠ Retry';
+        if (btn) {
+            btn.disabled  = false;
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';
+        }
     }
 }
 
 // ============================================
 // MODAL FUNCTIONS
 // ============================================
+// ============================================
+// KITCHEN ITEMS MODAL
+// ============================================
+function buildItemCardHTML(item, orderStatus) {
+    const userRole  = window.userRole || '';
+    const canUpdate = (userRole === 'kitchen' || userRole === 'admin');
+    const orderDone = (orderStatus === 'completed' || orderStatus === 'cancelled');
+    const itemStatus = item.item_status || 'pending';
+    const isReady    = itemStatus === 'ready';
+
+    const statusConfig = {
+        pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
+        preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
+        ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
+    };
+    const sc = statusConfig[itemStatus] || statusConfig.pending;
+
+    const badge = `<span class="item-status-badge ${sc.cls}">
+        <i class="fas ${sc.icon}"></i> ${sc.label}
+    </span>`;
+
+    let actionBtn = '';
+    if (canUpdate && !orderDone && !isReady) {
+        const nextStatus = itemStatus === 'pending' ? 'preparing' : 'ready';
+        const btnConfig  = itemStatus === 'pending'
+            ? { label: 'Start Cooking', icon: 'fa-play',  cls: 'item-action-start' }
+            : { label: 'Mark Ready',    icon: 'fa-check', cls: 'item-action-ready' };
+        actionBtn = `<button type="button"
+                             class="item-status-btn ${btnConfig.cls}"
+                             data-order-item-id="${item.order_item_id}"
+                             data-next-status="${nextStatus}">
+                         <i class="fas ${btnConfig.icon}"></i>
+                         <span>${btnConfig.label}</span>
+                     </button>`;
+    }
+
+    const addonsHTML = (item.addons && item.addons.length > 0)
+        ? `<div class="item-addons">
+               <span class="item-addons-label">Add-ons:</span>
+               ${item.addons.map(a =>
+                   `<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>`
+               ).join('')}
+           </div>`
+        : '';
+
+    const noteHTML = (item.item_notes && item.item_notes.trim())
+        ? `<div class="item-card-note-inline">
+               <span class="item-card-note-label">Note:</span>
+               <span class="item-card-note-text">${escapeHtml(item.item_notes)}</span>
+           </div>`
+        : '';
+
+    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}" data-item-notes="${escapeHtml(item.item_notes || '')}" data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
+                <div class="item-card-header">
+                    <div class="item-card-name">
+                        <span class="item-name-text">${escapeHtml(item.item_name)}</span>
+                        <span class="item-qty-badge">×${item.quantity || 1}</span>
+                    </div>
+                    <div class="item-card-right">
+                        ${badge}
+                        ${actionBtn}
+                    </div>
+                </div>
+                ${addonsHTML}
+                ${noteHTML}
+            </div>`;
+}
+
+function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
+    const modal = document.getElementById('kitchenItemsModal');
+    if (!modal || !kitchenItemsModal) return;
+
+    const orderIdStr = String(orderId);
+    modal.setAttribute('data-open-order-id', orderIdStr);
+
+    // Show from cache immediately if available (cache uses string keys)
+    const cached = currentOrdersCache[orderIdStr] || currentOrdersCache[orderId];
+    if (cached) {
+        showKitchenItemsModal(orderId, orderNumber, cached.status || orderStatus, cached);
+    } else {
+        // Show loading spinner while we fetch
+        const bodyEl = document.getElementById('kitchenModalBody');
+        if (bodyEl) bodyEl.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <div class="spinner-border spinner-border-sm mb-2" style="color:var(--primary);" role="status"></div>
+                <p class="mb-0" style="font-size:0.85rem;">Loading…</p>
+            </div>`;
+        kitchenItemsModal.show();
+    }
+
+    // Always fetch fresh from get_orders.php using order number as search
+    // so modal reflects true current state, not stale cache
+    fetch(`${AJAX_URL}?limit=1&offset=0&status=all&search=${encodeURIComponent(orderNumber)}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const freshOrder = (data.data || []).find(o => String(o.order_id) === orderIdStr);
+            if (!freshOrder) return;
+
+            // Update cache with fresh data
+            currentOrdersCache[orderIdStr] = freshOrder;
+
+            // Re-render modal only if still open for this order
+            const openModal = document.getElementById('kitchenItemsModal');
+            if (openModal && openModal.classList.contains('show') &&
+                openModal.getAttribute('data-open-order-id') === orderIdStr) {
+                showKitchenItemsModal(orderId, orderNumber, freshOrder.status, freshOrder);
+            }
+        })
+        .catch(() => {}); // Silently fail — already showing from cache above
+}
+
+
+
+function showKitchenItemsModal(orderId, orderNumber, orderStatus, orderData) {
+    const modal = document.getElementById('kitchenItemsModal');
+    if (!modal || !kitchenItemsModal) return;
+
+    modal.setAttribute('data-open-order-id', orderId);
+
+    // Header
+    const headerEl = document.getElementById('kitchenModalHeader');
+    if (headerEl) {
+        const statusCfg = {
+            pending:   { color: '#f59e0b', label: 'Pending'   },
+            preparing: { color: '#3b82f6', label: 'Preparing' },
+            ready:     { color: '#10b981', label: 'Ready'     },
+            completed: { color: '#2c7a5a', label: 'Completed' },
+            cancelled: { color: '#d64045', label: 'Cancelled' },
+        };
+        const sc = statusCfg[orderStatus] || statusCfg.pending;
+        headerEl.innerHTML = `
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);
+                            display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:700;color:white;">Order #${escapeHtml(orderNumber)}</div>
+                    <div style="font-size:0.78rem;opacity:0.75;color:white;">${(orderData.items || []).length} item${(orderData.items || []).length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${orderData.order_type === 'dine_in' ? 'Dine In' : orderData.order_type === 'takeout' ? 'Takeout' : '—'}</div>
+                </div>
+            </div>
+            <div style="margin-left:auto;">
+                <span class="kitchen-modal-status-pill kitchen-modal-status-${orderStatus}">${capitalize(orderStatus)}</span>
+            </div>`;
+    }
+
+    // Items body + notes section
+    const bodyEl = document.getElementById('kitchenModalBody');
+    if (bodyEl) {
+        const items = orderData.items || [];
+        bodyEl.innerHTML = items.length
+            ? '<div class="kitchen-modal-items">' + items.map(item => buildItemCardHTML(item, orderStatus)).join('') + '</div>'
+            : '<p class="text-muted text-center py-3">No items found.</p>';
+    }
+
+    kitchenItemsModal.show();
+}
+
+function patchKitchenItemsModal(order) {
+    const modal  = document.getElementById('kitchenItemsModal');
+    const bodyEl = document.getElementById('kitchenModalBody');
+    if (!modal || !bodyEl || !order.items) return;
+
+    const orderStatus = order.status || 'pending';
+
+    // Full re-render of items — guarantees colors and buttons are always correct
+    bodyEl.innerHTML = '<div class="kitchen-modal-items">' +
+        order.items.map(item => buildItemCardHTML(item, orderStatus)).join('') +
+        '</div>';
+
+    // Update modal status pill
+    const headerEl = document.getElementById('kitchenModalHeader');
+    if (headerEl) {
+        const pill = headerEl.querySelector('.kitchen-modal-status-pill');
+        if (pill) {
+            pill.className   = `kitchen-modal-status-pill kitchen-modal-status-${orderStatus}`;
+            pill.textContent = capitalize(orderStatus);
+        }
+    }
+}
+
 function showPaymentModal(orderId, orderNumber, orderTotal) {
     if (!paymentModal) return;
     currentOrderTotal = parseFloat(orderTotal) || 0;
-    document.getElementById('paymentOrderNumber').textContent  = orderNumber || '';
-    document.getElementById('paymentTotalAmount').textContent  = currentOrderTotal.toFixed(2);
-    document.getElementById('paymentOrderId').value            = orderId || '';
-    document.getElementById('amountPaid').value                = '';
-    document.getElementById('changeAlert').style.display       = 'none';
-    document.getElementById('insufficientAlert').style.display = 'none';
-    document.getElementById('confirmPaymentBtn').disabled      = true;
+    document.getElementById('paymentOrderNumber').textContent = orderNumber || '';
+    document.getElementById('paymentTotalAmount').textContent = currentOrderTotal.toFixed(2);
+    document.getElementById('paymentOrderId').value           = orderId || '';
+    document.getElementById('amountPaid').value               = '';
+    document.getElementById('changeAmountHidden').value       = '0';
+    document.getElementById('changeAlert')?.classList.add('pm-hidden');
+    document.getElementById('insufficientAlert')?.classList.add('pm-hidden');
+    document.getElementById('confirmPaymentBtn').disabled     = true;
     paymentModal.show();
 }
 
@@ -661,6 +857,10 @@ function populateOrderDetailsModal(order, items, payment) {
     const set     = (id, val)  => { const el = document.getElementById(id); if (el) el.textContent = val; };
     const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML  = html; };
 
+    // Header order number
+    const numEl = document.getElementById('detailOrderNumber');
+    if (numEl) numEl.textContent = '#' + (order.order_number || '');
+
     set('detailCustomer', order.customer_name || 'Walk-in');
     if (order.created_at) {
         set('detailDate', new Date(order.created_at).toLocaleString('en-PH', {
@@ -674,47 +874,50 @@ function populateOrderDetailsModal(order, items, payment) {
     const tableWrap = document.getElementById('detailTableWrap');
     const tableEl   = document.getElementById('detailTable');
     if (order.table_number) {
-        if (tableEl)   tableEl.textContent     = 'Table ' + order.table_number;
+        if (tableEl)   tableEl.innerHTML    = `<span class="table-number-badge"><i class="fas fa-chair"></i> Table ${escapeHtml(order.table_number)}</span>`;
         if (tableWrap) tableWrap.style.display = '';
     } else {
         if (tableWrap) tableWrap.style.display = 'none';
     }
 
+    // Items table
     const itemsBody = document.getElementById('detailItemsBody');
     if (itemsBody) {
         itemsBody.innerHTML = '';
         items.forEach(item => {
             const itemSubtotal = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)).toFixed(2);
             const notePill = (item.item_notes && item.item_notes.trim())
-                ? `<div class="detail-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>`
+                ? `<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>`
                 : '';
             const tr = document.createElement('tr');
-            tr.style.borderBottom = '1px solid #edf2f7';
+            tr.className = 'od-item-row';
             tr.innerHTML = `
-                <td style="padding:.85rem 1rem;vertical-align:top;">
-                    <span style="font-weight:600;color:var(--navy);">${escapeHtml(item.item_name)}</span>
+                <td class="od-td od-td-item">
+                    <span class="od-item-name">${escapeHtml(item.item_name)}</span>
                     ${notePill}
                 </td>
-                <td style="padding:.85rem 1rem;text-align:center;color:var(--warm-gray);">${item.quantity || 1}</td>
-                <td style="padding:.85rem 1rem;text-align:right;color:var(--warm-gray);">₱${formatPrice(item.unit_price)}</td>
-                <td style="padding:.85rem 1rem;text-align:right;font-weight:700;color:var(--success);">₱${itemSubtotal}</td>`;
+                <td class="od-td od-td-center">${item.quantity || 1}</td>
+                <td class="od-td od-td-right od-muted">₱${formatPrice(item.unit_price)}</td>
+                <td class="od-td od-td-right od-item-subtotal">₱${itemSubtotal}</td>`;
             itemsBody.appendChild(tr);
 
             (item.addons || []).forEach(addon => {
                 const addonSubtotal = (parseFloat(addon.unit_price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
                 const addonTr = document.createElement('tr');
+                addonTr.className = 'od-addon-row';
                 addonTr.innerHTML = `
-                    <td style="padding:.5rem 1rem .5rem 2rem;border-bottom:1px dashed #edf2f7;color:var(--warm-gray);font-size:.82rem;">
-                        <i class="fas fa-level-up-alt fa-rotate-90 me-1"></i>${escapeHtml(addon.addon_name)}
+                    <td class="od-td od-td-addon">
+                        <i class="fas fa-corner-down-right od-addon-icon"></i>${escapeHtml(addon.addon_name)}
                     </td>
-                    <td style="padding:.5rem 1rem;border-bottom:1px dashed #edf2f7;text-align:center;color:var(--warm-gray);font-size:.82rem;">${addon.quantity || 1}</td>
-                    <td style="padding:.5rem 1rem;border-bottom:1px dashed #edf2f7;text-align:right;color:var(--warm-gray);font-size:.82rem;">₱${formatPrice(addon.unit_price)}</td>
-                    <td style="padding:.5rem 1rem;border-bottom:1px dashed #edf2f7;text-align:right;color:var(--warm-gray);font-size:.82rem;">₱${addonSubtotal}</td>`;
+                    <td class="od-td od-td-center od-muted">${addon.quantity || 1}</td>
+                    <td class="od-td od-td-right od-muted">₱${formatPrice(addon.unit_price)}</td>
+                    <td class="od-td od-td-right od-muted">₱${addonSubtotal}</td>`;
                 itemsBody.appendChild(addonTr);
             });
         });
     }
 
+    // Totals
     const total    = parseFloat(order.total_amount || 0);
     const subtotal = total / 1.12;
     const vat      = total - subtotal;
@@ -722,6 +925,13 @@ function populateOrderDetailsModal(order, items, payment) {
     set('detailVat',      vat.toFixed(2));
     set('detailTotal',    total.toFixed(2));
 
+    // Total color — green if paid, red otherwise
+    const totalDisplay = document.getElementById('detailTotalDisplay');
+    if (totalDisplay) {
+        totalDisplay.style.color = order.status === 'completed' ? 'var(--success)' : 'var(--danger)';
+    }
+
+    // Payment section
     const paySection = document.getElementById('detailPaymentSection');
     if (paySection) {
         if (payment && order.status === 'completed') {
@@ -788,6 +998,16 @@ function setupEventListeners() {
     });
 
     document.addEventListener('click', function (e) {
+        if (e.target.closest('.items-manage-btn')) {
+            const btn = e.target.closest('.items-manage-btn');
+            const row = btn.closest('tr');
+            if (!row) return;
+            const orderId     = row.getAttribute('data-order-id');
+            const orderNumber = row.getAttribute('data-order-number');
+            const orderStatus = row.getAttribute('data-status');
+            openKitchenItemsModal(orderId, orderNumber, orderStatus);
+        }
+
         if (e.target.closest('.view-order-btn')) {
             const btn = e.target.closest('.view-order-btn');
             viewOrderDetails(btn.dataset.orderId, btn.dataset.orderNumber);
@@ -803,8 +1023,10 @@ function setupEventListeners() {
             showCancelOrderModal(btn.dataset.orderId, btn.dataset.orderNumber);
         }
 
+        // Item status button — fire directly, no modal
         if (e.target.closest('.item-status-btn')) {
             const btn        = e.target.closest('.item-status-btn');
+            if (btn.disabled) return;
             const itemId     = btn.getAttribute('data-order-item-id');
             const nextStatus = btn.getAttribute('data-next-status');
             updateItemStatus(itemId, nextStatus, btn);
@@ -819,17 +1041,21 @@ function setupEventListeners() {
             const insufAlert  = document.getElementById('insufficientAlert');
             const confirmBtn  = document.getElementById('confirmPaymentBtn');
 
-            if (amount >= currentOrderTotal) {
+            if (amount >= currentOrderTotal && amount > 0) {
                 const change = amount - currentOrderTotal;
-                document.getElementById('changeAmount').textContent = change.toFixed(2);
-                document.getElementById('changeAmountHidden').value = change.toFixed(2);
-                if (changeAlert) changeAlert.style.display = 'flex';
-                if (insufAlert)  insufAlert.style.display  = 'none';
-                if (confirmBtn)  confirmBtn.disabled       = false;
+                document.getElementById('changeAmount').textContent      = change.toFixed(2);
+                document.getElementById('changeAmountHidden').value      = change.toFixed(2);
+                changeAlert?.classList.remove('pm-hidden');
+                insufAlert?.classList.add('pm-hidden');
+                if (confirmBtn) confirmBtn.disabled = false;
             } else {
-                if (changeAlert) changeAlert.style.display = 'none';
-                if (insufAlert)  insufAlert.style.display  = 'flex';
-                if (confirmBtn)  confirmBtn.disabled       = true;
+                changeAlert?.classList.add('pm-hidden');
+                if (amount > 0) {
+                    insufAlert?.classList.remove('pm-hidden');
+                } else {
+                    insufAlert?.classList.add('pm-hidden');
+                }
+                if (confirmBtn) confirmBtn.disabled = true;
             }
         });
     }
@@ -888,4 +1114,4 @@ window.refreshOrders    = refreshOrders;
 window.startAutoRefresh = startAutoRefresh;
 window.stopAutoRefresh  = stopAutoRefresh;
 
-console.log('✅ Orders management script loaded (item-level tracking)');
+console.log('✅ Orders management script loaded (item-level tracking + kitchen confirm UX)');

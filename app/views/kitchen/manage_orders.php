@@ -134,15 +134,15 @@
                             <span class="filter-count">0</span>
                         </button>
                         <button class="filter-tab" data-status="pending">
-                            <i class="fas fa-clock me-1"></i> Pending
+                            <i class="fas fa-hourglass-half me-1"></i> Pending
                             <span class="filter-count">0</span>
                         </button>
                         <button class="filter-tab" data-status="preparing">
-                            <i class="fas fa-fire-burner me-1"></i> Preparing
+                            <i class="fas fa-bowl-food me-1"></i> Preparing
                             <span class="filter-count">0</span>
                         </button>
                         <button class="filter-tab" data-status="ready">
-                            <i class="fas fa-bell me-1"></i> Ready
+                            <i class="fas fa-circle-check me-1"></i> Ready
                             <span class="filter-count">0</span>
                         </button>
                         <button class="filter-tab" data-status="completed">
@@ -183,7 +183,6 @@
                             <th>Customer</th>
                             <th>Order Type</th>
                             <th>Items</th>
-                            <th>Notes</th>
                             <th>Subtotal</th>
                             <th>Total</th>
                             <th>Status</th>
@@ -209,79 +208,86 @@
 
 <!-- PAYMENT MODAL -->
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="paymentModalLabel">
-                    <i class="fas fa-cash-register me-2" style="color:var(--secondary);"></i>
-                    Process Payment
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" action="" id="paymentForm">
-                <div class="modal-body">
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-2">Order Number</h6>
-                            <h4 class="order-number mb-0">#<span id="paymentOrderNumber"></span></h4>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <h6 class="text-muted mb-2">Total Amount</h6>
-                            <h3 class="price mb-0">₱<span id="paymentTotalAmount">0.00</span></h3>
-                        </div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content pm-modal-content">
+
+            <div class="pm-header">
+                <div class="pm-header-left">
+                    <div class="pm-header-icon"><i class="fas fa-cash-register"></i></div>
+                    <div>
+                        <div class="pm-header-title">Process Payment</div>
+                        <div class="pm-header-sub">Order #<span id="paymentOrderNumber"></span></div>
                     </div>
-                    <hr class="my-4">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="paymentMethod" class="form-label fw-semibold">
-                                <i class="fas fa-money-bill-wave me-1"></i> Payment Method
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form method="POST" action="" id="paymentForm">
+                <div class="modal-body pm-body">
+
+                    <!-- Total due -->
+                    <div class="pm-total-row">
+                        <span class="pm-total-label">Total Due</span>
+                        <span class="pm-total-amount">₱<span id="paymentTotalAmount">0.00</span></span>
+                    </div>
+
+                    <!-- Payment method + amount -->
+                    <div class="pm-fields">
+                        <div class="pm-field">
+                            <label class="pm-label" for="paymentMethod">
+                                <i class="fas fa-money-bill-wave"></i> Payment Method
                             </label>
                             <select class="form-select" id="paymentMethod" name="payment_method" required>
                                 <option value="cash" selected>Cash</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label for="amountPaid" class="form-label fw-semibold">
-                                <i class="fas fa-hand-holding-usd me-1"></i>
-                                Amount Paid <span class="text-danger">*</span>
+                        <div class="pm-field">
+                            <label class="pm-label" for="amountPaid">
+                                <i class="fas fa-coins"></i> Amount Received
                             </label>
                             <div class="input-group">
                                 <span class="input-group-text">₱</span>
                                 <input type="number" class="form-control" id="amountPaid"
                                        name="amount_paid" step="0.01" min="0"
-                                       required placeholder="0.00">
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <div class="alert alert-info d-flex align-items-center"
-                                 id="changeAlert" style="display:none !important;" role="alert">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <div>
-                                    <strong>Change to return:</strong> ₱<span id="changeAmount">0.00</span>
-                                </div>
-                            </div>
-                            <div class="alert alert-danger d-flex align-items-center"
-                                 id="insufficientAlert" style="display:none !important;" role="alert">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <div>
-                                    <strong>Insufficient amount!</strong>
-                                    Please enter an amount ≥ the total.
-                                </div>
+                                       required placeholder="0.00" autocomplete="off">
                             </div>
                         </div>
                     </div>
+
+                    <!-- Change / insufficient — toggled via JS classes -->
+                    <div class="pm-feedback pm-feedback-change pm-hidden" id="changeAlert" role="alert">
+                        <div class="pm-feedback-icon pm-feedback-icon-change">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <div class="pm-feedback-label">Change to return</div>
+                            <div class="pm-feedback-amount">₱<span id="changeAmount">0.00</span></div>
+                        </div>
+                    </div>
+
+                    <div class="pm-feedback pm-feedback-warn pm-hidden" id="insufficientAlert" role="alert">
+                        <div class="pm-feedback-icon pm-feedback-icon-warn">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <div class="pm-feedback-label">Insufficient amount</div>
+                            <div class="pm-feedback-sub">Enter an amount equal to or greater than the total.</div>
+                        </div>
+                    </div>
+
                     <input type="hidden" name="order_id"      id="paymentOrderId">
                     <input type="hidden" name="status"        value="completed">
                     <input type="hidden" name="change_amount" id="changeAmountHidden">
                 </div>
-                <div class="modal-footer">
+
+                <div class="modal-footer pm-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-1"></i> Cancel
                     </button>
                     <button type="submit" name="update_status" class="btn btn-primary"
                             id="confirmPaymentBtn" disabled>
                         <i class="fas fa-check-circle me-1"></i>
-                        Confirm Payment & Complete Order
+                        Confirm & Complete
                     </button>
                 </div>
             </form>
@@ -327,121 +333,150 @@
 </div>
 
 
+
+<!-- KITCHEN ITEMS MODAL -->
+<div class="modal fade" id="kitchenItemsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:24px;border:none;overflow:hidden;">
+            <!-- Dynamic header populated by JS -->
+            <div class="modal-header kitchen-modal-header" id="kitchenModalHeader"
+                 style="background:var(--primary);color:white;padding:1.2rem 1.6rem;
+                        border-bottom:none;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            </div>
+            <div class="modal-body" style="padding:1.4rem 1.6rem;max-height:65vh;overflow-y:auto;">
+                <div id="kitchenModalBody">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:1rem 1.6rem;border-top:1px solid var(--border);">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <!-- ORDER DETAILS MODAL -->
 <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content"
-             style="border-radius:28px;border:none;box-shadow:0 25px 50px rgba(0,0,0,0.15);">
+        <div class="modal-content od-modal-content">
 
-            <div class="modal-header"
-                 style="background:var(--primary);color:white;padding:1.5rem 1.8rem;border-radius:28px 28px 0 0;border-bottom:none;">
-                <h5 class="modal-title d-flex align-items-center gap-2"
-                    style="color:white;font-size:1.2rem;font-weight:700;">
-                    <i class="fas fa-receipt"></i>
-                    Order Details — <span style="font-size:0.95rem;" id="detailOrderNumber"></span>
-                </h5>
+            <!-- Header -->
+            <div class="od-header">
+                <div class="od-header-left">
+                    <div class="od-header-icon"><i class="fas fa-receipt"></i></div>
+                    <div>
+                        <div class="od-header-title">Order Details</div>
+                        <div class="od-header-sub" id="detailOrderNumber">—</div>
+                    </div>
+                </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
             <div class="modal-body p-0">
+
+                <!-- Loader -->
                 <div id="orderDetailsLoader" class="text-center py-5">
-                    <div class="spinner-border" style="color:var(--primary);width:2.5rem;height:2.5rem;" role="status">
-                        <span class="visually-hidden">Loading…</span>
-                    </div>
-                    <p class="mt-3 text-muted">Fetching order details…</p>
+                    <div class="spinner-border" style="color:var(--primary);width:2.2rem;height:2.2rem;" role="status"></div>
+                    <p class="mt-3 text-muted mb-0" style="font-size:0.88rem;">Fetching order details…</p>
                 </div>
 
+                <!-- Content -->
                 <div id="orderDetailsContent" style="display:none;">
-                    <div style="background:var(--light-bg);padding:1.4rem 1.8rem;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:1.5rem;">
-                        <div>
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:3px;">Customer</div>
-                            <div style="font-weight:600;color:var(--navy);" id="detailCustomer">—</div>
+
+                    <!-- Meta grid -->
+                    <div class="od-meta-grid">
+                        <div class="od-meta-item">
+                            <div class="od-meta-label">Customer</div>
+                            <div class="od-meta-value" id="detailCustomer">—</div>
                         </div>
-                        <div>
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:3px;">Date &amp; Time</div>
-                            <div style="font-weight:600;color:var(--navy);" id="detailDate">—</div>
+                        <div class="od-meta-item">
+                            <div class="od-meta-label">Date &amp; Time</div>
+                            <div class="od-meta-value" id="detailDate">—</div>
                         </div>
-                        <div>
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:3px;">Cashier</div>
-                            <div style="font-weight:600;color:var(--navy);" id="detailCashier">—</div>
+                        <div class="od-meta-item">
+                            <div class="od-meta-label">Cashier</div>
+                            <div class="od-meta-value" id="detailCashier">—</div>
                         </div>
-                        <div>
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:3px;">Order Type</div>
-                            <div id="detailOrderType">—</div>
+                        <div class="od-meta-item">
+                            <div class="od-meta-label">Order Type</div>
+                            <div class="od-meta-value" id="detailOrderType">—</div>
                         </div>
-                        <div>
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:3px;">Status</div>
-                            <div id="detailStatus">—</div>
+                        <div class="od-meta-item">
+                            <div class="od-meta-label">Status</div>
+                            <div class="od-meta-value" id="detailStatus">—</div>
                         </div>
-                        <div id="detailTableWrap" style="display:none;">
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:3px;">Table</div>
-                            <div style="font-weight:600;color:var(--navy);" id="detailTable">—</div>
+                        <div class="od-meta-item" id="detailTableWrap" style="display:none;">
+                            <div class="od-meta-label">Table</div>
+                            <div class="od-meta-value" id="detailTable">—</div>
                         </div>
                     </div>
 
-                    <div style="padding:1.6rem 1.8rem 0;">
-                        <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--warm-gray);margin-bottom:0.9rem;">
-                            <i class="fas fa-list me-1" style="color:var(--primary);"></i> Order Items
-                        </div>
-                        <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:0.88rem;">
+                    <!-- Items table -->
+                    <div class="od-items-section">
+                        <div class="od-section-label"><i class="fas fa-list me-1"></i> Order Items</div>
+                        <table class="od-items-table">
                             <thead>
                                 <tr>
-                                    <th style="background:#f2f6fc;padding:0.75rem 1rem;text-align:left;color:var(--primary-dark);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid var(--primary-light);">Item</th>
-                                    <th style="background:#f2f6fc;padding:0.75rem 1rem;text-align:center;color:var(--primary-dark);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid var(--primary-light);">Qty</th>
-                                    <th style="background:#f2f6fc;padding:0.75rem 1rem;text-align:right;color:var(--primary-dark);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid var(--primary-light);">Unit Price</th>
-                                    <th style="background:#f2f6fc;padding:0.75rem 1rem;text-align:right;color:var(--primary-dark);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid var(--primary-light);">Subtotal</th>
+                                    <th>Item</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody id="detailItemsBody"></tbody>
                         </table>
                     </div>
 
-                    <div style="padding:1.2rem 1.8rem 1.6rem;display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:flex-end;">
-                        <div id="detailPaymentSection"
-                             style="display:none;background:rgba(44,122,90,0.07);border:1px solid rgba(44,122,90,0.18);border-radius:18px;padding:1rem 1.4rem;min-width:200px;">
-                            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--success);margin-bottom:0.6rem;">
-                                <i class="fas fa-money-bill-wave me-1"></i> Payment
+                    <!-- Totals + Payment -->
+                    <div class="od-footer-grid">
+
+                        <!-- Payment info (shown only when completed) -->
+                        <div id="detailPaymentSection" class="od-payment-card" style="display:none;">
+                            <div class="od-payment-title"><i class="fas fa-money-bill-wave me-1"></i> Payment</div>
+                            <div class="od-payment-row">
+                                <span>Method</span>
+                                <span id="detailPayMethod">—</span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.85rem;">
-                                <span style="color:var(--warm-gray);">Method</span>
-                                <span style="font-weight:600;color:var(--navy);" id="detailPayMethod">—</span>
+                            <div class="od-payment-row">
+                                <span>Amount Paid</span>
+                                <span>₱<span id="detailAmountPaid">0.00</span></span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.85rem;">
-                                <span style="color:var(--warm-gray);">Amount Paid</span>
-                                <span style="font-weight:600;color:var(--navy);">₱<span id="detailAmountPaid">0.00</span></span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;font-size:0.85rem;">
-                                <span style="color:var(--warm-gray);">Change</span>
-                                <span style="font-weight:600;color:var(--navy);">₱<span id="detailChange">0.00</span></span>
+                            <div class="od-payment-row">
+                                <span>Change</span>
+                                <span>₱<span id="detailChange">0.00</span></span>
                             </div>
                         </div>
 
-                        <div style="background:var(--light-bg);border:1px solid var(--border);border-radius:18px;padding:1rem 1.4rem;min-width:230px;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.85rem;">
-                                <span style="color:var(--warm-gray);">Subtotal (excl. VAT)</span>
-                                <span style="font-weight:600;color:var(--navy);">₱<span id="detailSubtotal">0.00</span></span>
+                        <!-- Totals breakdown -->
+                        <div class="od-totals-card">
+                            <div class="od-totals-row">
+                                <span>Subtotal (excl. VAT)</span>
+                                <span>₱<span id="detailSubtotal">0.00</span></span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.85rem;">
-                                <span style="color:var(--warm-gray);">VAT (12%)</span>
-                                <span style="font-weight:600;color:var(--navy);">₱<span id="detailVat">0.00</span></span>
+                            <div class="od-totals-row">
+                                <span>VAT (12%)</span>
+                                <span>₱<span id="detailVat">0.00</span></span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid var(--border);font-size:1rem;">
-                                <span style="font-weight:700;color:var(--navy);">Total</span>
-                                <span style="font-weight:700;color:var(--success);font-size:1.1rem;">₱<span id="detailTotal">0.00</span></span>
+                            <div class="od-totals-row od-totals-total">
+                                <span>Total</span>
+                                <span id="detailTotalDisplay">₱<span id="detailTotal">0.00</span></span>
                             </div>
                         </div>
+
                     </div>
                 </div>
 
-                <div id="orderDetailsError"
-                     style="display:none;text-align:center;padding:3rem 1.5rem;color:var(--danger);">
+                <!-- Error -->
+                <div id="orderDetailsError" style="display:none;text-align:center;padding:3rem 1.5rem;color:var(--danger);">
                     <i class="fas fa-exclamation-circle" style="font-size:2.5rem;margin-bottom:0.8rem;display:block;"></i>
                     <p class="fw-semibold mb-0">Failed to load order details. Please try again.</p>
                 </div>
             </div>
 
-            <div class="modal-footer"
-                 style="border-top:1px solid var(--border);padding:1.2rem 1.8rem;border-radius:0 0 28px 28px;">
+            <div class="modal-footer" style="border-top:1px solid var(--border);padding:1.1rem 1.6rem;border-radius:0 0 24px 24px;">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Close
                 </button>
@@ -449,6 +484,7 @@
                     <i class="fas fa-print me-1"></i> Print Receipt
                 </a>
             </div>
+
         </div>
     </div>
 </div>

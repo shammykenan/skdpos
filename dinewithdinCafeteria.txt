@@ -1,12 +1,4 @@
--- =========================
--- DATABASE
--- =========================
-CREATE DATABASE IF NOT EXISTS dinewithdinCafeteria;
-USE dinewithdinCafeteria;
 
--- =========================
--- 1. USERS
--- =========================
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -97,7 +89,7 @@ CREATE TABLE orders (
     subtotal DECIMAL(10,2) NOT NULL,
     discount DECIMAL(10,2) DEFAULT 0.00,
     total_amount DECIMAL(10,2) NOT NULL,
-    status ENUM('pending', 'preparing', 'completed', 'cancelled') 
+    status ENUM('pending', 'preparing','ready', 'completed', 'cancelled') 
         DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
@@ -113,6 +105,7 @@ CREATE TABLE order_items (
     item_id INT NOT NULL,
     quantity INT NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL,
+    item_notes TEXT NULL,
     subtotal DECIMAL(10,2) NOT NULL,
     status ENUM('pending', 'preparing', 'ready') DEFAULT 'pending',
     FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
@@ -160,4 +153,44 @@ CREATE TABLE activity_logs (
     ip_address VARCHAR(45),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+-- =========================
+-- 12. PASSWORD RESETS
+-- =========================
+CREATE TABLE password_resets (
+    reset_id INT AUTO_INCREMENT PRIMARY KEY,
+    
+    user_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    
+    expires_at DATETIME NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    
+    ip_address VARCHAR(45),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_token ON password_resets(token);
+CREATE INDEX idx_user_id ON password_resets(user_id);
+CREATE INDEX idx_ip_created ON password_resets(ip_address, created_at);
+CREATE INDEX idx_expires ON password_resets(expires_at);
+
+-- =========================
+-- 13. LOGIN ATTEMPTS
+-- =========================
+CREATE TABLE login_attempts (
+    attempt_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    ip_address VARCHAR(45) NOT NULL,
+    username VARCHAR(100),
+
+    success BOOLEAN DEFAULT FALSE,
+
+    attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_ip_time (ip_address, attempt_time),
+    INDEX idx_username_time (username, attempt_time)
 );
