@@ -11,44 +11,44 @@ function getAllItems(PDO $pdo) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function getAllItemsWithIngredients(PDO $pdo) {
-    $sql = "SELECT 
-                mi.*, 
-                c.category_name, 
+function getAllItemsWithIngredients(PDO $pdo): array
+{
+    $sql = "SELECT
+                mi.*,
+                c.category_name,
                 GROUP_CONCAT(
-                    CONCAT(i.ingredient_name, ':', IFNULL(r.quantity_required, 0), ':', IFNULL(i.unit, '')) 
-                    ORDER BY i.ingredient_name 
+                    CONCAT(
+                        i.ingredient_name, ':',
+                        IFNULL(r.quantity_required, 0), ':',
+                        IFNULL(u.unit_code, '')
+                    )
+                    ORDER BY i.ingredient_name
                     SEPARATOR '|'
-                ) as recipe_details 
-            FROM menu_items as mi 
-            JOIN categories as c ON mi.category_id = c.category_id 
-            LEFT JOIN recipes as r ON mi.item_id = r.item_id 
-            LEFT JOIN ingredients as i ON r.ingredient_id = i.ingredient_id 
-            GROUP BY mi.item_id, c.category_name 
+                ) AS recipe_details
+            FROM menu_items mi
+            JOIN categories   c  ON mi.category_id    = c.category_id
+            LEFT JOIN recipes  r  ON mi.item_id         = r.item_id
+            LEFT JOIN ingredients i ON r.ingredient_id  = i.ingredient_id
+            LEFT JOIN units    u  ON i.unit_id           = u.unit_id
+            GROUP BY mi.item_id, c.category_name
             ORDER BY mi.item_name";
 
-    $stmt = $pdo->query($sql);
-    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $results = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
-    // Parse recipe_details safely
     foreach ($results as &$item) {
         $item['ingredients_list'] = [];
         if (!empty($item['recipe_details'])) {
-            $ingredients = explode('|', $item['recipe_details']);
-            foreach ($ingredients as $ing) {
+            foreach (explode('|', $item['recipe_details']) as $ing) {
                 $parts = explode(':', $ing);
-                $name = $parts[0] ?? '';
-                $quantity = isset($parts[1]) ? (float)$parts[1] : 0;
-                $unit = $parts[2] ?? ''; // ensures 'unit' always exists
-
                 $item['ingredients_list'][] = [
-                    'name' => $name,
-                    'quantity' => $quantity,
-                    'unit' => $unit
+                    'name'     => $parts[0] ?? '',
+                    'quantity' => isset($parts[1]) ? (float)$parts[1] : 0,
+                    'unit'     => $parts[2] ?? '',  // unit_code e.g. "kg"
                 ];
             }
         }
     }
+    unset($item);
 
     return $results;
 }
@@ -69,16 +69,6 @@ function getTotalSalesByItem(PDO $pdo, $item_id) {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':item_id' => $item_id]);
     return (int)$stmt->fetchColumn();
-}
-function getIngredientsForItem(PDO $pdo, $item_id) {
-    $stmt = $pdo->prepare("
-        SELECT i.ingredient_id, i.ingredient_name, i.stock_quantity, r.quantity_required, i.unit
-        FROM recipes r
-        JOIN ingredients i ON r.ingredient_id = i.ingredient_id
-        WHERE r.item_id = ?
-    ");
-    $stmt->execute([$item_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 function getOrderItems(PDO $pdo, int $order_id): array {
     $stmt = $pdo->prepare("

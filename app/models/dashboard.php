@@ -127,10 +127,12 @@ function getTopSellingItems($pdo, $limit = 5) {
 }
 
 function getLowStockIngredients($pdo, $limit = 3) {
-    $sql = "SELECT ingredient_name, stock_quantity, unit, low_stock_alert
-            FROM ingredients
-            WHERE stock_quantity <= low_stock_alert
-            ORDER BY stock_quantity ASC
+    $sql = "SELECT i.ingredient_name, i.stock_quantity, i.low_stock_alert,
+                   u.unit_code, u.unit_label
+            FROM ingredients i
+            JOIN units u ON i.unit_id = u.unit_id
+            WHERE i.stock_quantity <= i.low_stock_alert
+            ORDER BY i.stock_quantity ASC
             LIMIT :limit";
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -159,8 +161,8 @@ function getSalesByCategory($pdo) {
                    SUM(oi.subtotal) as total_sales,
                    COUNT(oi.quantity) as items_sold
             FROM orders o
-            JOIN order_items oi ON o.order_id   = oi.order_id
-            JOIN menu_items mi  ON oi.item_id   = mi.item_id
+            JOIN order_items oi ON o.order_id    = oi.order_id
+            JOIN menu_items mi  ON oi.item_id    = mi.item_id
             JOIN categories c   ON mi.category_id = c.category_id
             WHERE o.status = 'completed'
             GROUP BY c.category_id, c.category_name

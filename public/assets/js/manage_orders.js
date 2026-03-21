@@ -11,17 +11,17 @@ const PAGE_LIMIT       = 10;
 const AJAX_URL         = '/coffee_shop/app/ajax/get_orders.php';
 const ITEM_STATUS_URL  = '/coffee_shop/app/ajax/update_order_item_status.php';
 
-let currentFilter     = 'all';
-let currentSearch     = '';
-let currentDateFrom   = '';
-let currentDateTo     = '';
+let currentFilter      = 'all';
+let currentSearch      = '';
+let currentDateFrom    = '';
+let currentDateTo      = '';
 let currentCashierView = 'all'; // 'all' = everyone's orders, 'mine' = admin's own only
-let currentPage       = 1;
-let totalPages        = 1;
-let filteredTotal     = 0;
-let isLoading         = false;
-let isRefreshing      = false;
-let refreshTimer      = null;
+let currentPage        = 1;
+let totalPages         = 1;
+let filteredTotal      = 0;
+let isLoading          = false;
+let isRefreshing       = false;
+let refreshTimer       = null;
 let currentOrderTotal  = 0;
 let currentOrdersCache = {}; // orderId -> {items, orderStatus, orderNumber} — kept fresh on every render
 
@@ -139,9 +139,9 @@ function buildURL(offset, limit) {
         status: currentFilter,
         search: currentSearch,
     });
-    if (currentDateFrom)                params.set('date_from',     currentDateFrom);
-    if (currentDateTo)                  params.set('date_to',       currentDateTo);
-    if (currentCashierView === 'mine')  params.set('cashier_view',  'mine');
+    if (currentDateFrom)                params.set('date_from',    currentDateFrom);
+    if (currentDateTo)                  params.set('date_to',      currentDateTo);
+    if (currentCashierView === 'mine')  params.set('cashier_view', 'mine');
     return `${AJAX_URL}?${params}`;
 }
 
@@ -470,17 +470,6 @@ function getOrderItemsHTML(items, orderStatus, orderId) {
     </div>`;
 }
 
-function getOrderNotesHTML(items) {
-    if (!items || items.length === 0) return '<span class="text-muted">—</span>';
-    const notes = items
-        .filter(i => i.item_notes && i.item_notes.trim())
-        .map(i => `<div class="order-item-note">
-            <span class="note-item-label">${escapeHtml(i.item_name)}:</span>
-            <span class="note-item-text">${escapeHtml(i.item_notes)}</span>
-        </div>`).join('');
-    return notes || '<span class="text-muted">—</span>';
-}
-
 function getOrderActionsHTML(order) {
     const userRole  = window.userRole || '';
     const isAdmin   = userRole === 'admin';
@@ -572,8 +561,8 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
             // Update badge
             const badge = itemCard.querySelector('.item-status-badge');
             if (badge) {
-                badge.className   = `item-status-badge ${sc.cls}`;
-                badge.innerHTML   = `<i class="fas ${sc.icon}"></i> ${sc.label}`;
+                badge.className = `item-status-badge ${sc.cls}`;
+                badge.innerHTML = `<i class="fas ${sc.icon}"></i> ${sc.label}`;
             }
 
             // Remove action area if ready
@@ -619,9 +608,6 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
     }
 }
 
-// ============================================
-// MODAL FUNCTIONS
-// ============================================
 // ============================================
 // KITCHEN ITEMS MODAL
 // ============================================
@@ -700,12 +686,11 @@ function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
     const orderIdStr = String(orderId);
     modal.setAttribute('data-open-order-id', orderIdStr);
 
-    // Show from cache immediately if available (cache uses string keys)
+    // Show from cache immediately if available
     const cached = currentOrdersCache[orderIdStr] || currentOrdersCache[orderId];
     if (cached) {
         showKitchenItemsModal(orderId, orderNumber, cached.status || orderStatus, cached);
     } else {
-        // Show loading spinner while we fetch
         const bodyEl = document.getElementById('kitchenModalBody');
         if (bodyEl) bodyEl.innerHTML = `
             <div class="text-center py-4 text-muted">
@@ -715,8 +700,7 @@ function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
         kitchenItemsModal.show();
     }
 
-    // Always fetch fresh from get_orders.php using order number as search
-    // so modal reflects true current state, not stale cache
+    // Always fetch fresh state
     fetch(`${AJAX_URL}?limit=1&offset=0&status=all&search=${encodeURIComponent(orderNumber)}`, {
         headers: { 'Cache-Control': 'no-cache' }
     })
@@ -726,20 +710,16 @@ function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
             const freshOrder = (data.data || []).find(o => String(o.order_id) === orderIdStr);
             if (!freshOrder) return;
 
-            // Update cache with fresh data
             currentOrdersCache[orderIdStr] = freshOrder;
 
-            // Re-render modal only if still open for this order
             const openModal = document.getElementById('kitchenItemsModal');
             if (openModal && openModal.classList.contains('show') &&
                 openModal.getAttribute('data-open-order-id') === orderIdStr) {
                 showKitchenItemsModal(orderId, orderNumber, freshOrder.status, freshOrder);
             }
         })
-        .catch(() => {}); // Silently fail — already showing from cache above
+        .catch(() => {});
 }
-
-
 
 function showKitchenItemsModal(orderId, orderNumber, orderStatus, orderData) {
     const modal = document.getElementById('kitchenItemsModal');
@@ -747,7 +727,6 @@ function showKitchenItemsModal(orderId, orderNumber, orderStatus, orderData) {
 
     modal.setAttribute('data-open-order-id', orderId);
 
-    // Header
     const headerEl = document.getElementById('kitchenModalHeader');
     if (headerEl) {
         const statusCfg = {
@@ -774,7 +753,6 @@ function showKitchenItemsModal(orderId, orderNumber, orderStatus, orderData) {
             </div>`;
     }
 
-    // Items body + notes section
     const bodyEl = document.getElementById('kitchenModalBody');
     if (bodyEl) {
         const items = orderData.items || [];
@@ -793,12 +771,10 @@ function patchKitchenItemsModal(order) {
 
     const orderStatus = order.status || 'pending';
 
-    // Full re-render of items — guarantees colors and buttons are always correct
     bodyEl.innerHTML = '<div class="kitchen-modal-items">' +
         order.items.map(item => buildItemCardHTML(item, orderStatus)).join('') +
         '</div>';
 
-    // Update modal status pill
     const headerEl = document.getElementById('kitchenModalHeader');
     if (headerEl) {
         const pill = headerEl.querySelector('.kitchen-modal-status-pill');
@@ -866,7 +842,6 @@ function populateOrderDetailsModal(order, items, payment) {
     const set     = (id, val)  => { const el = document.getElementById(id); if (el) el.textContent = val; };
     const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML  = html; };
 
-    // Header order number
     const numEl = document.getElementById('detailOrderNumber');
     if (numEl) numEl.textContent = '#' + (order.order_number || '');
 
@@ -889,7 +864,6 @@ function populateOrderDetailsModal(order, items, payment) {
         if (tableWrap) tableWrap.style.display = 'none';
     }
 
-    // Items table
     const itemsBody = document.getElementById('detailItemsBody');
     if (itemsBody) {
         itemsBody.innerHTML = '';
@@ -926,7 +900,6 @@ function populateOrderDetailsModal(order, items, payment) {
         });
     }
 
-    // Totals
     const total    = parseFloat(order.total_amount || 0);
     const subtotal = total / 1.12;
     const vat      = total - subtotal;
@@ -934,13 +907,11 @@ function populateOrderDetailsModal(order, items, payment) {
     set('detailVat',      vat.toFixed(2));
     set('detailTotal',    total.toFixed(2));
 
-    // Total color — green if paid, red otherwise
     const totalDisplay = document.getElementById('detailTotalDisplay');
     if (totalDisplay) {
         totalDisplay.style.color = order.status === 'completed' ? 'var(--success)' : 'var(--danger)';
     }
 
-    // Payment section
     const paySection = document.getElementById('detailPaymentSection');
     if (paySection) {
         if (payment && order.status === 'completed') {
@@ -996,96 +967,149 @@ function setupEventListeners() {
     });
 
     // ── Date filter ──
-    const dateFrom    = document.getElementById('dateFrom');
-    const dateTo      = document.getElementById('dateTo');
-    const btnToday    = document.getElementById('btnToday');
-    const btnYesterday= document.getElementById('btnYesterday');
-    const btnThisWeek = document.getElementById('btnThisWeek');
-    const btnClear    = document.getElementById('btnClearDate');
+    const dateFrom        = document.getElementById('dateFrom');
+    const dateTo          = document.getElementById('dateTo');
+    const btnAll          = document.getElementById('btnAll');
+    const btnToday        = document.getElementById('btnToday');
+    const btnYesterday    = document.getElementById('btnYesterday');
+    const btnThisWeek     = document.getElementById('btnThisWeek');
+    const btnCustom       = document.getElementById('btnCustom');
+    const dateCustomRange = document.getElementById('dateCustomRange');
 
+    // ── Local date helpers (avoids UTC off-by-one bug) ──
     function todayStr(offsetDays = 0) {
         const d = new Date();
         d.setDate(d.getDate() + offsetDays);
-        return d.toISOString().split('T')[0];
+        const yyyy = d.getFullYear();
+        const mm   = String(d.getMonth() + 1).padStart(2, '0');
+        const dd   = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
     }
 
-    // Set max on both inputs to today — prevents future dates
+    function toLocalStr(dateObj) {
+        const yyyy = dateObj.getFullYear();
+        const mm   = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd   = String(dateObj.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
     const today = todayStr();
     if (dateFrom) dateFrom.max = today;
     if (dateTo)   dateTo.max   = today;
 
-    function applyDateFilter() {
+    // ── Shortcut active state management ──
+    const allShortcutBtns = [btnAll, btnToday, btnYesterday, btnThisWeek, btnCustom];
+
+    function setActiveShortcut(name) {
+        allShortcutBtns.forEach(btn => { if (btn) btn.classList.remove('active'); });
+        const map = {
+            all:       btnAll,
+            today:     btnToday,
+            yesterday: btnYesterday,
+            week:      btnThisWeek,
+            custom:    btnCustom,
+        };
+        if (map[name]) map[name].classList.add('active');
+
+        // Show custom pickers only when Custom is selected
+        if (dateCustomRange) {
+            dateCustomRange.style.display = name === 'custom' ? 'flex' : 'none';
+        }
+    }
+
+    // ── Custom date range input handler ──
+    function applyCustomDateFilter() {
         const from = dateFrom?.value || '';
         const to   = dateTo?.value   || '';
 
-        // Auto-correct overlap: if from > to, snap the other input
+        // Auto-correct overlap
         if (from && to && from > to) {
-            // Whichever was just changed caused the conflict — fix the other
             if (document.activeElement === dateFrom) {
-                // User changed From to something after To → push To forward
                 if (dateTo) dateTo.value = from;
             } else {
-                // User changed To to something before From → pull From back
                 if (dateFrom) dateFrom.value = to;
             }
         }
 
-        // Re-read after corrections
         currentDateFrom = dateFrom?.value || '';
         currentDateTo   = dateTo?.value   || '';
 
-        // Keep min/max in sync so the calendar itself blocks invalid picks
-        if (dateFrom && currentDateTo)   dateFrom.max = currentDateTo;
-        if (dateTo   && currentDateFrom) dateTo.min   = currentDateFrom;
-
-        // Reset bounds that no longer apply
+        // Keep min/max in sync so calendar blocks invalid picks
+        if (dateFrom && currentDateTo)    dateFrom.max = currentDateTo;
+        if (dateTo   && currentDateFrom)  dateTo.min   = currentDateFrom;
         if (dateFrom && !currentDateTo)   dateFrom.max = today;
         if (dateTo   && !currentDateFrom) dateTo.min   = '';
 
-        const hasDate = currentDateFrom || currentDateTo;
-        if (btnClear) btnClear.style.display = hasDate ? '' : 'none';
         loadPage(1);
     }
 
-    dateFrom?.addEventListener('change', applyDateFilter);
-    dateTo?.addEventListener('change',   applyDateFilter);
+    dateFrom?.addEventListener('change', applyCustomDateFilter);
+    dateTo?.addEventListener('change',   applyCustomDateFilter);
 
-    btnToday?.addEventListener('click', () => {
-        if (dateFrom) { dateFrom.value = today; dateFrom.max = today; dateFrom.min = ''; }
-        if (dateTo)   { dateTo.value   = today; dateTo.max   = today; dateTo.min   = today; }
-        applyDateFilter();
-    });
-
-    btnYesterday?.addEventListener('click', () => {
-        const y = todayStr(-1);
-        if (dateFrom) { dateFrom.value = y; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = y; dateTo.min   = y;  dateTo.max   = today; }
-        applyDateFilter();
-    });
-
-    btnThisWeek?.addEventListener('click', () => {
-        const now = new Date();
-        const day = now.getDay();
-        const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
-        // Cap end of week at today so "this week" never goes into future
-        const endOfWeek = new Date(mon); endOfWeek.setDate(mon.getDate() + 6);
-        const sun = endOfWeek > now ? now : endOfWeek;
-        const monStr = mon.toISOString().split('T')[0];
-        const sunStr = sun.toISOString().split('T')[0];
-        if (dateFrom) { dateFrom.value = monStr; dateFrom.min = ''; dateFrom.max = sunStr; }
-        if (dateTo)   { dateTo.value   = sunStr; dateTo.min   = monStr; dateTo.max = today; }
-        applyDateFilter();
-    });
-
-    btnClear?.addEventListener('click', () => {
-        if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
+    // ── All: clear date filter, show everything ──
+    btnAll?.addEventListener('click', () => {
+        setActiveShortcut('all');
         currentDateFrom = '';
         currentDateTo   = '';
-        btnClear.style.display = 'none';
+        if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
+        if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
         loadPage(1);
     });
 
+    // ── Today ──
+    btnToday?.addEventListener('click', () => {
+        setActiveShortcut('today');
+        currentDateFrom = today;
+        currentDateTo   = today;
+        if (dateFrom) { dateFrom.value = today; dateFrom.min = ''; dateFrom.max = today; }
+        if (dateTo)   { dateTo.value   = today; dateTo.min   = today; dateTo.max  = today; }
+        loadPage(1);
+    });
+
+    // ── Yesterday ──
+    btnYesterday?.addEventListener('click', () => {
+        setActiveShortcut('yesterday');
+        const y = todayStr(-1);
+        currentDateFrom = y;
+        currentDateTo   = y;
+        if (dateFrom) { dateFrom.value = y; dateFrom.min = ''; dateFrom.max = today; }
+        if (dateTo)   { dateTo.value   = y; dateTo.min   = y;  dateTo.max   = today; }
+        loadPage(1);
+    });
+
+    // ── This Week ──
+    btnThisWeek?.addEventListener('click', () => {
+        setActiveShortcut('week');
+        const now = new Date();
+        const day = now.getDay();
+        const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
+        const endOfWeek = new Date(mon); endOfWeek.setDate(mon.getDate() + 6);
+        const sun    = endOfWeek > now ? now : endOfWeek;
+        const monStr = toLocalStr(mon);
+        const sunStr = toLocalStr(sun);
+        currentDateFrom = monStr;
+        currentDateTo   = sunStr;
+        if (dateFrom) { dateFrom.value = monStr; dateFrom.min = ''; dateFrom.max = sunStr; }
+        if (dateTo)   { dateTo.value   = sunStr; dateTo.min   = monStr; dateTo.max = today; }
+        loadPage(1);
+    });
+
+    // ── Custom: reveal pickers, reset range so user picks fresh ──
+    btnCustom?.addEventListener('click', () => {
+        setActiveShortcut('custom');
+        currentDateFrom = '';
+        currentDateTo   = '';
+        if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
+        if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
+        loadPage(1);
+    });
+
+    // ── Default: Today active on page load ──
+    setActiveShortcut('today');
+    currentDateFrom = today;
+    currentDateTo   = today;
+
+    // ── Search ──
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         let debounce;
@@ -1098,6 +1122,7 @@ function setupEventListeners() {
         });
     }
 
+    // ── Status filter tabs ──
     document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.addEventListener('click', function () {
             document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
@@ -1107,6 +1132,7 @@ function setupEventListeners() {
         });
     });
 
+    // ── Delegated click handlers ──
     document.addEventListener('click', function (e) {
         if (e.target.closest('.items-manage-btn')) {
             const btn = e.target.closest('.items-manage-btn');
@@ -1133,7 +1159,6 @@ function setupEventListeners() {
             showCancelOrderModal(btn.dataset.orderId, btn.dataset.orderNumber);
         }
 
-        // Item status button — fire directly, no modal
         if (e.target.closest('.item-status-btn')) {
             const btn        = e.target.closest('.item-status-btn');
             if (btn.disabled) return;
@@ -1143,6 +1168,7 @@ function setupEventListeners() {
         }
     });
 
+    // ── Payment amount input ──
     const amountPaid = document.getElementById('amountPaid');
     if (amountPaid) {
         amountPaid.addEventListener('input', function () {
@@ -1153,8 +1179,8 @@ function setupEventListeners() {
 
             if (amount >= currentOrderTotal && amount > 0) {
                 const change = amount - currentOrderTotal;
-                document.getElementById('changeAmount').textContent      = change.toFixed(2);
-                document.getElementById('changeAmountHidden').value      = change.toFixed(2);
+                document.getElementById('changeAmount').textContent = change.toFixed(2);
+                document.getElementById('changeAmountHidden').value = change.toFixed(2);
                 changeAlert?.classList.remove('pm-hidden');
                 insufAlert?.classList.add('pm-hidden');
                 if (confirmBtn) confirmBtn.disabled = false;
@@ -1170,10 +1196,12 @@ function setupEventListeners() {
         });
     }
 
+    // ── Pause refresh when tab is hidden ──
     document.addEventListener('visibilitychange', () => {
         document.hidden ? stopAutoRefresh() : startAutoRefresh();
     });
 
+    // ── Clean up stray modal backdrops ──
     document.addEventListener('hidden.bs.modal', () => {
         document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
         document.body.classList.remove('modal-open');
@@ -1181,6 +1209,7 @@ function setupEventListeners() {
         document.body.style.paddingRight = '';
     });
 
+    // ── Auto-show + auto-dismiss success/error modals ──
     ['successModal', 'errorModal'].forEach(id => {
         const el = document.getElementById(id);
         if (el && typeof bootstrap !== 'undefined') {
@@ -1224,4 +1253,4 @@ window.refreshOrders    = refreshOrders;
 window.startAutoRefresh = startAutoRefresh;
 window.stopAutoRefresh  = stopAutoRefresh;
 
-console.log('✅ Orders management script loaded (item-level tracking + kitchen confirm UX)');
+console.log('✅ Orders management script loaded (item-level tracking + date shortcuts)');

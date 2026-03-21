@@ -143,16 +143,33 @@
 
             <!-- Date filter row -->
             <div class="date-filter-row">
-                <i class="fas fa-calendar-alt date-filter-icon"></i>
-                <input type="date" class="date-filter-input" id="dateFrom" title="From">
-                <span class="date-filter-sep">—</span>
-                <input type="date" class="date-filter-input" id="dateTo" title="To">
-                <button type="button" class="date-shortcut-btn" id="btnToday">Today</button>
-                <button type="button" class="date-shortcut-btn" id="btnYesterday">Yesterday</button>
-                <button type="button" class="date-shortcut-btn" id="btnThisWeek">This week</button>
-                <button type="button" class="date-clear-btn" id="btnClearDate" style="display:none;">
-                    <i class="fas fa-times"></i> Clear
-                </button>
+
+                <!-- Shortcut pills -->
+                <div class="date-shortcuts-group">
+                    <button type="button" class="date-shortcut-btn" id="btnAll">
+                        <i class="fas fa-th-list me-1"></i> All
+                    </button>
+                    <button type="button" class="date-shortcut-btn" id="btnToday">
+                        <i class="fas fa-calendar-day me-1"></i> Today
+                    </button>
+                    <button type="button" class="date-shortcut-btn" id="btnYesterday">
+                        <i class="fas fa-rotate-left me-1"></i> Yesterday
+                    </button>
+                    <button type="button" class="date-shortcut-btn" id="btnThisWeek">
+                        <i class="fas fa-calendar-week me-1"></i> This Week
+                    </button>
+                    <button type="button" class="date-shortcut-btn" id="btnCustom">
+                        <i class="fas fa-sliders me-1"></i> Custom
+                    </button>
+                </div>
+
+                <!-- Custom date pickers — revealed only when Custom is active -->
+                <div class="date-custom-range" id="dateCustomRange" style="display:none;">
+                    <i class="fas fa-calendar-alt date-filter-icon"></i>
+                    <input type="date" class="date-filter-input" id="dateFrom" title="From">
+                    <span class="date-filter-sep">—</span>
+                    <input type="date" class="date-filter-input" id="dateTo" title="To">
+                </div>
 
                 <?php if (hasRole('admin')): ?>
                 <div class="cashier-view-toggle" id="cashierViewToggle">
@@ -333,7 +350,6 @@
         </div>
     </div>
 </div>
-
 
 
 <!-- KITCHEN ITEMS MODAL -->

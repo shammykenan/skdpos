@@ -421,7 +421,62 @@ body {
     padding: 0.15rem 0.5rem;
     border-radius: 20px;
 }
+/* Date shortcut pills */
+.date-shortcuts-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
 
+.date-shortcut-btn {
+    padding: 0.4rem 0.85rem;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    background: var(--light-bg);
+    color: var(--warm-gray);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.date-shortcut-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--lavender);
+}
+
+.date-shortcut-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    font-weight: 600;
+}
+
+/* Custom range pickers */
+.date-custom-range {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.date-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+}
+.date-shortcut-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    font-weight: 600;
+}
 /* ── TABLE NUMBER BADGE ── */
 .table-number-badge {
     display: inline-flex;
@@ -1399,25 +1454,6 @@ body {
     color: var(--warm-gray);
     font-size: 0.8rem;
     flex-shrink: 0;
-}
-
-.date-shortcut-btn {
-    background: var(--lavender);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 0.3rem 0.8rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--navy);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-}
-
-.date-shortcut-btn:hover {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
 }
 
 .date-clear-btn {

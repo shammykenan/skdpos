@@ -860,7 +860,7 @@
                                                     <span class="badge bg-secondary"><?= htmlspecialchars($a['ingredient_name']) ?></span>
                                                 </td>
                                                 <td data-label="Quantity Used">
-                                                    <strong><?= htmlspecialchars($a['quantity_used']) . ' ' . htmlspecialchars($a['unit']) ?></strong>
+                                                    <strong><?= htmlspecialchars($a['quantity_used']) . ' ' . htmlspecialchars($a['unit_code']) ?></strong>
                                                 </td>
                                                 <td data-label="Status">
                                                     <?php if ($a['is_active']): ?>

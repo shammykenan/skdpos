@@ -300,7 +300,7 @@
                             </td>
                             <td data-label="Qty Required">
                                 <span class="qty-badge">
-                                    <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit']) ?>
+                                    <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
                                 </span>
                             </td>
                             <td data-label="Actions" class="text-end">

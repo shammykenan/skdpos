@@ -4,10 +4,12 @@ require_once __DIR__ . '/../../config/db.php';
 function getAllRecipes(PDO $pdo): array
 {
     $sql = "SELECT r.recipe_id, r.item_id, r.ingredient_id, r.quantity_required,
-                   m.item_name, i.ingredient_name, i.unit
+                   m.item_name, i.ingredient_name,
+                   u.unit_code, u.unit_label
             FROM recipes r
-            JOIN menu_items m ON r.item_id = m.item_id
-            JOIN ingredients i ON r.ingredient_id = i.ingredient_id
+            JOIN menu_items m  ON r.item_id        = m.item_id
+            JOIN ingredients i ON r.ingredient_id  = i.ingredient_id
+            JOIN units u       ON i.unit_id         = u.unit_id
             ORDER BY m.item_name, i.ingredient_name";
     $stmt = $pdo->query($sql);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -21,15 +23,17 @@ function getRecipeById(PDO $pdo, int $recipe_id): ?array
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     return $result ?: null;
 }
-function recipeExists($pdo, $item_id, $ingredient_id, $exclude_recipe_id = null) {
-    $sql = "SELECT COUNT(*) FROM recipes WHERE item_id = ? AND ingredient_id = ?";
+
+function recipeExists(PDO $pdo, int $item_id, int $ingredient_id, ?int $exclude_recipe_id = null): bool
+{
+    $sql    = "SELECT COUNT(*) FROM recipes WHERE item_id = ? AND ingredient_id = ?";
     $params = [$item_id, $ingredient_id];
-    
+
     if ($exclude_recipe_id !== null) {
-        $sql .= " AND recipe_id != ?";
+        $sql     .= " AND recipe_id != ?";
         $params[] = $exclude_recipe_id;
     }
-    
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchColumn() > 0;

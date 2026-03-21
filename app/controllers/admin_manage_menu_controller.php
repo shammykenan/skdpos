@@ -5,7 +5,7 @@ require_once __DIR__ . '/../models/dashboard.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../models/categories.php';
-
+require_once __DIR__ . '/../models/ingredients.php';
 use Dotenv\Dotenv;
 
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../config');
