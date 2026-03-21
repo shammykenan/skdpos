@@ -49,6 +49,10 @@ switch ($page) {
         requireRole(['cashier', 'admin']);
         require_once BASE_PATH . '/app/controllers/pos_controller.php';
         break;
+    case 'manage_tables':
+        requireRole(['cashier', 'admin']);
+        require_once BASE_PATH . '/app/controllers/manage_tables_controller.php';
+        break;
     case 'reports':
         requireRole(['cashier', 'admin']);
         require_once BASE_PATH . '/app/controllers/view_reports_controller.php';

@@ -4,50 +4,41 @@ require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/posHelper.php';
-require_once __DIR__ . '/../models/pos.php';
-require_once __DIR__ . '/../core/addonsHelper.php';   // ← needed for getAddonsForMenuItem()
 require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/tableHelper.php';   // ← NEW
+require_once __DIR__ . '/../models/pos.php';
 
 requireRole(['admin', 'cashier']);
 $baseUrl = $_ENV['BASE_URL'] ?? '';
 
-// -------------------------
-// 1️⃣ Auth check
-// -------------------------
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'cashier'])) {
     $_SESSION['error'] = 'Access denied. Please log in as admin or cashier.';
     header("Location: index.php?page=login");
     exit;
 }
 
-// -------------------------
-// 2️⃣ Load menu items, addons, stock data
-// -------------------------
+// ── Load menu items, addons, stock data ──────────────────────────────────────
 $menu_items = getAllAvailableItems($pdo);
 foreach ($menu_items as &$item) {
     $item['ingredients'] = getIngredientsForItem($pdo, $item['item_id']);
 }
 unset($item);
 
-// ── Build addons_map: only show add-ons whose ingredient exists in the item's recipe ──
 $addons_map = [];
 foreach ($menu_items as $item) {
     $addons_map[(int)$item['item_id']] = getAddonsForMenuItem($pdo, (int)$item['item_id']);
 }
 
-// Build stock_data with full ingredient details for each menu item
 $stock_data = [];
 foreach ($menu_items as $item) {
     $ingredients = getMenuItemIngredientStock($pdo, $item['item_id']);
-
-    $max_qty             = PHP_INT_MAX;
+    $max_qty = PHP_INT_MAX;
     $limiting_ingredient = null;
-
     foreach ($ingredients as $ing) {
         if ($ing['quantity_required'] <= 0) continue;
-        $possible_qty = floor($ing['stock_quantity'] / $ing['quantity_required']);
-        if ($possible_qty < $max_qty) {
-            $max_qty             = $possible_qty;
+        $possible = floor($ing['stock_quantity'] / $ing['quantity_required']);
+        if ($possible < $max_qty) {
+            $max_qty = $possible;
             $limiting_ingredient = [
                 'name'              => $ing['ingredient_name'],
                 'stock'             => $ing['stock_quantity'],
@@ -55,42 +46,60 @@ foreach ($menu_items as $item) {
             ];
         }
     }
-
     $max_qty   = ($max_qty === PHP_INT_MAX || $max_qty < 0) ? 0 : $max_qty;
     $has_stock = $max_qty > 0;
-
     $stock_data[$item['item_id']] = [
         'has_stock'           => $has_stock,
         'max_quantity'        => $max_qty,
         'limiting_ingredient' => $limiting_ingredient,
-        'ingredients'         => $ingredients, // full ingredient rows for JS cumulative check
+        'ingredients'         => $ingredients,
     ];
 }
 
-// Build addon_stock_data with full ingredient details for each addon
 $addon_ids = [];
 foreach ($addons_map as $item_addons) {
-    foreach ($item_addons as $addon) {
-        $addon_ids[] = $addon['addon_id'];
-    }
+    foreach ($item_addons as $addon) { $addon_ids[] = $addon['addon_id']; }
 }
 $addon_ids        = array_unique($addon_ids);
 $addon_stock_data = getAddonsStockInfo($pdo, $addon_ids);
 
-// -------------------------
-// 3️⃣ Handle Order Submission
-// -------------------------
+// ── Load available tables for dropdown ───────────────────────────────────────
+$available_tables = getAvailableTables($pdo);   // ← NEW
+
+// ── Handle order submission ───────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
 
-    $customer_name = isset($_POST['customer_name']) ? trim($_POST['customer_name']) : null;
-    $table_number  = isset($_POST['table_number'])  ? trim($_POST['table_number'])  : null;
-    $order_type    = isset($_POST['order_type'])     ? trim($_POST['order_type'])    : '';
-    $order_source  = isset($_POST['order_source'])   ? trim($_POST['order_source'])  : 'walk_in';
+    $customer_name = trim($_POST['customer_name'] ?? '') ?: null;
+    $order_type    = trim($_POST['order_type']    ?? '');
+    $order_source  = trim($_POST['order_source']  ?? 'walk_in');
+    $cart_data     = json_decode($_POST['cart_data'] ?? '[]', true);
 
-    if ($customer_name === '') $customer_name = null;
-    if ($table_number  === '') $table_number  = null;
+    // ── Table resolution ─────────────────────────────────────────────────────
+    // For dine-in we now use table_id (FK). table_name is stored for display.
+    $table_id     = null;
+    $table_number = null;  // label kept for receipts / legacy columns
 
-    $cart_data = json_decode($_POST['cart_data'] ?? '[]', true);
+    if ($order_type === 'dine_in') {
+        $raw_table_id = (int) ($_POST['table_id'] ?? 0);
+        if ($raw_table_id <= 0) {
+            $_SESSION['error'] = 'Please select a table for dine-in orders.';
+            header("Location: index.php?page=manage_pos");
+            exit;
+        }
+        $tableRow = getTableById($pdo, $raw_table_id);
+        if (!$tableRow) {
+            $_SESSION['error'] = 'Selected table not found.';
+            header("Location: index.php?page=manage_pos");
+            exit;
+        }
+        if ($tableRow['status'] !== 'available') {
+            $_SESSION['error'] = "Table \"{$tableRow['table_name']}\" is already occupied. Please choose another.";
+            header("Location: index.php?page=manage_pos");
+            exit;
+        }
+        $table_id     = $raw_table_id;
+        $table_number = $tableRow['table_name'];  // e.g. "Table 3"
+    }
 
     if (empty($cart_data)) {
         $_SESSION['error'] = 'No items selected.';
@@ -104,19 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         exit;
     }
 
-    if ($order_type === 'dine_in' && empty($table_number)) {
-        $_SESSION['error'] = 'Table number is required for dine-in orders.';
-        header("Location: index.php?page=manage_pos");
-        exit;
-    }
-
-    if ($order_type === 'takeout') {
-        $table_number = null;
-    }
-
-    // =========================================================
-    // 🔎 CUMULATIVE STOCK VALIDATION
-    // =========================================================
+    // ── Cumulative stock validation ───────────────────────────────────────────
     $ingredient_demand = [];
 
     foreach ($cart_data as $cart_item) {
@@ -124,67 +121,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         $item_qty = (int)($cart_item['quantity'] ?? 1);
         if ($item_qty <= 0) continue;
 
-        $item_ingredients = getMenuItemIngredientStock($pdo, $item_id);
-        foreach ($item_ingredients as $ing) {
+        foreach (getMenuItemIngredientStock($pdo, $item_id) as $ing) {
             if ($ing['quantity_required'] <= 0) continue;
-            $ing_id = $ing['ingredient_id'];
-            if (!isset($ingredient_demand[$ing_id])) {
-                $ingredient_demand[$ing_id] = [
-                    'name'      => $ing['ingredient_name'],
-                    'needed'    => 0,
-                    'available' => (float)$ing['stock_quantity'],
-                ];
+            $id = $ing['ingredient_id'];
+            if (!isset($ingredient_demand[$id])) {
+                $ingredient_demand[$id] = ['name' => $ing['ingredient_name'], 'needed' => 0, 'available' => (float)$ing['stock_quantity']];
             }
-            $ingredient_demand[$ing_id]['needed'] += $ing['quantity_required'] * $item_qty;
+            $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $item_qty;
         }
 
-        if (!empty($cart_item['addons'])) {
-            foreach ($cart_item['addons'] as $ad) {
-                $addon_id  = (int)$ad['id'];
-                $addon_qty = (int)($ad['quantity'] ?? 1);
-                if ($addon_qty <= 0) continue;
-
-                $addon_ingredients = getAddonIngredientStock($pdo, $addon_id);
-                foreach ($addon_ingredients as $ing) {
-                    if ($ing['quantity_required'] <= 0) continue;
-                    $ing_id = $ing['ingredient_id'];
-                    if (!isset($ingredient_demand[$ing_id])) {
-                        $ingredient_demand[$ing_id] = [
-                            'name'      => $ing['ingredient_name'],
-                            'needed'    => 0,
-                            'available' => (float)$ing['stock_quantity'],
-                        ];
-                    }
-                    $ingredient_demand[$ing_id]['needed'] += $ing['quantity_required'] * $addon_qty;
+        foreach ($cart_item['addons'] ?? [] as $ad) {
+            $addon_qty = (int)($ad['quantity'] ?? 1);
+            if ($addon_qty <= 0) continue;
+            foreach (getAddonIngredientStock($pdo, (int)$ad['id']) as $ing) {
+                if ($ing['quantity_required'] <= 0) continue;
+                $id = $ing['ingredient_id'];
+                if (!isset($ingredient_demand[$id])) {
+                    $ingredient_demand[$id] = ['name' => $ing['ingredient_name'], 'needed' => 0, 'available' => (float)$ing['stock_quantity']];
                 }
+                $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $addon_qty;
             }
         }
     }
 
-    foreach ($ingredient_demand as $ing_id => $info) {
+    foreach ($ingredient_demand as $info) {
         if ($info['needed'] > $info['available']) {
             $_SESSION['error'] = sprintf(
-                'Insufficient stock: "%s" requires %.2f but only %.2f is available across all items in this order.',
-                $info['name'],
-                $info['needed'],
-                $info['available']
+                'Insufficient stock: "%s" needs %.2f but only %.2f available.',
+                $info['name'], $info['needed'], $info['available']
             );
             header("Location: index.php?page=manage_pos");
             exit;
         }
     }
 
-    // -------------------------
-    // 💰 Compute order totals
-    // -------------------------
+    // ── Compute totals ────────────────────────────────────────────────────────
     $subtotal      = 0;
     $order_details = [];
 
     foreach ($cart_data as $cart_item) {
         $item_id   = $cart_item['id'];
         $item_qty  = (int)($cart_item['quantity'] ?? 1);
-        $item_note = isset($cart_item['note']) ? trim((string)$cart_item['note']) : '';
-        if ($item_note === '') $item_note = null;
+        $item_note = trim((string)($cart_item['note'] ?? '')) ?: null;
         if ($item_qty <= 0) continue;
 
         $item = getMenuItemById($pdo, $item_id);
@@ -192,92 +170,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
 
         $unit_price = $item['price'];
         $line_total = $unit_price * $item_qty;
-
         $addons_for_item = [];
 
-        if (!empty($cart_item['addons']) && !empty($addons_map[$item_id])) {
-            foreach ($cart_item['addons'] as $ad) {
-                $addon_id  = $ad['id'];
-                $addon_qty = (int)($ad['quantity'] ?? 1);
+        foreach ($cart_item['addons'] ?? [] as $ad) {
+            $addon_id   = (int)$ad['id'];
+            $addon_qty  = (int)($ad['quantity'] ?? 1);
+            $addon_data = getAddonById($pdo, $addon_id);
+            if (!$addon_data) continue;
+            if (!in_array($addon_id, array_column($addons_map[$item_id] ?? [], 'addon_id'))) continue;
 
-                $addon_data = getAddonById($pdo, $addon_id);
-                if (!$addon_data) continue;
-
-                // Security check: only allow add-ons that belong to this item's recipe
-                if (!in_array($addon_id, array_column($addons_map[$item_id], 'addon_id'))) {
-                    continue;
-                }
-
-                $addon_total_price = $addon_data['price'] * $addon_qty;
-
-                $addons_for_item[] = [
-                    'addon_id'    => $addon_id,
-                    'quantity'    => $addon_qty,
-                    'price'       => $addon_data['price'],
-                    'total_price' => $addon_total_price,
-                ];
-
-                $line_total += $addon_total_price;
-            }
+            $addon_line = $addon_data['price'] * $addon_qty;
+            $addons_for_item[] = ['addon_id' => $addon_id, 'quantity' => $addon_qty, 'price' => $addon_data['price'], 'total_price' => $addon_line];
+            $line_total += $addon_line;
         }
 
-        $subtotal += $line_total;
-
-        $order_details[] = [
-            'item_id'    => $item_id,
-            'quantity'   => $item_qty,
-            'unit_price' => $unit_price,
-            'line_total' => $line_total,
-            'item_note'  => $item_note,
-            'addons'     => $addons_for_item,
-        ];
+        $subtotal       += $line_total;
+        $order_details[] = ['item_id' => $item_id, 'quantity' => $item_qty, 'unit_price' => $unit_price, 'line_total' => $line_total, 'item_note' => $item_note, 'addons' => $addons_for_item];
     }
 
-    // ============================================================
-    // 💰 ORDER TOTALS
-    // ============================================================
     $discount     = 0;
     $total_amount = $subtotal - $discount;
-    $amount_due   = $total_amount;
 
+    // ── Persist ───────────────────────────────────────────────────────────────
     try {
         $pdo->beginTransaction();
 
+        // createOrder now also calls occupyTable() internally
         $order_id = createOrder(
             $pdo,
             $_SESSION['user_id'],
             $customer_name,
-            $table_number,
+            $table_number,     // display label
             $order_type,
             $order_source,
             $subtotal,
             $discount,
-            $total_amount
+            $total_amount,
+            $table_id          // FK
         );
 
         $stmt = $pdo->prepare("SELECT order_number FROM orders WHERE order_id = ?");
         $stmt->execute([$order_id]);
-        $order        = $stmt->fetch(PDO::FETCH_ASSOC);
-        $order_number = $order['order_number'];
+        $order_number = $stmt->fetchColumn();
 
         foreach ($order_details as $detail) {
-            $order_item_id = createOrderItem(
-                $pdo,
-                $order_id,
-                $detail['item_id'],
-                $detail['quantity'],
-                $detail['unit_price'],
-                $detail['item_note']
-            );
+            $order_item_id = createOrderItem($pdo, $order_id, $detail['item_id'], $detail['quantity'], $detail['unit_price'], $detail['item_note']);
 
             foreach ($detail['addons'] as $ad) {
-                createOrderItemAddon(
-                    $pdo,
-                    $order_item_id,
-                    $ad['addon_id'],
-                    $ad['quantity'],
-                    $ad['price']
-                );
+                createOrderItemAddon($pdo, $order_item_id, $ad['addon_id'], $ad['quantity'], $ad['price']);
             }
 
             deductIngredientsForItem($pdo, $detail['item_id'], $detail['quantity']);
@@ -288,8 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         }
 
         $pdo->commit();
-
-        $_SESSION['success'] = 'Order ' . $order_number . ' submitted successfully.';
+        $_SESSION['success'] = "Order {$order_number} submitted successfully.";
 
     } catch (Exception $e) {
         $pdo->rollBack();

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/tableHelper.php';
 requireRole(['admin', 'cashier', 'kitchen']);
 $baseUrl = $_ENV['BASE_URL'] ?? '';
 
@@ -115,6 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
             SET status = 'cancelled'
             WHERE order_id = ?
         ")->execute([$order_id]);
+
+        // Free the table immediately — customer isn't coming back
+        freeTableByOrderId($pdo, $order_id);
 
         $pdo->commit();
         $_SESSION['success'] = 'Order cancelled and ingredients restored.';

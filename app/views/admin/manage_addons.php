@@ -740,6 +740,7 @@
                     Add-ons
                 </a>
             </div>
+            <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a></div>
             <div class="nav-item">
                 <a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link">
                     <i class="fas fa-users"></i>

@@ -392,7 +392,7 @@ function createOrderRowHTML(order) {
             <td data-label="Customer">
                 <div class="fw-medium" style="color:var(--navy);">${escapeHtml(order.customer_name || 'Walk-in')}</div>
                 <small class="text-muted">${formatDate(order.created_at)}</small>
-                ${order.table_number ? `<div class="table-number-badge"><i class="fas fa-chair"></i> Table ${escapeHtml(order.table_number)}</div>` : ''}
+                ${order.table_number ? `<div class="table-number-badge"><i class="fas fa-chair"></i>${escapeHtml(order.table_number)}</div>` : ''}
             </td>
             <td data-label="Order Type">${getOrderTypeBadge(order.order_type)}</td>
             <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status, order.order_id)}</td>

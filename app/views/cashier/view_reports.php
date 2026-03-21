@@ -272,26 +272,34 @@ $tab_meta = $is_admin ? [
 </div>
 
 <!-- SIDEBAR -->
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="sidebar" id="sidebar">
     <div class="sidebar-nav">
+
+        <?php if (hasRole('admin')): ?>
         <div class="nav-section-title">DASHBOARD</div>
-        <?php if ($is_admin): ?>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a></div>
         <div class="nav-section-title">MANAGEMENT</div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="nav-link"><i class="fas fa-utensils"></i> Menu Items</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="nav-link"><i class="fas fa-tags"></i> Recipes</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link"><i class="fas fa-boxes"></i> Ingredients</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_addons" class="nav-link"><i class="fas fa-plus-circle"></i> Add-ons</a></div>
+        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link"><i class="fas fa-users"></i> User Management</a></div>
         <div class="nav-section-title">SALES</div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link"><i class="fas fa-cash-register"></i> POS System</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a></div>
-        <?php else: ?>
+        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a></div>
+        <?php endif; ?>
+
+        <?php if (hasRole('cashier') && !hasRole('admin')): ?>
+        <div class="nav-section-title">Management</div>
+        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a></div>
+        <div class="nav-section-title">SALES</div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link"><i class="fas fa-cash-register"></i> POS System</a></div>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a></div>
-        <?php endif; ?>
         <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a></div>
+        <?php endif; ?>
+
     </div>
 </div>
 
