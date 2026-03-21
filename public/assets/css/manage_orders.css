@@ -1450,7 +1450,50 @@ body {
     }
 }
 
-/* ── PRICE ── */
+/* ── CASHIER VIEW TOGGLE (admin only) ── */
+.cashier-view-toggle {
+    display: inline-flex;
+    background: var(--lavender);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.cashier-view-btn {
+    background: none;
+    border: none;
+    border-radius: 16px;
+    padding: 0.28rem 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--warm-gray);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+}
+
+.cashier-view-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 2px 6px rgba(15,76,92,0.2);
+}
+
+.cashier-view-btn:not(.active):hover {
+    color: var(--primary);
+    background: rgba(15,76,92,0.06);
+}
+
+@media (max-width: 575.98px) {
+    .cashier-view-toggle { margin-left: 0; width: 100%; justify-content: stretch; }
+    .cashier-view-btn    { flex: 1; justify-content: center; }
+}
+
+
 .price { 
     font-weight: 700; 
     color: var(--success); 

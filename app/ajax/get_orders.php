@@ -10,12 +10,13 @@ try {
     $isAdmin       = hasRole('admin');
     $isKitchen     = hasRole('kitchen');
 
-    $limit     = max(1, (int) ($_GET['limit']     ?? 10));
-    $offset    = max(0, (int) ($_GET['offset']    ?? 0));
-    $status    = $_GET['status']    ?? 'all';
-    $search    = trim($_GET['search']    ?? '');
-    $dateFrom  = trim($_GET['date_from'] ?? '');
-    $dateTo    = trim($_GET['date_to']   ?? '');
+    $limit       = max(1, (int) ($_GET['limit']     ?? 10));
+    $offset      = max(0, (int) ($_GET['offset']    ?? 0));
+    $status      = $_GET['status']       ?? 'all';
+    $search      = trim($_GET['search']       ?? '');
+    $dateFrom    = trim($_GET['date_from']    ?? '');
+    $dateTo      = trim($_GET['date_to']      ?? '');
+    $cashierView = $_GET['cashier_view'] ?? 'all'; // 'mine' = admin sees only their own orders
 
     $validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
 
@@ -23,7 +24,14 @@ try {
     $where  = [];
     $params = [];
 
+    // Non-admin/non-kitchen always restricted to their own orders
     if (!$isAdmin && !$isKitchen) {
+        $where[] = "o.cashier_id = :cashier_id";
+        $params[':cashier_id'] = $currentUserId;
+    }
+
+    // Admin selecting "My Orders" — restrict to their own cashier_id
+    if ($isAdmin && $cashierView === 'mine') {
         $where[] = "o.cashier_id = :cashier_id";
         $params[':cashier_id'] = $currentUserId;
     }
@@ -93,12 +101,24 @@ try {
     $stmt->execute();
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // ── Grand totals per status ────────────────────────────────────────
+    // ── Grand totals per status (respects date + cashier filter) ────────
     $cWhere  = [];
     $cParams = [];
     if (!$isAdmin && !$isKitchen) {
         $cWhere[] = "cashier_id = :cashier_id";
         $cParams[':cashier_id'] = $currentUserId;
+    }
+    if ($isAdmin && $cashierView === 'mine') {
+        $cWhere[] = "cashier_id = :cashier_id";
+        $cParams[':cashier_id'] = $currentUserId;
+    }
+    if ($dateFrom !== '') {
+        $cWhere[] = "DATE(created_at) >= :date_from";
+        $cParams[':date_from'] = $dateFrom;
+    }
+    if ($dateTo !== '') {
+        $cWhere[] = "DATE(created_at) <= :date_to";
+        $cParams[':date_to'] = $dateTo;
     }
     $cWhereSQL    = $cWhere ? 'WHERE ' . implode(' AND ', $cWhere) : '';
     $countAllStmt = $pdo->prepare("SELECT status, COUNT(*) AS cnt FROM orders $cWhereSQL GROUP BY status");

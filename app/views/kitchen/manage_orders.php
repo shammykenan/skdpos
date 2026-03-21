@@ -176,6 +176,17 @@
                 <button type="button" class="date-clear-btn" id="btnClearDate" style="display:none;">
                     <i class="fas fa-times"></i> Clear
                 </button>
+
+                <?php if (hasRole('admin')): ?>
+                <div class="cashier-view-toggle" id="cashierViewToggle">
+                    <button type="button" class="cashier-view-btn active" data-view="all">
+                        <i class="fas fa-users"></i> All Cashiers
+                    </button>
+                    <button type="button" class="cashier-view-btn" data-view="mine">
+                        <i class="fas fa-user"></i> My Orders
+                    </button>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

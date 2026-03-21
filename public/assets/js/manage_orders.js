@@ -15,6 +15,7 @@ let currentFilter     = 'all';
 let currentSearch     = '';
 let currentDateFrom   = '';
 let currentDateTo     = '';
+let currentCashierView = 'all'; // 'all' = everyone's orders, 'mine' = admin's own only
 let currentPage       = 1;
 let totalPages        = 1;
 let filteredTotal     = 0;
@@ -138,8 +139,9 @@ function buildURL(offset, limit) {
         status: currentFilter,
         search: currentSearch,
     });
-    if (currentDateFrom) params.set('date_from', currentDateFrom);
-    if (currentDateTo)   params.set('date_to',   currentDateTo);
+    if (currentDateFrom)                params.set('date_from',     currentDateFrom);
+    if (currentDateTo)                  params.set('date_to',       currentDateTo);
+    if (currentCashierView === 'mine')  params.set('cashier_view',  'mine');
     return `${AJAX_URL}?${params}`;
 }
 
@@ -982,6 +984,16 @@ function setupEventListeners() {
             document.body.style.overflow = '';
         });
     }
+
+    // ── Cashier view toggle (admin only) ──
+    document.querySelectorAll('.cashier-view-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.cashier-view-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentCashierView = this.getAttribute('data-view') || 'all';
+            loadPage(1);
+        });
+    });
 
     // ── Date filter ──
     const dateFrom    = document.getElementById('dateFrom');

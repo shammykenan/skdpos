@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__. '/../../config/db.php';
+
 function getItemSalesStatistics($pdo, $item_id) {
     $sql = "SELECT 
                 COALESCE(SUM(oi.quantity), 0) as total_sold,
@@ -8,83 +9,94 @@ function getItemSalesStatistics($pdo, $item_id) {
             JOIN orders o ON oi.order_id = o.order_id
             WHERE oi.item_id = :item_id
             AND o.status = 'completed'";
-    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':item_id' => $item_id]);
     return $stmt->fetch();
-}   
+}
+
 function getDashboardStats($pdo) {
     $stats = [];
-    
+
     // Total Revenue (Today)
-    $sql = "SELECT COALESCE(SUM(total_amount), 0) as total 
-            FROM orders 
-            WHERE DATE(created_at) = CURDATE() 
-            AND status = 'completed'";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(total_amount), 0) as total
+        FROM orders
+        WHERE DATE(created_at) = CURDATE() AND status = 'completed'
+    ");
     $stmt->execute();
     $stats['today_revenue'] = $stmt->fetch()['total'];
-    
+
     // Total Orders (Today)
-    $sql = "SELECT COUNT(*) as total 
-            FROM orders 
-            WHERE DATE(created_at) = CURDATE()";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as total FROM orders WHERE DATE(created_at) = CURDATE()
+    ");
     $stmt->execute();
     $stats['today_orders'] = $stmt->fetch()['total'];
-    
+
     // Total Customers (Today)
-    $sql = "SELECT COUNT(DISTINCT customer_name) as total 
-            FROM orders 
-            WHERE DATE(created_at) = CURDATE() 
-            AND customer_name IS NOT NULL";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT COUNT(DISTINCT customer_name) as total
+        FROM orders
+        WHERE DATE(created_at) = CURDATE() AND customer_name IS NOT NULL
+    ");
     $stmt->execute();
     $stats['today_customers'] = $stmt->fetch()['total'];
-    
-    // Pending Orders
-    $sql = "SELECT COUNT(*) as total 
-            FROM orders 
-            WHERE status IN ('pending', 'preparing')";
-    $stmt = $pdo->prepare($sql);
+
+    // Active Orders — pending + preparing + ready
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as total FROM orders WHERE status IN ('pending','preparing','ready')
+    ");
     $stmt->execute();
     $stats['pending_orders'] = $stmt->fetch()['total'];
-    
+
+    // Individual active order counts for notification breakdown
+    $stmt = $pdo->prepare("
+        SELECT
+            SUM(status = 'pending')   AS pending_count,
+            SUM(status = 'preparing') AS preparing_count,
+            SUM(status = 'ready')     AS ready_count
+        FROM orders
+        WHERE status IN ('pending','preparing','ready')
+    ");
+    $stmt->execute();
+    $activeCounts = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stats['pending_count']   = (int) ($activeCounts['pending_count']   ?? 0);
+    $stats['preparing_count'] = (int) ($activeCounts['preparing_count'] ?? 0);
+    $stats['ready_count']     = (int) ($activeCounts['ready_count']     ?? 0);
+
     // Total Menu Items
-    $sql = "SELECT COUNT(*) as total FROM menu_items";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM menu_items");
     $stmt->execute();
     $stats['total_items'] = $stmt->fetch()['total'];
-    
+
     // Active Categories
-    $sql = "SELECT COUNT(*) as total FROM categories";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM categories");
     $stmt->execute();
     $stats['total_categories'] = $stmt->fetch()['total'];
-    
+
     // Low Stock Items
-    $sql = "SELECT COUNT(*) as total 
-            FROM ingredients 
-            WHERE stock_quantity <= low_stock_alert";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as total FROM ingredients WHERE stock_quantity <= low_stock_alert
+    ");
     $stmt->execute();
     $stats['low_stock'] = $stmt->fetch()['total'];
-    
+
     // Monthly Revenue
-    $sql = "SELECT COALESCE(SUM(total_amount), 0) as total 
-            FROM orders 
-            WHERE MONTH(created_at) = MONTH(CURDATE()) 
-            AND YEAR(created_at) = YEAR(CURDATE())
-            AND status = 'completed'";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(total_amount), 0) as total
+        FROM orders
+        WHERE MONTH(created_at) = MONTH(CURDATE())
+          AND YEAR(created_at)  = YEAR(CURDATE())
+          AND status = 'completed'
+    ");
     $stmt->execute();
     $stats['monthly_revenue'] = $stmt->fetch()['total'];
-    
+
     return $stats;
 }
 
 function getRecentOrders($pdo, $limit = 10) {
-    $sql = "SELECT o.order_id, o.order_number, o.customer_name, 
+    $sql = "SELECT o.order_id, o.order_number, o.customer_name,
                    o.total_amount, o.status, o.created_at,
                    u.full_name as cashier_name
             FROM orders o
@@ -103,7 +115,7 @@ function getTopSellingItems($pdo, $limit = 5) {
                    SUM(oi.subtotal) as total_revenue
             FROM order_items oi
             JOIN menu_items mi ON oi.item_id = mi.item_id
-            JOIN orders o ON oi.order_id = o.order_id
+            JOIN orders o      ON oi.order_id = o.order_id
             WHERE o.status = 'completed'
             GROUP BY mi.item_id, mi.item_name, mi.price
             ORDER BY total_sold DESC
@@ -115,9 +127,8 @@ function getTopSellingItems($pdo, $limit = 5) {
 }
 
 function getLowStockIngredients($pdo, $limit = 3) {
-    $sql = "SELECT ingredient_name, stock_quantity, 
-                   unit, low_stock_alert
-            FROM ingredients 
+    $sql = "SELECT ingredient_name, stock_quantity, unit, low_stock_alert
+            FROM ingredients
             WHERE stock_quantity <= low_stock_alert
             ORDER BY stock_quantity ASC
             LIMIT :limit";
@@ -133,7 +144,7 @@ function getDailySales($pdo, $days = 7) {
                    SUM(total_amount) as total_sales
             FROM orders
             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
-            AND status = 'completed'
+              AND status = 'completed'
             GROUP BY DATE(created_at)
             ORDER BY date ASC";
     $stmt = $pdo->prepare($sql);
@@ -148,9 +159,9 @@ function getSalesByCategory($pdo) {
                    SUM(oi.subtotal) as total_sales,
                    COUNT(oi.quantity) as items_sold
             FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN menu_items mi ON oi.item_id = mi.item_id
-            JOIN categories c ON mi.category_id = c.category_id
+            JOIN order_items oi ON o.order_id   = oi.order_id
+            JOIN menu_items mi  ON oi.item_id   = mi.item_id
+            JOIN categories c   ON mi.category_id = c.category_id
             WHERE o.status = 'completed'
             GROUP BY c.category_id, c.category_name
             ORDER BY total_sales DESC";
