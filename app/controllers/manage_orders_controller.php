@@ -64,6 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 
         updateOrderStatus($pdo, $order_id, 'completed', date('Y-m-d H:i:s'));
 
+        // Sync item statuses — mark all non-cancelled items as 'ready' (terminal kitchen state)
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'ready'
+            WHERE order_id = ?
+              AND status NOT IN ('ready', 'cancelled')
+        ")->execute([$order_id]);
+
         $pdo->commit();
         $_SESSION['success'] = 'Order completed and payment processed successfully.';
 
@@ -100,6 +108,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
 
         restoreIngredientsForOrder($pdo, $order_id);
         cancelOrder($pdo, $order_id);
+
+        // Sync item statuses — mark all items as 'cancelled'
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'cancelled'
+            WHERE order_id = ?
+        ")->execute([$order_id]);
 
         $pdo->commit();
         $_SESSION['success'] = 'Order cancelled and ingredients restored.';

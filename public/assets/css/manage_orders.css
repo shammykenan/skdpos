@@ -770,6 +770,33 @@ body {
     color: #065f46;
 }
 
+.item-status-completed {
+    background: rgba(44,122,90,0.12);
+    color: var(--success);
+}
+
+.item-status-cancelled {
+    background: rgba(214,64,69,0.08);
+    color: var(--danger);
+}
+
+.item-card-completed {
+    border-color: #6ee7b7;
+    background: #f0fdf6;
+    opacity: 0.8;
+}
+
+.item-card-cancelled {
+    border-color: #fca5a5;
+    background: #fff5f5;
+    opacity: 0.7;
+}
+
+.item-card-cancelled .item-name-text {
+    text-decoration: line-through;
+    color: var(--warm-gray);
+}
+
 /* Item status action buttons */
 .item-status-btn {
     display: inline-flex;

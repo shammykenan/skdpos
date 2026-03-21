@@ -624,14 +624,29 @@ function buildItemCardHTML(item, orderStatus) {
     const canUpdate = (userRole === 'kitchen' || userRole === 'admin');
     const orderDone = (orderStatus === 'completed' || orderStatus === 'cancelled');
     const itemStatus = item.item_status || 'pending';
-    const isReady    = itemStatus === 'ready';
+    const isReady    = itemStatus === 'ready' || itemStatus === 'cancelled';
 
     const statusConfig = {
         pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
         preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
         ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
+        cancelled: { label: 'Cancelled', icon: 'fa-ban',             cls: 'item-status-cancelled' },
     };
-    const sc = statusConfig[itemStatus] || statusConfig.pending;
+
+    // If order is completed, display all non-cancelled items as "Completed"
+    const displayStatus = (orderStatus === 'completed' && itemStatus !== 'cancelled')
+        ? 'completed'
+        : itemStatus;
+
+    const displayConfig = {
+        pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
+        preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
+        ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
+        completed: { label: 'Completed', icon: 'fa-check-double',    cls: 'item-status-completed' },
+        cancelled: { label: 'Cancelled', icon: 'fa-ban',             cls: 'item-status-cancelled' },
+    };
+
+    const sc = displayConfig[displayStatus] || displayConfig.pending;
 
     const badge = `<span class="item-status-badge ${sc.cls}">
         <i class="fas ${sc.icon}"></i> ${sc.label}
@@ -668,7 +683,7 @@ function buildItemCardHTML(item, orderStatus) {
            </div>`
         : '';
 
-    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}" data-item-notes="${escapeHtml(item.item_notes || '')}" data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
+    return `<div class="item-card item-card-${displayStatus}" data-item-id="${item.order_item_id}" data-item-notes="${escapeHtml(item.item_notes || '')}" data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
                 <div class="item-card-header">
                     <div class="item-card-name">
                         <span class="item-name-text">${escapeHtml(item.item_name)}</span>

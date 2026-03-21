@@ -500,7 +500,7 @@
                 <h5 class="mb-3">Success!</h5>
                 <p class="text-muted mb-0"><?= htmlspecialchars($_SESSION['success']) ?></p>
             </div>
-            <div class="modal-footer border-0 pt-0">
+            <div class="modal-footer border-0 pt-0 justify-content-center">
                 <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">
                     <i class="fas fa-check me-1"></i> OK
                 </button>
@@ -522,7 +522,7 @@
                 <h5 class="mb-3">Error</h5>
                 <p class="text-muted mb-0"><?= htmlspecialchars($_SESSION['error']) ?></p>
             </div>
-            <div class="modal-footer border-0 pt-0">
+            <div class="modal-footer border-0 pt-0 justify-content-center">
                 <button type="button" class="btn btn-danger w-100" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Close
                 </button>
