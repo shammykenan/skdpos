@@ -27,7 +27,7 @@ if (!$order_item_id || !in_array($new_status, $valid)) {
 try {
     $pdo->beginTransaction();
 
-    // ── 1. Get the item and its parent order ──────────────────────────
+    // ── 1. Fetch current item + order state ───────────────────────────────────
     $stmt = $pdo->prepare("
         SELECT oi.order_item_id, oi.order_id, oi.status AS current_status,
                o.status AS order_status
@@ -39,59 +39,66 @@ try {
     $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$item) {
-        throw new Exception('Order item not found.');
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Order item not found.']);
+        exit;
     }
 
     if (in_array($item['order_status'], ['completed', 'cancelled'])) {
-        throw new Exception('Cannot update items on a ' . $item['order_status'] . ' order.');
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Cannot update items on a ' . $item['order_status'] . ' order.']);
+        exit;
     }
 
-    // ── 2. Enforce forward-only: pending→preparing→ready ─────────────
+    // ── 2. Forward-only check ─────────────────────────────────────────────────
     $progression = ['pending' => 0, 'preparing' => 1, 'ready' => 2];
     $currentRank = $progression[$item['current_status']] ?? -1;
     $newRank     = $progression[$new_status] ?? -1;
 
     if ($newRank <= $currentRank) {
-        throw new Exception('Cannot move item backwards in status.');
+        // Already at or past this status — return current real state, no error
+        $pdo->rollBack();
+        echo json_encode([
+            'success'       => true,
+            'order_item_id' => $order_item_id,
+            'item_status'   => $item['current_status'],
+            'order_id'      => $item['order_id'],
+            'order_status'  => $item['order_status'],
+            'already_done'  => true,
+        ]);
+        exit;
     }
 
-    // ── 3. Update the item status ─────────────────────────────────────
-    $stmt = $pdo->prepare("
-        UPDATE order_items SET status = ? WHERE order_item_id = ?
-    ");
-    $stmt->execute([$new_status, $order_item_id]);
+    // ── 3. Update item status ─────────────────────────────────────────────────
+    $pdo->prepare("UPDATE order_items SET status = ? WHERE order_item_id = ?")
+        ->execute([$new_status, $order_item_id]);
 
     $order_id = $item['order_id'];
 
-    // ── 4. Recalculate order status using SQL ─────────────────────────
-
-    // FIRST: If at least one item is preparing/ready → set order to 'preparing'
+    // ── 4. Recalculate order status ───────────────────────────────────────────
+    // Any item preparing/ready → order = preparing
     $pdo->prepare("
-        UPDATE orders o
-        SET o.status = 'preparing'
-        WHERE o.order_id = :order_id
-          AND o.status NOT IN ('completed', 'cancelled')
+        UPDATE orders SET status = 'preparing'
+        WHERE order_id = ?
+          AND status NOT IN ('completed','cancelled')
           AND EXISTS (
               SELECT 1 FROM order_items oi
-              WHERE oi.order_id = o.order_id
-                AND oi.status IN ('preparing', 'ready')
+              WHERE oi.order_id = ? AND oi.status IN ('preparing','ready')
           )
-    ")->execute([':order_id' => $order_id]);
+    ")->execute([$order_id, $order_id]);
 
-    // SECOND: If ALL items are ready → upgrade order to 'ready' (overwrites 'preparing')
+    // All items ready → order = ready
     $pdo->prepare("
-        UPDATE orders o
-        SET o.status = 'ready'
-        WHERE o.order_id = :order_id
-          AND o.status NOT IN ('completed', 'cancelled')
+        UPDATE orders SET status = 'ready'
+        WHERE order_id = ?
+          AND status NOT IN ('completed','cancelled')
           AND NOT EXISTS (
               SELECT 1 FROM order_items oi
-              WHERE oi.order_id = o.order_id
-                AND oi.status != 'ready'
+              WHERE oi.order_id = ? AND oi.status != 'ready'
           )
-    ")->execute([':order_id' => $order_id]);
+    ")->execute([$order_id, $order_id]);
 
-    // ── 5. Fetch the final order status to return to JS ───────────────
+    // ── 5. Fetch final order status ───────────────────────────────────────────
     $stmt = $pdo->prepare("SELECT status FROM orders WHERE order_id = ?");
     $stmt->execute([$order_id]);
     $orderStatus = $stmt->fetchColumn();
@@ -104,7 +111,7 @@ try {
         'item_status'   => $new_status,
         'order_id'      => $order_id,
         'order_status'  => $orderStatus,
-        'message'       => 'Item updated. Order is now: ' . $orderStatus,
+        'already_done'  => false,
     ]);
 
 } catch (Exception $e) {

@@ -7,13 +7,8 @@ require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/tableHelper.php';
 requireRole(['admin', 'cashier', 'kitchen']);
-$baseUrl = $_ENV['BASE_URL'] ?? '';
 
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'cashier', 'kitchen'])) {
-    $_SESSION['error'] = 'Access denied.';
-    header("Location: index.php?page=login");
-    exit;
-}
+$baseUrl = $_ENV['BASE_URL'] ?? '';
 
 // ── Complete order (cashier/admin only — requires payment) ────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
@@ -35,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     try {
         $pdo->beginTransaction();
 
-        if (!isset($_POST['payment_method']) || !isset($_POST['amount_paid'])) {
+        if (!isset($_POST['payment_method'], $_POST['amount_paid'])) {
             throw new Exception('Payment information is required.');
         }
 
@@ -43,9 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
         $amount_paid    = (float) $_POST['amount_paid'];
         $change_amount  = (float) ($_POST['change_amount'] ?? 0);
 
-        $stmt = $pdo->prepare("SELECT total_amount, status FROM orders WHERE order_id = ?");
-        $stmt->execute([$order_id]);
-        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Use model — no raw query in controller
+        $order = getOrderById($pdo, $order_id);
 
         if (!$order) throw new Exception('Order not found.');
 
@@ -57,11 +51,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
             throw new Exception('Payment amount is less than the order total.');
         }
 
+        // ── Insert payment ────────────────────────────────────────────────────
+        // cashier_id  = original order owner (keeps shift reports accurate)
+        // processed_by = who physically processed the payment (audit trail)
         $stmt = $pdo->prepare("
-            INSERT INTO payments (order_id, payment_method, amount_paid, change_amount, payment_status, cashier_id)
-            VALUES (?, ?, ?, ?, 'paid', ?)
+            INSERT INTO payments
+                (order_id, payment_method, amount_paid, change_amount, payment_status, cashier_id, processed_by)
+            VALUES (?, ?, ?, ?, 'paid', ?, ?)
         ");
-        $stmt->execute([$order_id, $payment_method, $amount_paid, $change_amount, $_SESSION['user_id']]);
+        $stmt->execute([
+            $order_id,
+            $payment_method,
+            $amount_paid,
+            $change_amount,
+            $order['cashier_id'],   // original cashier — used in shift reports
+            $_SESSION['user_id'],   // who processed the payment — used for audit
+        ]);
 
         updateOrderStatus($pdo, $order_id, 'completed', date('Y-m-d H:i:s'));
 
@@ -69,8 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
         $pdo->prepare("
             UPDATE order_items
             SET status = 'completed'
-            WHERE order_id = ?
-              AND status != 'cancelled'
+            WHERE order_id = ? AND status != 'cancelled'
         ")->execute([$order_id]);
 
         $pdo->commit();
@@ -98,9 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
     try {
         $pdo->beginTransaction();
 
-        $stmt = $pdo->prepare("SELECT status FROM orders WHERE order_id = ?");
-        $stmt->execute([$order_id]);
-        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Use model — no raw query in controller
+        $order = getOrderById($pdo, $order_id);
 
         if (!$order) throw new Exception('Order not found.');
         if ($order['status'] !== 'pending') {
@@ -112,9 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
 
         // Sync item statuses — mark all items as 'cancelled'
         $pdo->prepare("
-            UPDATE order_items
-            SET status = 'cancelled'
-            WHERE order_id = ?
+            UPDATE order_items SET status = 'cancelled' WHERE order_id = ?
         ")->execute([$order_id]);
 
         // Free the table immediately — customer isn't coming back
@@ -132,27 +133,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
     exit;
 }
 
-// ── Fetch orders for initial page render ─────────────────────────────────────
+// ── Fetch orders for page render — use helper, no raw query ──────────────────
 $currentUserId = (int) $_SESSION['user_id'];
 
-$sql    = "SELECT o.*, u.full_name AS cashier_name FROM orders o LEFT JOIN users u ON o.cashier_id = u.user_id";
-$params = [];
-
-if (!hasRole('admin') && !hasRole('kitchen')) {
-    $sql .= " WHERE o.cashier_id = :cashier_id";
-    $params[':cashier_id'] = $currentUserId;
+// getAllOrdersWithItems() handles draft exclusion + cashier filter via getAllOrders()
+if (hasRole('admin') || hasRole('kitchen')) {
+    $orders = getAllOrdersWithItems($pdo);
+} else {
+    $orders = getAllOrdersWithItems($pdo, $currentUserId);
 }
-
-$sql .= " ORDER BY o.created_at DESC";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-foreach ($orders as &$order) {
-    $details = getOrderDetails($pdo, $order['order_id']);
-    $order['items'] = $details ? $details['items'] : [];
-}
-unset($order);
 
 require_once __DIR__ . '/../views/kitchen/manage_orders.php';

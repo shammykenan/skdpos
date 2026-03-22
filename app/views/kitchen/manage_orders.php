@@ -143,8 +143,6 @@
 
             <!-- Date filter row -->
             <div class="date-filter-row">
-
-                <!-- Shortcut pills -->
                 <div class="date-shortcuts-group">
                     <button type="button" class="date-shortcut-btn" id="btnAll">
                         <i class="fas fa-th-list me-1"></i> All
@@ -163,7 +161,6 @@
                     </button>
                 </div>
 
-                <!-- Custom date pickers — revealed only when Custom is active -->
                 <div class="date-custom-range" id="dateCustomRange" style="display:none;">
                     <i class="fas fa-calendar-alt date-filter-icon"></i>
                     <input type="date" class="date-filter-input" id="dateFrom" title="From">
@@ -172,15 +169,28 @@
                 </div>
 
                 <?php if (hasRole('admin')): ?>
-                <div class="cashier-view-toggle" id="cashierViewToggle">
-                    <button type="button" class="cashier-view-btn active" data-view="all">
-                        <i class="fas fa-users"></i> All Cashiers
-                    </button>
-                    <button type="button" class="cashier-view-btn" data-view="mine">
-                        <i class="fas fa-user"></i> My Orders
-                    </button>
-                </div>
-                <?php endif; ?>
+<div class="cashier-view-toggle" id="cashierViewToggle">
+    <button type="button" class="cashier-view-btn active" data-view="all">
+        <i class="fas fa-users"></i> All Cashiers
+    </button>
+    <button type="button" class="cashier-view-btn" data-view="mine">
+        <i class="fas fa-user"></i> My Orders
+    </button>
+</div>
+
+<div id="processedByWrapper" style="display:none;align-items:center;gap:.5rem;">
+    <span style="font-size:.78rem;color:var(--warm-gray);white-space:nowrap;">
+        <i class="fas fa-shield-alt me-1"></i> Processed by:
+    </span>
+    <select id="processedByFilter"
+            class="date-filter-input"
+            style="border-radius:8px;padding:.35rem .8rem;font-size:.82rem;
+                   border:1.5px solid var(--border);color:var(--navy);
+                   background:white;cursor:pointer;min-width:160px;">
+        <option value="0">Cashiers</option>
+    </select>
+</div>
+<?php endif; ?>
             </div>
         </div>
     </div>
@@ -208,11 +218,8 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="ordersTableBody">
-                        <!-- Injected by manage_orders.js -->
-                    </tbody>
+                    <tbody id="ordersTableBody"></tbody>
                 </table>
-
                 <div class="empty-state d-none" id="noResultsMessage">
                     <i class="fas fa-search"></i>
                     <h3>No Orders Found</h3>
@@ -225,11 +232,12 @@
 </div><!-- /.main-content -->
 
 
-<!-- PAYMENT MODAL -->
+<!-- ══════════════════════════════════════════
+     PAYMENT MODAL
+══════════════════════════════════════════ -->
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content pm-modal-content">
-
             <div class="pm-header">
                 <div class="pm-header-left">
                     <div class="pm-header-icon"><i class="fas fa-cash-register"></i></div>
@@ -240,17 +248,12 @@
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-
             <form method="POST" action="" id="paymentForm">
                 <div class="modal-body pm-body">
-
-                    <!-- Total due -->
                     <div class="pm-total-row">
                         <span class="pm-total-label">Total Due</span>
                         <span class="pm-total-amount">₱<span id="paymentTotalAmount">0.00</span></span>
                     </div>
-
-                    <!-- Payment method + amount -->
                     <div class="pm-fields">
                         <div class="pm-field">
                             <label class="pm-label" for="paymentMethod">
@@ -272,41 +275,31 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Change / insufficient — toggled via JS classes -->
                     <div class="pm-feedback pm-feedback-change pm-hidden" id="changeAlert" role="alert">
-                        <div class="pm-feedback-icon pm-feedback-icon-change">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
+                        <div class="pm-feedback-icon pm-feedback-icon-change"><i class="fas fa-check-circle"></i></div>
                         <div>
                             <div class="pm-feedback-label">Change to return</div>
                             <div class="pm-feedback-amount">₱<span id="changeAmount">0.00</span></div>
                         </div>
                     </div>
-
                     <div class="pm-feedback pm-feedback-warn pm-hidden" id="insufficientAlert" role="alert">
-                        <div class="pm-feedback-icon pm-feedback-icon-warn">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
+                        <div class="pm-feedback-icon pm-feedback-icon-warn"><i class="fas fa-exclamation-triangle"></i></div>
                         <div>
                             <div class="pm-feedback-label">Insufficient amount</div>
                             <div class="pm-feedback-sub">Enter an amount equal to or greater than the total.</div>
                         </div>
                     </div>
-
                     <input type="hidden" name="order_id"      id="paymentOrderId">
                     <input type="hidden" name="status"        value="completed">
                     <input type="hidden" name="change_amount" id="changeAmountHidden">
                 </div>
-
                 <div class="modal-footer pm-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-1"></i> Cancel
                     </button>
                     <button type="submit" name="update_status" class="btn btn-primary"
                             id="confirmPaymentBtn" disabled>
-                        <i class="fas fa-check-circle me-1"></i>
-                        Confirm & Complete
+                        <i class="fas fa-check-circle me-1"></i> Confirm & Complete
                     </button>
                 </div>
             </form>
@@ -315,7 +308,9 @@
 </div>
 
 
-<!-- CANCEL ORDER MODAL -->
+<!-- ══════════════════════════════════════════
+     CANCEL ORDER MODAL
+══════════════════════════════════════════ -->
 <div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -327,9 +322,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
-                <div class="modal-icon danger">
-                    <i class="fas fa-times-circle"></i>
-                </div>
+                <div class="modal-icon danger"><i class="fas fa-times-circle"></i></div>
                 <h5 class="mb-3">Are you sure?</h5>
                 <p class="text-muted mb-0">
                     Cancel <strong>Order #<span id="cancelOrderNumber"></span></strong>?
@@ -352,19 +345,18 @@
 </div>
 
 
-<!-- KITCHEN ITEMS MODAL -->
+<!-- ══════════════════════════════════════════
+     KITCHEN ITEMS MODAL
+══════════════════════════════════════════ -->
 <div class="modal fade" id="kitchenItemsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content" style="border-radius:24px;border:none;overflow:hidden;">
-            <!-- Dynamic header populated by JS -->
             <div class="modal-header kitchen-modal-header" id="kitchenModalHeader"
                  style="background:var(--primary);color:white;padding:1.2rem 1.6rem;
                         border-bottom:none;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
             </div>
             <div class="modal-body" style="padding:1.4rem 1.6rem;max-height:65vh;overflow-y:auto;">
-                <div id="kitchenModalBody">
-                    <!-- Populated by JS -->
-                </div>
+                <div id="kitchenModalBody"></div>
             </div>
             <div class="modal-footer" style="padding:1rem 1.6rem;border-top:1px solid var(--border);">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
@@ -376,12 +368,13 @@
 </div>
 
 
-<!-- ORDER DETAILS MODAL -->
+<!-- ══════════════════════════════════════════
+     ORDER DETAILS MODAL
+══════════════════════════════════════════ -->
 <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content od-modal-content">
 
-            <!-- Header -->
             <div class="od-header">
                 <div class="od-header-left">
                     <div class="od-header-icon"><i class="fas fa-receipt"></i></div>
@@ -453,7 +446,9 @@
 
                         <!-- Payment info (shown only when completed) -->
                         <div id="detailPaymentSection" class="od-payment-card" style="display:none;">
-                            <div class="od-payment-title"><i class="fas fa-money-bill-wave me-1"></i> Payment</div>
+                            <div class="od-payment-title">
+                                <i class="fas fa-money-bill-wave me-1"></i> Payment
+                            </div>
                             <div class="od-payment-row">
                                 <span>Method</span>
                                 <span id="detailPayMethod">—</span>
@@ -465,6 +460,14 @@
                             <div class="od-payment-row">
                                 <span>Change</span>
                                 <span>₱<span id="detailChange">0.00</span></span>
+                            </div>
+                            <!-- Processed by — shown only when admin processed someone else's order -->
+                            <div class="od-payment-row" id="detailProcessedByRow" style="display:none;">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">
+                                    <i class="fas fa-shield-halved me-1" style="color:var(--primary-light);"></i>
+                                    Processed by
+                                </span>
+                                <span id="detailProcessedBy" style="font-size:0.82rem;font-weight:600;color:var(--navy);">—</span>
                             </div>
                         </div>
 

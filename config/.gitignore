@@ -1,5 +1,5 @@
-public/assets/images/menu
-vendor
+public/assets/images/menu/
+vendor/
 backups/
 dinewithdinCafeteria.txt
 .env

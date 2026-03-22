@@ -1,25 +1,31 @@
 <?php
 /**
- * reports_model.php  – v3, fully corrected
+ * reports_model.php  – v4 (improved)
  *
- * KEY RULES applied throughout:
- *  - Revenue is recognised on DATE(o.completed_at)  — the moment an order
- *    is marked completed, NOT when it was placed (created_at).
- *  - completed_at IS NULL for pending/preparing/cancelled orders, so
- *    filtering on completed_at automatically excludes those rows.
- *  - "completed" is the only terminal success status in your ENUM
- *    ('pending','preparing','completed','cancelled'). There is no 'paid'.
- *  - o.subtotal  = sum of line items before discount
- *    o.discount   = discount applied
- *    o.total_amount = subtotal - discount  (what the customer actually paid)
- *  - Status literals are always inlined, never bound as params, to avoid
- *    PDO emulation silently returning empty rows.
+ * KEY RULES:
+ *  - Revenue recognised on DATE(o.completed_at) — moment order is completed
+ *  - completed_at IS NULL for pending/preparing/cancelled — auto-excludes them
+ *  - o.subtotal     = sum of line items before discount (excl. VAT in display)
+ *  - o.discount     = discount applied
+ *  - o.total_amount = what customer actually paid (VAT-inclusive)
+ *  - VAT = total_amount - (total_amount / 1.12)  i.e. total is VAT-inclusive
+ *  - gross_profit uses SUM((unit_price - cost_price) * quantity) — correct order
+ *  - rpt_low_stock JOINs units table (ingredients has unit_id FK, not unit column)
  */
 
 // ============================================================
+// HELPERS
+// ============================================================
+
+/**
+ * Extract VAT-exclusive amount from a VAT-inclusive total (12% VAT).
+ * Use in PHP when computing display values.
+ */
+function vat_exclusive(float $total): float { return $total / 1.12; }
+function vat_amount(float $total): float    { return $total - vat_exclusive($total); }
+
+// ============================================================
 // DAILY REVENUE SUMMARY
-// Reports on orders COMPLETED on $date.
-// Optionally scoped to a single cashier.
 // ============================================================
 function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): array
 {
@@ -27,25 +33,26 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
 
     $stmt = $pdo->prepare("
         SELECT
-            -- Completed orders only (completed_at IS NOT NULL AND status='completed')
-            COUNT(o.order_id)                               AS total_orders,
-            COALESCE(SUM(o.subtotal), 0)                    AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                    AS total_discounts,
-            COALESCE(SUM(o.total_amount), 0)                AS net_revenue,
-            COALESCE(AVG(o.total_amount), 0)                AS avg_order_value,
-            COUNT(DISTINCT o.cashier_id)                    AS active_cashiers,
-            -- Cancelled orders created on the same calendar day
+            COUNT(o.order_id)                                       AS total_orders,
+            COALESCE(SUM(o.subtotal), 0)                            AS gross_revenue,
+            COALESCE(SUM(o.discount), 0)                            AS total_discounts,
+            COALESCE(SUM(o.total_amount), 0)                        AS net_revenue,
+            -- VAT breakdown (12% VAT-inclusive)
+            COALESCE(SUM(o.total_amount / 1.12), 0)                 AS net_revenue_excl_vat,
+            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS total_vat_collected,
+            COALESCE(AVG(o.total_amount), 0)                        AS avg_order_value,
+            COUNT(DISTINCT o.cashier_id)                            AS active_cashiers,
             (
                 SELECT COUNT(*)
                 FROM orders c2
                 WHERE DATE(c2.created_at) = :date_c
                   AND c2.status = 'cancelled'
-                $cid_clause
-            )                                               AS cancelled_orders
+                  $cid_clause
+            ) AS cancelled_orders
         FROM orders o
         WHERE o.status = 'completed'
           AND DATE(o.completed_at) = :date
-        $cid_clause
+          $cid_clause
     ");
 
     $params = [':date' => $date, ':date_c' => $date];
@@ -59,31 +66,30 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
 
 // ============================================================
 // CLOSE-OUT  (one cashier, one date)
-// Uses completed_at for revenue; created_at for cancelled count.
 // ============================================================
 function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
 {
-    // Completed orders this cashier finished today
     $stmt = $pdo->prepare("
         SELECT
-            u.full_name                                 AS cashier_name,
+            u.full_name                                             AS cashier_name,
             u.username,
-            COUNT(o.order_id)                           AS total_orders,
-            COALESCE(SUM(o.subtotal), 0)                AS gross_sales,
-            COALESCE(SUM(o.discount), 0)                AS total_discounts,
-            COALESCE(SUM(o.total_amount), 0)            AS net_sales,
-            -- Cancelled count by created_at (they never reach completed_at)
+            COUNT(o.order_id)                                       AS total_orders,
+            COALESCE(SUM(o.subtotal), 0)                            AS gross_sales,
+            COALESCE(SUM(o.discount), 0)                            AS total_discounts,
+            COALESCE(SUM(o.total_amount), 0)                        AS net_sales,
+            COALESCE(SUM(o.total_amount / 1.12), 0)                 AS net_sales_excl_vat,
+            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS vat_collected,
             (
                 SELECT COUNT(*)
                 FROM orders cx
-                WHERE cx.cashier_id = :cid_c
+                WHERE cx.cashier_id      = :cid_c
                   AND DATE(cx.created_at) = :date_c
-                  AND cx.status = 'cancelled'
-            )                                           AS cancelled_orders
+                  AND cx.status          = 'cancelled'
+            ) AS cancelled_orders
         FROM users u
         LEFT JOIN orders o
-            ON  o.cashier_id   = u.user_id
-            AND o.status       = 'completed'
+            ON  o.cashier_id         = u.user_id
+            AND o.status             = 'completed'
             AND DATE(o.completed_at) = :date
         WHERE u.user_id = :cid
         GROUP BY u.user_id, u.full_name, u.username
@@ -96,13 +102,17 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     ]);
     $summary = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Cash collected by this cashier today (from payments table)
+    // Cash from payments table (cashier_id = original order owner)
     $stmt2 = $pdo->prepare("
         SELECT
             COALESCE(SUM(p.amount_paid), 0)                     AS cash_received,
             COALESCE(SUM(p.change_amount), 0)                   AS change_given,
             COALESCE(SUM(p.amount_paid - p.change_amount), 0)   AS cash_to_turn_over,
-            COUNT(p.payment_id)                                 AS payment_count
+            COUNT(p.payment_id)                                 AS payment_count,
+            -- Count how many payments were processed by someone else (admin)
+            SUM(CASE WHEN p.processed_by IS NOT NULL
+                      AND p.processed_by != p.cashier_id
+                     THEN 1 ELSE 0 END)                         AS admin_processed_count
         FROM payments p
         WHERE p.cashier_id     = :cid
           AND DATE(p.paid_at)  = :date
@@ -116,50 +126,51 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
 
 // ============================================================
 // MONTHLY SUMMARY
-// Revenue from orders completed within the given month.
 // ============================================================
 function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
 {
     $stmt = $pdo->prepare("
         SELECT
-            MONTHNAME(o.completed_at)               AS month_name,
-            COUNT(o.order_id)                       AS total_orders,
-            COALESCE(SUM(o.subtotal), 0)            AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)            AS total_discounts,
-            COALESCE(SUM(o.total_amount), 0)        AS net_revenue,
-            COALESCE(AVG(o.total_amount), 0)        AS avg_order_value,
-            COUNT(DISTINCT o.cashier_id)            AS active_cashiers,
-            -- Cancelled by created_at (they have no completed_at)
+            MONTHNAME(o.completed_at)                               AS month_name,
+            COUNT(o.order_id)                                       AS total_orders,
+            COALESCE(SUM(o.subtotal), 0)                            AS gross_revenue,
+            COALESCE(SUM(o.discount), 0)                            AS total_discounts,
+            COALESCE(SUM(o.total_amount), 0)                        AS net_revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0)                 AS net_revenue_excl_vat,
+            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS total_vat_collected,
+            COALESCE(AVG(o.total_amount), 0)                        AS avg_order_value,
+            COUNT(DISTINCT o.cashier_id)                            AS active_cashiers,
             (
                 SELECT COUNT(*)
                 FROM orders cx
-                WHERE cx.status = 'cancelled'
+                WHERE cx.status          = 'cancelled'
                   AND YEAR(cx.created_at)  = :year_c
                   AND MONTH(cx.created_at) = :month_c
-            )                                       AS cancelled_orders
+            ) AS cancelled_orders
         FROM orders o
         WHERE o.status = 'completed'
           AND YEAR(o.completed_at)  = :year
           AND MONTH(o.completed_at) = :month
     ");
     $stmt->execute([
-        ':year'    => $year,  ':month'    => $month,
-        ':year_c'  => $year,  ':month_c'  => $month,
+        ':year'    => $year,  ':month'   => $month,
+        ':year_c'  => $year,  ':month_c' => $month,
     ]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 }
 
 // ============================================================
-// DAILY BREAKDOWN  (day-by-day chart data within a month)
-// Uses completed_at so chart reflects actual revenue days.
+// DAILY BREAKDOWN  (day-by-day chart within a month)
 // ============================================================
 function rpt_daily_breakdown(PDO $pdo, int $year, int $month): array
 {
     $stmt = $pdo->prepare("
         SELECT
-            DATE(o.completed_at)            AS sale_date,
-            COUNT(o.order_id)               AS total_orders,
-            COALESCE(SUM(o.total_amount), 0) AS revenue
+            DATE(o.completed_at)                                     AS sale_date,
+            COUNT(o.order_id)                                        AS total_orders,
+            COALESCE(SUM(o.total_amount), 0)                         AS revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS revenue_excl_vat,
+            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS vat_amount
         FROM orders o
         WHERE o.status = 'completed'
           AND YEAR(o.completed_at)  = :year
@@ -173,7 +184,6 @@ function rpt_daily_breakdown(PDO $pdo, int $year, int $month): array
 
 // ============================================================
 // YEARLY SUMMARY
-// Revenue from orders completed within the given year.
 // ============================================================
 function rpt_yearly_summary(PDO $pdo, int $year): array
 {
@@ -183,8 +193,10 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
             COALESCE(SUM(o.subtotal), 0)                                            AS gross_revenue,
             COALESCE(SUM(o.discount), 0)                                            AS total_discounts,
             COALESCE(SUM(o.total_amount), 0)                                        AS net_revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0)                                 AS net_revenue_excl_vat,
+            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)                AS total_vat_collected,
             COALESCE(AVG(o.total_amount), 0)                                        AS avg_order_value,
-            -- Monthly columns use completed_at month
+            -- Monthly columns
             SUM(CASE WHEN MONTH(o.completed_at)=1  THEN o.total_amount ELSE 0 END) AS jan,
             SUM(CASE WHEN MONTH(o.completed_at)=2  THEN o.total_amount ELSE 0 END) AS feb,
             SUM(CASE WHEN MONTH(o.completed_at)=3  THEN o.total_amount ELSE 0 END) AS mar,
@@ -206,24 +218,24 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
 }
 
 // ============================================================
-// TOP SELLING ITEMS  (by completed_at date range)
+// TOP SELLING ITEMS
+// Fixed: SUM((unit_price - cost_price) * quantity) — correct gross_profit
 // ============================================================
 function rpt_top_items(PDO $pdo, string $start, string $end, int $limit = 10): array
 {
-    // gross_profit uses oi.unit_price (price locked at time of sale)
-    // NOT mi.price (current menu price) — so historical reports stay
-    // accurate even if you change prices later.
-    // cost_price still comes from mi.cost_price because we don't store
-    // cost at time of sale (not in the schema). Accept this minor caveat.
     $stmt = $pdo->prepare("
         SELECT
             mi.item_name,
             c.category_name,
-            oi.unit_price                                               AS price,
+            oi.unit_price                                                   AS price,
             mi.cost_price,
-            SUM(oi.quantity)                                            AS units_sold,
-            COALESCE(SUM(oi.subtotal), 0)                               AS total_revenue,
-            ROUND((oi.unit_price - mi.cost_price) * SUM(oi.quantity), 2) AS gross_profit
+            SUM(oi.quantity)                                                AS units_sold,
+            COALESCE(SUM(oi.subtotal), 0)                                   AS total_revenue,
+            -- Fixed: SUM wraps the full expression
+            COALESCE(SUM((oi.unit_price - mi.cost_price) * oi.quantity), 0) AS gross_profit,
+            -- VAT breakdown per item
+            COALESCE(SUM(oi.subtotal / 1.12), 0)                            AS revenue_excl_vat,
+            COALESCE(SUM(oi.subtotal - oi.subtotal / 1.12), 0)              AS vat_amount
         FROM order_items oi
         JOIN menu_items mi  ON oi.item_id     = mi.item_id
         JOIN categories c   ON mi.category_id = c.category_id
@@ -242,15 +254,17 @@ function rpt_top_items(PDO $pdo, string $start, string $end, int $limit = 10): a
 }
 
 // ============================================================
-// REVENUE BY CATEGORY  (by completed_at date range)
+// REVENUE BY CATEGORY
 // ============================================================
 function rpt_sales_by_category(PDO $pdo, string $start, string $end): array
 {
     $stmt = $pdo->prepare("
         SELECT
             c.category_name,
-            SUM(oi.quantity)                 AS units_sold,
-            COALESCE(SUM(oi.subtotal), 0)    AS revenue
+            SUM(oi.quantity)                                            AS units_sold,
+            COALESCE(SUM(oi.subtotal), 0)                               AS revenue,
+            COALESCE(SUM(oi.subtotal / 1.12), 0)                        AS revenue_excl_vat,
+            COALESCE(SUM(oi.subtotal - oi.subtotal / 1.12), 0)          AS vat_amount
         FROM order_items oi
         JOIN menu_items mi  ON oi.item_id     = mi.item_id
         JOIN categories c   ON mi.category_id = c.category_id
@@ -265,17 +279,10 @@ function rpt_sales_by_category(PDO $pdo, string $start, string $end): array
 }
 
 // ============================================================
-// CASHIER PERFORMANCE  (admin only)
-// Revenue scoped to completed_at range.
+// CASHIER PERFORMANCE
 // ============================================================
 function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
 {
-    // Rewritten using two clean subqueries — no duplicate PDO params,
-    // no fragile CASE WHEN inside WHERE.
-    //
-    // completed subquery  → filters on completed_at (revenue date)
-    // cancelled subquery  → filters on created_at   (only timestamp they have)
-    // LEFT JOINed to users so cashiers with ZERO activity still appear.
     $stmt = $pdo->prepare("
         SELECT
             u.user_id,
@@ -283,12 +290,15 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
             u.username,
             COALESCE(c.orders_handled,  0)                  AS orders_handled,
             COALESCE(c.total_sales,     0)                  AS total_sales,
+            COALESCE(c.total_sales / 1.12, 0)               AS total_sales_excl_vat,
+            COALESCE(c.total_sales - c.total_sales / 1.12, 0) AS vat_collected,
             COALESCE(c.avg_order_value, 0)                  AS avg_order_value,
             COALESCE(c.discounts_given, 0)                  AS discounts_given,
-            COALESCE(x.cancelled_orders, 0)                 AS cancelled_orders
+            COALESCE(x.cancelled_orders, 0)                 AS cancelled_orders,
+            -- How many of their orders were processed by admin
+            COALESCE(p.admin_processed, 0)                  AS admin_processed_count
         FROM users u
 
-        -- Completed orders in range (revenue date = completed_at)
         LEFT JOIN (
             SELECT
                 cashier_id,
@@ -302,7 +312,6 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
             GROUP BY cashier_id
         ) c ON u.user_id = c.cashier_id
 
-        -- Cancelled orders in range (date = created_at, no completed_at)
         LEFT JOIN (
             SELECT
                 cashier_id,
@@ -313,32 +322,44 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
             GROUP BY cashier_id
         ) x ON u.user_id = x.cashier_id
 
+        -- Count payments processed by someone other than the cashier
+        LEFT JOIN (
+            SELECT
+                cashier_id,
+                COUNT(*) AS admin_processed
+            FROM payments
+            WHERE payment_status = 'paid'
+              AND processed_by IS NOT NULL
+              AND processed_by != cashier_id
+              AND DATE(paid_at) BETWEEN :start3 AND :end3
+            GROUP BY cashier_id
+        ) p ON u.user_id = p.cashier_id
+
         WHERE u.role IN ('cashier', 'admin')
           AND u.is_active = 1
-          -- Only show cashiers who had activity in this period
           AND (c.cashier_id IS NOT NULL OR x.cashier_id IS NOT NULL)
 
         ORDER BY total_sales DESC
     ");
     $stmt->execute([
-        ':start'  => $start,
-        ':end'    => $end,
-        ':start2' => $start,
-        ':end2'   => $end,
+        ':start'  => $start, ':end'  => $end,
+        ':start2' => $start, ':end2' => $end,
+        ':start3' => $start, ':end3' => $end,
     ]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // ============================================================
-// PEAK HOURS  (hour of day orders were COMPLETED)
+// PEAK HOURS
 // ============================================================
 function rpt_peak_hours(PDO $pdo, string $start, string $end): array
 {
     $stmt = $pdo->prepare("
         SELECT
-            HOUR(o.completed_at)             AS hour_of_day,
-            COUNT(o.order_id)                AS total_orders,
-            COALESCE(SUM(o.total_amount), 0) AS revenue
+            HOUR(o.completed_at)                                     AS hour_of_day,
+            COUNT(o.order_id)                                        AS total_orders,
+            COALESCE(SUM(o.total_amount), 0)                         AS revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS revenue_excl_vat
         FROM orders o
         WHERE o.status = 'completed'
           AND DATE(o.completed_at) BETWEEN :start AND :end
@@ -350,7 +371,7 @@ function rpt_peak_hours(PDO $pdo, string $start, string $end): array
 }
 
 // ============================================================
-// ORDER TYPE BREAKDOWN  (completed orders only)
+// ORDER TYPE BREAKDOWN
 // ============================================================
 function rpt_order_type_breakdown(PDO $pdo, string $start, string $end): array
 {
@@ -358,8 +379,9 @@ function rpt_order_type_breakdown(PDO $pdo, string $start, string $end): array
         SELECT
             o.order_type,
             o.order_source,
-            COUNT(o.order_id)                AS total_orders,
-            COALESCE(SUM(o.total_amount), 0) AS revenue
+            COUNT(o.order_id)                                        AS total_orders,
+            COALESCE(SUM(o.total_amount), 0)                         AS revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS revenue_excl_vat
         FROM orders o
         WHERE o.status = 'completed'
           AND DATE(o.completed_at) BETWEEN :start AND :end
@@ -371,7 +393,7 @@ function rpt_order_type_breakdown(PDO $pdo, string $start, string $end): array
 }
 
 // ============================================================
-// TOP ADD-ONS  (from completed orders)
+// TOP ADD-ONS
 // ============================================================
 function rpt_top_addons(PDO $pdo, string $start, string $end): array
 {
@@ -395,18 +417,20 @@ function rpt_top_addons(PDO $pdo, string $start, string $end): array
 }
 
 // ============================================================
-// DISCOUNT & CANCELLATION AUDIT  (admin only)
-// Discounts → completed_at; cancellations → created_at.
+// DISCOUNT & CANCELLATION AUDIT
 // ============================================================
 function rpt_discount_audit(PDO $pdo, string $start, string $end): array
 {
     $stmt = $pdo->prepare("
         SELECT
             o.order_number,
-            u.full_name                                         AS cashier,
+            u.full_name                         AS cashier,
             o.subtotal,
             o.discount,
             o.total_amount,
+            -- VAT breakdown
+            ROUND(o.total_amount / 1.12, 2)     AS amount_excl_vat,
+            ROUND(o.total_amount - o.total_amount / 1.12, 2) AS vat_amount,
             o.status,
             o.customer_name,
             o.created_at,
@@ -414,12 +438,10 @@ function rpt_discount_audit(PDO $pdo, string $start, string $end): array
         FROM orders o
         JOIN users u ON o.cashier_id = u.user_id
         WHERE (
-            -- Discounted completed orders: filter by completed date
             (o.discount > 0
              AND o.status = 'completed'
              AND DATE(o.completed_at) BETWEEN :start AND :end)
             OR
-            -- Cancelled orders: filter by created date (no completed_at)
             (o.status = 'cancelled'
              AND DATE(o.created_at) BETWEEN :start2 AND :end2)
         )
@@ -433,22 +455,30 @@ function rpt_discount_audit(PDO $pdo, string $start, string $end): array
 }
 
 // ============================================================
-// PAYMENT RECONCILIATION  (admin only)
-// Joins only to completed orders to avoid including refunds
-// or cancelled-order phantom payments.
+// PAYMENT RECONCILIATION
+// Now shows processed_by info for admin-handled payments
 // ============================================================
 function rpt_payment_reconciliation(PDO $pdo, string $start, string $end): array
 {
     $stmt = $pdo->prepare("
         SELECT
-            DATE(p.paid_at)                                     AS pay_date,
-            u.full_name                                         AS cashier,
-            COUNT(p.payment_id)                                 AS transactions,
-            COALESCE(SUM(p.amount_paid), 0)                     AS cash_received,
-            COALESCE(SUM(p.change_amount), 0)                   AS change_given,
-            COALESCE(SUM(p.amount_paid - p.change_amount), 0)   AS net_cash,
-            -- Expected = sum of total_amount on completed orders paid that day
-            COALESCE(SUM(o.total_amount), 0)                    AS expected_from_orders
+            DATE(p.paid_at)                                             AS pay_date,
+            u.full_name                                                 AS cashier,
+            COUNT(p.payment_id)                                         AS transactions,
+            COALESCE(SUM(p.amount_paid), 0)                             AS cash_received,
+            COALESCE(SUM(p.change_amount), 0)                           AS change_given,
+            COALESCE(SUM(p.amount_paid - p.change_amount), 0)           AS net_cash,
+            COALESCE(SUM(o.total_amount), 0)                            AS expected_from_orders,
+            -- VAT on expected
+            COALESCE(SUM(o.total_amount / 1.12), 0)                     AS expected_excl_vat,
+            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)    AS vat_in_expected,
+            -- Variance (positive = over-collected, negative = short)
+            COALESCE(SUM(p.amount_paid - p.change_amount), 0)
+                - COALESCE(SUM(o.total_amount), 0)                      AS variance,
+            -- Count of admin-processed payments for this cashier
+            SUM(CASE WHEN p.processed_by IS NOT NULL
+                      AND p.processed_by != p.cashier_id
+                     THEN 1 ELSE 0 END)                                 AS admin_processed_count
         FROM payments p
         JOIN users u  ON p.cashier_id = u.user_id
         JOIN orders o ON p.order_id   = o.order_id
@@ -463,32 +493,34 @@ function rpt_payment_reconciliation(PDO $pdo, string $start, string $end): array
 }
 
 // ============================================================
-// LOW STOCK
+// LOW STOCK — Fixed: JOINs units table (no `unit` column on ingredients)
 // ============================================================
 function rpt_low_stock(PDO $pdo): array
 {
     $stmt = $pdo->query("
         SELECT
-            ingredient_name,
-            stock_quantity,
-            unit,
-            low_stock_alert,
+            i.ingredient_id,
+            i.ingredient_name,
+            i.stock_quantity,
+            i.low_stock_alert,
+            i.last_updated,
+            u.unit_code     AS unit,
+            u.unit_label,
             CASE
-                WHEN stock_quantity = 0                THEN 'OUT OF STOCK'
-                WHEN stock_quantity <= low_stock_alert THEN 'LOW'
+                WHEN i.stock_quantity = 0                  THEN 'OUT OF STOCK'
+                WHEN i.stock_quantity <= i.low_stock_alert THEN 'LOW'
                 ELSE 'OK'
-            END AS stock_status,
-            last_updated
-        FROM ingredients
-        WHERE stock_quantity <= low_stock_alert
-        ORDER BY stock_quantity ASC
+            END AS stock_status
+        FROM ingredients i
+        LEFT JOIN units u ON i.unit_id = u.unit_id
+        WHERE i.stock_quantity <= i.low_stock_alert
+        ORDER BY i.stock_quantity ASC
     ");
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // ============================================================
-// AVAILABLE YEARS  (based on completed_at so only real revenue
-// years appear in the yearly picker)
+// AVAILABLE YEARS
 // ============================================================
 function rpt_available_years(PDO $pdo): array
 {
@@ -500,4 +532,84 @@ function rpt_available_years(PDO $pdo): array
         ORDER BY yr DESC
     ");
     return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'yr');
+}
+
+// ============================================================
+// INGREDIENT CONSUMPTION REPORT (new)
+// Shows how much of each ingredient was consumed over a date range
+// based on completed orders, versus actual stock movement.
+// ============================================================
+function rpt_ingredient_consumption(PDO $pdo, string $start, string $end): array
+{
+    $stmt = $pdo->prepare("
+        SELECT
+            i.ingredient_name,
+            u.unit_code,
+            u.unit_label,
+            i.stock_quantity                                            AS current_stock,
+            COALESCE(SUM(r.quantity_required * oi.quantity), 0)        AS theoretical_consumed,
+            i.low_stock_alert
+        FROM ingredients i
+        LEFT JOIN units u    ON i.unit_id        = u.unit_id
+        LEFT JOIN recipes r  ON i.ingredient_id  = r.ingredient_id
+        LEFT JOIN order_items oi ON r.item_id    = oi.item_id
+        LEFT JOIN orders o   ON oi.order_id      = o.order_id
+                             AND o.status        = 'completed'
+                             AND DATE(o.completed_at) BETWEEN :start AND :end
+        GROUP BY i.ingredient_id, i.ingredient_name,
+                 u.unit_code, u.unit_label,
+                 i.stock_quantity, i.low_stock_alert
+        HAVING theoretical_consumed > 0
+        ORDER BY theoretical_consumed DESC
+    ");
+    $stmt->execute([':start' => $start, ':end' => $end]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// ============================================================
+// PERIOD COMPARISON (new)
+// Compares two date ranges side by side — useful for
+// "this week vs last week", "this month vs last month"
+// ============================================================
+function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end, string $prev_start, string $prev_end): array
+{
+    $fetch = function(PDO $pdo, string $start, string $end) {
+        $stmt = $pdo->prepare("
+            SELECT
+                COUNT(order_id)                                         AS total_orders,
+                COALESCE(SUM(total_amount), 0)                          AS net_revenue,
+                COALESCE(SUM(total_amount / 1.12), 0)                   AS net_revenue_excl_vat,
+                COALESCE(SUM(discount), 0)                              AS total_discounts,
+                COALESCE(AVG(total_amount), 0)                          AS avg_order_value,
+                (SELECT COUNT(*) FROM orders
+                 WHERE status = 'cancelled'
+                   AND DATE(created_at) BETWEEN :s2 AND :e2)            AS cancelled_orders
+            FROM orders
+            WHERE status = 'completed'
+              AND DATE(completed_at) BETWEEN :start AND :end
+        ");
+        $stmt->execute([':start' => $start, ':end' => $end, ':s2' => $start, ':e2' => $end]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    };
+
+    $current  = $fetch($pdo, $cur_start,  $cur_end);
+    $previous = $fetch($pdo, $prev_start, $prev_end);
+
+    // Calculate % change for each metric
+    $change = [];
+    foreach ($current as $key => $val) {
+        $prev = (float) ($previous[$key] ?? 0);
+        $curr = (float) $val;
+        $change[$key] = $prev > 0 ? round((($curr - $prev) / $prev) * 100, 1) : ($curr > 0 ? 100 : 0);
+    }
+
+    return [
+        'current'  => $current,
+        'previous' => $previous,
+        'change'   => $change,
+        'periods'  => [
+            'current'  => ['start' => $cur_start,  'end' => $cur_end],
+            'previous' => ['start' => $prev_start, 'end' => $prev_end],
+        ],
+    ];
 }

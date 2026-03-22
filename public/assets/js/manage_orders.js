@@ -1,21 +1,23 @@
 /**
  * ============================================
  * ORDERS MANAGEMENT — Item-level tracking
- * Enhanced Kitchen UX: confirmation step before
- * updating item status to prevent accidental taps.
  * ============================================
  */
 
-const REFRESH_INTERVAL = 2000;
-const PAGE_LIMIT       = 10;
-const AJAX_URL         = '/coffee_shop/app/ajax/get_orders.php';
-const ITEM_STATUS_URL  = '/coffee_shop/app/ajax/update_order_item_status.php';
+const REFRESH_INTERVAL    = 2000;
+const PAGE_LIMIT          = 10;
+const AJAX_URL            = '/coffee_shop/app/ajax/get_orders.php';
+const ITEM_STATUS_URL     = '/coffee_shop/app/ajax/update_order_item_status.php';
+const ORDER_DETAILS_URL   = '/coffee_shop/app/ajax/get_order_details.php';
+const ADMIN_USERS_URL     = '/coffee_shop/app/ajax/get_admin_users.php';
+const ORDER_ITEMS_URL     = '/coffee_shop/app/ajax/get_order_items.php';
 
 let currentFilter      = 'all';
 let currentSearch      = '';
 let currentDateFrom    = '';
 let currentDateTo      = '';
-let currentCashierView = 'all'; // 'all' = everyone's orders, 'mine' = admin's own only
+let currentCashierView = 'all';
+let currentProcessedBy = 0;
 let currentPage        = 1;
 let totalPages         = 1;
 let filteredTotal      = 0;
@@ -23,7 +25,11 @@ let isLoading          = false;
 let isRefreshing       = false;
 let refreshTimer       = null;
 let currentOrderTotal  = 0;
-let currentOrdersCache = {}; // orderId -> {items, orderStatus, orderNumber} — kept fresh on every render
+let currentOrdersCache = {};
+let openDetailsOrderId = null;
+
+// Track which order the kitchen modal is showing
+let kitchenModalOrderId = null;
 
 let paymentModal, cancelOrderModal, orderDetailsModal, kitchenItemsModal;
 
@@ -42,12 +48,69 @@ document.addEventListener('DOMContentLoaded', function () {
         console.error('Modal init error:', e);
     }
 
+    document.getElementById('orderDetailsModal')?.addEventListener('hidden.bs.modal', () => {
+        openDetailsOrderId = null;
+    });
+
+    document.getElementById('kitchenItemsModal')?.addEventListener('hidden.bs.modal', function () {
+        kitchenModalOrderId = null;
+        // Fix aria-hidden focus warning
+        const focused = document.activeElement;
+        if (focused && this.contains(focused)) focused.blur();
+    });
+
+    document.getElementById('kitchenItemsModal')?.addEventListener('show.bs.modal', function () {
+        this.removeAttribute('aria-hidden');
+    });
+
     setupEventListeners();
     loadPage(1);
     startAutoRefresh();
 
-    console.log('✅ Orders management initialized (item-level tracking + kitchen confirm UX)');
+    if (window.userRole === 'admin') {
+        loadAdminUsers();
+    }
 });
+
+// ============================================
+// LOAD ADMIN USERS FOR PROCESSED-BY DROPDOWN
+// ============================================
+async function loadAdminUsers() {
+    try {
+        const res  = await fetch(ADMIN_USERS_URL, { headers: { 'Cache-Control': 'no-cache' } });
+        const data = await res.json();
+        if (!data.success || !data.data.length) return;
+
+        const select = document.getElementById('processedByFilter');
+        if (!select) return;
+
+        data.data.forEach(admin => {
+            const opt       = document.createElement('option');
+            opt.value       = admin.user_id;
+            opt.textContent = admin.full_name;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error('Failed to load admin users:', err);
+    }
+}
+
+// ============================================
+// SHOW / HIDE PROCESSED-BY FILTER
+// ============================================
+function syncProcessedByVisibility() {
+    const wrapper = document.getElementById('processedByWrapper');
+    if (!wrapper) return;
+
+    if (currentFilter === 'completed' && window.userRole === 'admin') {
+        wrapper.style.display = 'flex';
+    } else {
+        wrapper.style.display = 'none';
+        currentProcessedBy    = 0;
+        const select = document.getElementById('processedByFilter');
+        if (select) select.value = '0';
+    }
+}
 
 // ============================================
 // LOAD PAGE
@@ -98,20 +161,27 @@ async function refreshOrders() {
 
         updateFilterCounts(data.counts, data.total);
 
-        const newTotal   = data.filtered_total || 0;
-        const freshData  = data.data || [];
-        const tbody      = document.getElementById('ordersTableBody');
+        const newTotal      = data.filtered_total || 0;
+        const freshData     = data.data || [];
+        const tbody         = document.getElementById('ordersTableBody');
         const existingCount = tbody ? tbody.querySelectorAll('tr[data-order-id]').length : 0;
 
-        // If row count changed (new order arrived or fell off the page), full re-render
         if (newTotal !== filteredTotal || existingCount !== freshData.length) {
             filteredTotal = newTotal;
             totalPages    = Math.max(1, Math.ceil(filteredTotal / PAGE_LIMIT));
             renderTableRows(freshData);
             renderPagination();
         } else {
-            // Same rows — surgically patch only what changed (no DOM wipe = no flicker)
             patchTableRows(freshData);
+        }
+
+        if (openDetailsOrderId) {
+            refreshOrderDetailsModal(openDetailsOrderId);
+        }
+
+        // Refresh kitchen modal if open — fetch directly from server
+        if (kitchenModalOrderId) {
+            refreshKitchenModal(kitchenModalOrderId);
         }
 
     } catch (err) {
@@ -139,9 +209,12 @@ function buildURL(offset, limit) {
         status: currentFilter,
         search: currentSearch,
     });
-    if (currentDateFrom)                params.set('date_from',    currentDateFrom);
-    if (currentDateTo)                  params.set('date_to',      currentDateTo);
-    if (currentCashierView === 'mine')  params.set('cashier_view', 'mine');
+    if (currentDateFrom)               params.set('date_from',    currentDateFrom);
+    if (currentDateTo)                 params.set('date_to',      currentDateTo);
+    if (currentCashierView === 'mine') params.set('cashier_view', 'mine');
+    if (currentFilter === 'completed' && currentProcessedBy > 0) {
+        params.set('processed_by', currentProcessedBy);
+    }
     return `${AJAX_URL}?${params}`;
 }
 
@@ -164,14 +237,12 @@ function renderTableRows(orders) {
     if (table)    table.style.display = '';
     if (noResult) noResult.classList.add('d-none');
 
-    // Refresh cache
     orders.forEach(o => { currentOrdersCache[String(o.order_id)] = o; });
-
     tbody.innerHTML = orders.map(order => createOrderRowHTML(order)).join('');
 }
 
 // ============================================
-// SMART PATCH — surgically update only changed cells
+// SMART PATCH — only update changed rows
 // ============================================
 function patchTableRows(orders) {
     const tbody = document.getElementById('ordersTableBody');
@@ -184,7 +255,6 @@ function patchTableRows(orders) {
         const currentStatus = row.getAttribute('data-status');
         const newStatus     = (order.status || 'pending').toLowerCase();
 
-        // -- Order status badge + actions + total color (only when order status changed) --
         if (currentStatus !== newStatus) {
             row.setAttribute('data-status', newStatus);
             const statusCell  = row.querySelector('td[data-label="Status"]');
@@ -192,16 +262,13 @@ function patchTableRows(orders) {
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
             if (statusCell)  statusCell.innerHTML  = getOrderStatusBadge(newStatus);
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML(order);
-            if (totalSpan) {
-                totalSpan.className = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
-            }
+            if (totalSpan)   totalSpan.className   = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
         }
 
-        // -- Refresh summary dots in items cell --
         if (order.items) {
             const itemsCell = row.querySelector('.items-cell');
             if (itemsCell) {
-                const tally = { pending: 0, preparing: 0, ready: 0 };
+                const tally   = { pending: 0, preparing: 0, ready: 0 };
                 order.items.forEach(i => { const s = i.item_status || 'pending'; tally[s] = (tally[s] || 0) + 1; });
                 const dotsCfg = [
                     { key: 'pending',   color: '#f59e0b', icon: 'fa-hourglass-half' },
@@ -212,29 +279,17 @@ function patchTableRows(orders) {
                 if (summaryRow) {
                     const noteCount = order.items.filter(i => i.item_notes && i.item_notes.trim()).length;
                     const hasAddons = order.items.some(i => i.addons && i.addons.length > 0);
-                    const notesDot  = noteCount > 0
-                        ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>`
-                        : '';
+                    const notesDot  = noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '';
                     const addonsDot = hasAddons ? `<span class="items-has-addons-dot"><i class="fas fa-plus-circle"></i></span>` : '';
                     summaryRow.innerHTML = dotsCfg
                         .filter(d => tally[d.key] > 0)
-                        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;">
-                            <i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}
-                        </span>`).join('') + notesDot + addonsDot;
+                        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`)
+                        .join('') + notesDot + addonsDot;
                 }
             }
         }
 
-        // -- Update cache --
         currentOrdersCache[String(order.order_id)] = order;
-
-        // -- Live-patch open kitchen modal if it belongs to this order --
-        const openModal = document.getElementById('kitchenItemsModal');
-        if (openModal && openModal.classList.contains('show')) {
-            if (openModal.getAttribute('data-open-order-id') === String(order.order_id)) {
-                patchKitchenItemsModal(order);
-            }
-        }
     });
 }
 
@@ -243,40 +298,24 @@ function renderPagination() {
     if (!container) {
         container = document.createElement('div');
         container.id = 'paginationContainer';
-        container.style.cssText = [
-            'padding:1rem 1.5rem',
-            'border-top:1px solid var(--border)',
-            'display:flex',
-            'align-items:center',
-            'justify-content:space-between',
-            'flex-wrap:wrap',
-            'gap:0.75rem',
-        ].join(';');
+        container.style.cssText = 'padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;';
         const tc = document.querySelector('.table-container');
         if (tc) tc.after(container);
     }
 
-    if (totalPages <= 1 && filteredTotal <= PAGE_LIMIT) {
-        container.style.display = 'none';
-        return;
-    }
+    if (totalPages <= 1 && filteredTotal <= PAGE_LIMIT) { container.style.display = 'none'; return; }
     container.style.display = 'flex';
 
     const from = filteredTotal === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
     const to   = Math.min(currentPage * PAGE_LIMIT, filteredTotal);
-
-    const info = `<span style="font-size:0.85rem;color:var(--warm-gray);">
-        Showing <strong>${from}–${to}</strong> of <strong>${filteredTotal}</strong> orders
-    </span>`;
+    const info = `<span style="font-size:0.85rem;color:var(--warm-gray);">Showing <strong>${from}–${to}</strong> of <strong>${filteredTotal}</strong> orders</span>`;
 
     let btns = '';
     btns += pageBtn('<i class="fas fa-chevron-left"></i>', currentPage - 1, currentPage === 1, false);
     getPageRange(currentPage, totalPages).forEach(p => {
-        if (p === '...') {
-            btns += `<span style="padding:0 4px;color:var(--warm-gray);align-self:center;">…</span>`;
-        } else {
-            btns += pageBtn(p, p, false, p === currentPage);
-        }
+        btns += p === '...'
+            ? `<span style="padding:0 4px;color:var(--warm-gray);align-self:center;">…</span>`
+            : pageBtn(p, p, false, p === currentPage);
     });
     btns += pageBtn('<i class="fas fa-chevron-right"></i>', currentPage + 1, currentPage === totalPages, false);
 
@@ -288,11 +327,8 @@ function renderPagination() {
 
 function pageBtn(label, page, disabled, active) {
     const base  = 'class="page-btn" style="border:none;border-radius:8px;width:34px;height:34px;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all .15s;';
-    const style = active   ? 'background:var(--primary);color:#fff;"'
-                : disabled ? 'background:#f0f0f0;color:#bbb;cursor:not-allowed;"'
-                           : 'background:var(--light-bg);color:var(--navy);"';
-    const dis   = (disabled || active) ? 'disabled' : '';
-    return `<button ${base}${style} data-page="${page}" ${dis}>${label}</button>`;
+    const style = active ? 'background:var(--primary);color:#fff;"' : disabled ? 'background:#f0f0f0;color:#bbb;cursor:not-allowed;"' : 'background:var(--light-bg);color:var(--navy);"';
+    return `<button ${base}${style} data-page="${page}" ${(disabled || active) ? 'disabled' : ''}>${label}</button>`;
 }
 
 function getPageRange(current, total) {
@@ -306,29 +342,16 @@ function getPageRange(current, total) {
 // FILTER COUNTS & LABEL
 // ============================================
 function updateFilterCounts(counts, total) {
-    const data = {
-        all:       total             ?? 0,
-        pending:   counts?.pending   ?? 0,
-        preparing: counts?.preparing ?? 0,
-        ready:     counts?.ready     ?? 0,
-        completed: counts?.completed ?? 0,
-        cancelled: counts?.cancelled ?? 0,
-    };
+    const data = { all: total ?? 0, pending: counts?.pending ?? 0, preparing: counts?.preparing ?? 0, ready: counts?.ready ?? 0, completed: counts?.completed ?? 0, cancelled: counts?.cancelled ?? 0 };
     Object.keys(data).forEach(status => {
-        const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
-        if (tab) {
-            const span = tab.querySelector('.filter-count');
-            if (span) span.textContent = data[status];
-        }
+        const span = document.querySelector(`.filter-tab[data-status="${status}"] .filter-count`);
+        if (span) span.textContent = data[status];
     });
 }
 
 function updateFilterLabel() {
-    const map = {
-        all: 'All Orders', pending: 'Pending Orders', preparing: 'Preparing Orders',
-        ready: 'Ready Orders', completed: 'Completed Orders', cancelled: 'Cancelled Orders',
-    };
-    const el = document.getElementById('currentFilterLabel');
+    const map = { all: 'All Orders', pending: 'Pending Orders', preparing: 'Preparing Orders', ready: 'Ready Orders', completed: 'Completed Orders', cancelled: 'Cancelled Orders' };
+    const el  = document.getElementById('currentFilterLabel');
     if (el) el.textContent = map[currentFilter] || 'Orders';
 }
 
@@ -341,44 +364,27 @@ function showTableSpinner(show) {
         if (!spinner) {
             spinner = document.createElement('tr');
             spinner.id = 'tableSpinner';
-            spinner.innerHTML = `
-                <td colspan="8" class="text-center py-4">
-                    <div class="spinner-border spinner-border-sm me-2"
-                         style="color:var(--primary);" role="status"></div>
-                    <span class="text-muted" style="font-size:0.875rem;">Loading orders…</span>
-                </td>`;
-            const tbody = document.getElementById('ordersTableBody');
-            if (tbody) tbody.appendChild(spinner);
+            spinner.innerHTML = `<td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm me-2" style="color:var(--primary);" role="status"></div><span class="text-muted" style="font-size:0.875rem;">Loading orders…</span></td>`;
+            document.getElementById('ordersTableBody')?.appendChild(spinner);
         }
     } else {
-        if (spinner) spinner.remove();
+        spinner?.remove();
     }
 }
 
 function showError() {
     const tbody = document.getElementById('ordersTableBody');
-    if (tbody) tbody.innerHTML = `
-        <tr>
-            <td colspan="8" class="text-center py-4 text-danger">
-                <i class="fas fa-exclamation-circle me-2"></i>
-                Failed to load orders. Please refresh the page.
-            </td>
-        </tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-2"></i>Failed to load orders. Please refresh the page.</td></tr>`;
 }
 
 // ============================================
 // ROW HTML BUILDERS
 // ============================================
 function createOrderRowHTML(order) {
-    const searchText = [
-        order.order_number  || '',
-        order.customer_name || 'walk-in',
-        order.table_number  || '',
-    ].join(' ').toLowerCase();
-
     const total      = parseFloat(order.total_amount || 0);
     const subtotalEx = total / 1.12;
     const vat        = total - subtotalEx;
+    const searchText = [order.order_number || '', order.customer_name || 'walk-in', order.table_number || ''].join(' ').toLowerCase();
 
     return `
         <tr data-status="${(order.status || 'pending').toLowerCase()}"
@@ -386,9 +392,7 @@ function createOrderRowHTML(order) {
             data-order-total="${order.total_amount || 0}"
             data-order-id="${order.order_id}"
             data-order-number="${escapeHtml(order.order_number || '')}">
-            <td data-label="Order #">
-                <span class="order-number">#${escapeHtml(order.order_number || '')}</span>
-            </td>
+            <td data-label="Order #"><span class="order-number">#${escapeHtml(order.order_number || '')}</span></td>
             <td data-label="Customer">
                 <div class="fw-medium" style="color:var(--navy);">${escapeHtml(order.customer_name || 'Walk-in')}</div>
                 <small class="text-muted">${formatDate(order.created_at)}</small>
@@ -400,9 +404,7 @@ function createOrderRowHTML(order) {
                 <span class="price-subtotal">₱${formatPrice(subtotalEx)}</span>
                 <div class="price-vat">+₱${formatPrice(vat)} VAT (12%)</div>
             </td>
-            <td data-label="Total">
-                <span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">₱${formatPrice(order.total_amount)}</span>
-            </td>
+            <td data-label="Total"><span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">₱${formatPrice(order.total_amount)}</span></td>
             <td data-label="Status">${getOrderStatusBadge(order.status)}</td>
             <td data-label="Actions">${getOrderActionsHTML(order)}</td>
         </tr>`;
@@ -410,10 +412,7 @@ function createOrderRowHTML(order) {
 
 function getOrderTypeBadge(orderType) {
     if (!orderType) return '<span class="order-type-missing">—</span>';
-    const types = {
-        dine_in: { icon: 'fa-utensils',     label: 'Dine In' },
-        takeout: { icon: 'fa-bag-shopping', label: 'Takeout' },
-    };
+    const types = { dine_in: { icon: 'fa-utensils', label: 'Dine In' }, takeout: { icon: 'fa-bag-shopping', label: 'Takeout' } };
     const t = types[orderType] || { icon: 'fa-question', label: orderType };
     return `<span class="order-type-badge ${orderType}"><i class="fas ${t.icon}"></i> ${t.label}</span>`;
 }
@@ -423,50 +422,28 @@ function getOrderStatusBadge(status) {
     return `<span class="status-badge status-${status.toLowerCase()}">${capitalize(status)}</span>`;
 }
 
-/**
- * Items column:
- * - 1–2 items → render cards directly inline, no button needed
- * - 3+ items  → compact summary + "View items" button opens modal
- */
 function getOrderItemsHTML(items, orderStatus, orderId) {
     if (!items || items.length === 0) return '<span class="text-muted fst-italic" style="font-size:0.8rem;">No items</span>';
 
-    const tally = { pending: 0, preparing: 0, ready: 0 };
+    const tally   = { pending: 0, preparing: 0, ready: 0 };
     items.forEach(i => { const s = i.item_status || 'pending'; tally[s] = (tally[s] || 0) + 1; });
-
     const dotsCfg = [
         { key: 'pending',   color: '#f59e0b', icon: 'fa-hourglass-half' },
         { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
         { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
     ];
-    const dotsHTML = dotsCfg
-        .filter(d => tally[d.key] > 0)
-        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;">
-            <i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}
-        </span>`).join('');
-
-    const namePreview = items.slice(0, 2).map(i =>
-        `<span class="item-name-chip">${escapeHtml(i.item_name)}${parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : ''}</span>`
-    ).join('');
-    const moreChip = items.length > 2
-        ? `<span class="item-name-chip item-name-more">+${items.length - 2} more</span>`
-        : '';
-
-    const noteCount = items.filter(i => i.item_notes && i.item_notes.trim()).length;
-    const hasAddons = items.some(i => i.addons && i.addons.length > 0);
-    const notesDot  = noteCount > 0
-        ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>`
-        : '';
-    const addonsDot = hasAddons ? `<span class="items-has-addons-dot" title="Has add-ons"><i class="fas fa-plus-circle"></i></span>` : '';
+    const dotsHTML    = dotsCfg.filter(d => tally[d.key] > 0).map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`).join('');
+    const namePreview = items.slice(0, 2).map(i => `<span class="item-name-chip">${escapeHtml(i.item_name)}${parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : ''}</span>`).join('');
+    const moreChip    = items.length > 2 ? `<span class="item-name-chip item-name-more">+${items.length - 2} more</span>` : '';
+    const noteCount   = items.filter(i => i.item_notes && i.item_notes.trim()).length;
+    const hasAddons   = items.some(i => i.addons && i.addons.length > 0);
+    const notesDot    = noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '';
+    const addonsDot   = hasAddons ? `<span class="items-has-addons-dot" title="Has add-ons"><i class="fas fa-plus-circle"></i></span>` : '';
 
     return `<div class="items-cell" data-order-id="${orderId}">
-        <div class="items-summary-row">
-            ${dotsHTML}${notesDot}${addonsDot}
-        </div>
+        <div class="items-summary-row">${dotsHTML}${notesDot}${addonsDot}</div>
         <div class="items-name-row">${namePreview}${moreChip}</div>
-        <button type="button" class="items-manage-btn" data-order-id="${orderId}">
-            <i class="fas fa-chevron-right"></i> Manage items
-        </button>
+        <button type="button" class="items-manage-btn" data-order-id="${orderId}"><i class="fas fa-chevron-right"></i> Manage items</button>
     </div>`;
 }
 
@@ -479,47 +456,25 @@ function getOrderActionsHTML(order) {
     const orderNum  = order.order_number || '';
 
     let html = `<div class="action-buttons">
-        <button type="button" class="btn btn-sm view-order-btn"
-                style="background:var(--lavender);color:var(--navy);"
-                data-order-id="${orderId}"
-                data-order-number="${escapeHtml(orderNum)}">
+        <button type="button" class="btn btn-sm view-order-btn" style="background:var(--lavender);color:var(--navy);"
+                data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
             <i class="fas fa-eye"></i> View
         </button>`;
 
     if (status === 'ready' && (isAdmin || isCashier)) {
-        html += `<button type="button"
-                         class="btn btn-success btn-sm collect-payment-btn"
-                         data-order-id="${orderId}"
-                         data-order-number="${escapeHtml(orderNum)}"
-                         data-order-total="${order.total_amount || 0}">
-                     <i class="fas fa-cash-register"></i> Collect Payment
-                 </button>`;
-
+        html += `<button type="button" class="btn btn-success btn-sm collect-payment-btn"
+                         data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}" data-order-total="${order.total_amount || 0}">
+                     <i class="fas fa-cash-register"></i> Collect Payment</button>`;
     } else if (status === 'pending' && (isAdmin || isCashier)) {
-        html += `<button type="button"
-                         class="btn btn-danger btn-sm cancel-order-btn"
-                         data-order-id="${orderId}"
-                         data-order-number="${escapeHtml(orderNum)}">
-                     <i class="fas fa-times"></i> Cancel
-                 </button>`;
-
+        html += `<button type="button" class="btn btn-danger btn-sm cancel-order-btn"
+                         data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
+                     <i class="fas fa-times"></i> Cancel</button>`;
     } else if ((status === 'pending' || status === 'preparing') && isCashier && !isAdmin) {
-        html += `<span class="badge bg-secondary"
-                      style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;">
-                     <i class="fas fa-hourglass-half me-1"></i> In Kitchen
-                 </span>`;
-
+        html += `<span class="badge bg-secondary" style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;"><i class="fas fa-hourglass-half me-1"></i> In Kitchen</span>`;
     } else if (status === 'completed') {
-        html += `<span class="badge bg-success"
-                      style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;">
-                     <i class="fas fa-check-circle me-1"></i> Paid
-                 </span>`;
-
+        html += `<span class="badge bg-success" style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;"><i class="fas fa-check-circle me-1"></i> Paid</span>`;
     } else if (status === 'cancelled') {
-        html += `<span class="badge bg-secondary"
-                      style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;">
-                     <i class="fas fa-ban me-1"></i> Cancelled
-                 </span>`;
+        html += `<span class="badge bg-secondary" style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;"><i class="fas fa-ban me-1"></i> Cancelled</span>`;
     }
 
     html += '</div>';
@@ -531,7 +486,7 @@ function getOrderActionsHTML(order) {
 // ============================================
 async function updateItemStatus(orderItemId, nextStatus, btn) {
     if (btn) {
-        btn.disabled = true;
+        btn.disabled  = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating…</span>';
     }
 
@@ -545,57 +500,28 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
         if (!data.success) throw new Error(data.error || 'Update failed');
 
-        // Update item card in DOM
-        const itemCard = btn ? btn.closest('[data-item-id]') : document.querySelector(`[data-item-id="${orderItemId}"]`);
-        if (itemCard) {
-            // Update card class
-            itemCard.className = `item-card item-card-${data.item_status}`;
-
-            const statusConfig = {
-                pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
-                preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
-                ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
-            };
-            const sc = statusConfig[data.item_status] || statusConfig.pending;
-
-            // Update badge
-            const badge = itemCard.querySelector('.item-status-badge');
-            if (badge) {
-                badge.className = `item-status-badge ${sc.cls}`;
-                badge.innerHTML = `<i class="fas ${sc.icon}"></i> ${sc.label}`;
-            }
-
-            // Remove action area if ready
-            if (data.item_status === 'ready') {
-                const actionArea = itemCard.querySelector('.item-card-actions');
-                if (actionArea) actionArea.remove();
-            } else if (btn) {
-                // Update button for next action
-                const nn = 'ready';
-                btn.setAttribute('data-next-status', nn);
-                btn.setAttribute('data-current-status', data.item_status);
-                btn.className = 'item-status-btn item-action-ready';
-                btn.innerHTML = '<i class="fas fa-check"></i> <span>Mark Ready</span>';
-                btn.disabled  = false;
-            }
+        // After update, re-fetch fresh item data from server and redraw the modal
+        // This is the only source of truth — no guessing from cache
+        if (kitchenModalOrderId) {
+            await refreshKitchenModal(kitchenModalOrderId);
         }
 
-        // Update order status badge + actions if order status changed
-        const row = btn ? btn.closest('tr') : null;
+        // Update order row status badge + actions in table
+        const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
-            const statusCell = row.querySelector('td[data-label="Status"]');
-            if (statusCell) statusCell.innerHTML = getOrderStatusBadge(data.order_status);
-
+            const statusCell  = row.querySelector('td[data-label="Status"]');
             const actionsCell = row.querySelector('td[data-label="Actions"]');
+            const totalSpan   = row.querySelector('td[data-label="Total"] span');
+            if (statusCell) statusCell.innerHTML = getOrderStatusBadge(data.order_status);
+            if (totalSpan)  totalSpan.className  = data.order_status === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
             if (actionsCell) {
-                const fakeOrder = {
-                    order_id:     row.getAttribute('data-order-id'),
+                actionsCell.innerHTML = getOrderActionsHTML({
+                    order_id:     data.order_id,
                     order_number: row.getAttribute('data-order-number'),
                     total_amount: row.getAttribute('data-order-total'),
                     status:       data.order_status,
-                };
-                actionsCell.innerHTML = getOrderActionsHTML(fakeOrder);
+                });
             }
         }
 
@@ -610,13 +536,99 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
 // ============================================
 // KITCHEN ITEMS MODAL
+// Always fetches fresh data from server — no cache bugs
 // ============================================
+async function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
+    const modal = document.getElementById('kitchenItemsModal');
+    if (!modal || !kitchenItemsModal) return;
+
+    kitchenModalOrderId = String(orderId);
+    modal.setAttribute('data-open-order-id', String(orderId));
+
+    // Show loading state immediately
+    const bodyEl   = document.getElementById('kitchenModalBody');
+    const headerEl = document.getElementById('kitchenModalHeader');
+    if (bodyEl) bodyEl.innerHTML = `
+        <div class="text-center py-4 text-muted">
+            <div class="spinner-border spinner-border-sm mb-2" style="color:var(--primary);" role="status"></div>
+            <p class="mb-0" style="font-size:0.85rem;">Loading…</p>
+        </div>`;
+    if (headerEl) headerEl.innerHTML = '';
+
+    kitchenItemsModal.show();
+
+    // Fetch fresh data from dedicated endpoint
+    await refreshKitchenModal(orderId);
+}
+
+/**
+ * Fetch fresh item statuses from server and redraw kitchen modal.
+ * Called on open AND on every background refresh tick.
+ */
+async function refreshKitchenModal(orderId) {
+    const modal = document.getElementById('kitchenItemsModal');
+    if (!modal || !modal.classList.contains('show')) return;
+    if (String(kitchenModalOrderId) !== String(orderId)) return;
+
+    try {
+        const res  = await fetch(`${ORDER_ITEMS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const data = await res.json();
+        if (!data.success) return;
+
+        renderKitchenModal(data.order, data.items);
+
+    } catch (err) {
+        console.error('❌ Kitchen modal refresh error:', err);
+    }
+}
+
+/**
+ * Render the kitchen modal with fresh server data.
+ * This is the ONLY place the modal HTML is built — no other code rewrites it.
+ */
+function renderKitchenModal(order, items) {
+    const modal = document.getElementById('kitchenItemsModal');
+    if (!modal || !modal.classList.contains('show')) return;
+
+    const orderStatus = order.status || 'pending';
+
+    // Header
+    const headerEl = document.getElementById('kitchenModalHeader');
+    if (headerEl) {
+        headerEl.innerHTML = `
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);
+                            display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:700;color:white;">Order #${escapeHtml(order.order_number)}</div>
+                    <div style="font-size:0.78rem;opacity:0.75;color:white;">
+                        ${items.length} item${items.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
+                        ${order.order_type === 'dine_in' ? 'Dine In' : order.order_type === 'takeout' ? 'Takeout' : '—'}
+                    </div>
+                </div>
+            </div>
+            <div style="margin-left:auto;">
+                <span class="kitchen-modal-status-pill kitchen-modal-status-${orderStatus}">${capitalize(orderStatus)}</span>
+            </div>`;
+    }
+
+    // Items
+    const bodyEl = document.getElementById('kitchenModalBody');
+    if (bodyEl) {
+        bodyEl.innerHTML = items.length
+            ? '<div class="kitchen-modal-items">' + items.map(item => buildItemCardHTML(item, orderStatus)).join('') + '</div>'
+            : '<p class="text-muted text-center py-3">No items found.</p>';
+    }
+}
+
 function buildItemCardHTML(item, orderStatus) {
-    const userRole  = window.userRole || '';
-    const canUpdate = (userRole === 'kitchen' || userRole === 'admin');
-    const orderDone = (orderStatus === 'completed' || orderStatus === 'cancelled');
+    const userRole   = window.userRole || '';
+    const canUpdate  = userRole === 'kitchen' || userRole === 'admin';
+    const orderDone  = orderStatus === 'completed' || orderStatus === 'cancelled';
     const itemStatus = item.item_status || 'pending';
-    const isReady = itemStatus === 'ready' || itemStatus === 'completed' || itemStatus === 'cancelled';
+    const isReady    = itemStatus === 'ready' || itemStatus === 'completed' || itemStatus === 'cancelled';
 
     const displayConfig = {
         pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
@@ -626,11 +638,8 @@ function buildItemCardHTML(item, orderStatus) {
         cancelled: { label: 'Cancelled', icon: 'fa-ban',             cls: 'item-status-cancelled' },
     };
 
-    const sc = displayConfig[itemStatus] || displayConfig.pending;
-
-    const badge = `<span class="item-status-badge ${sc.cls}">
-        <i class="fas ${sc.icon}"></i> ${sc.label}
-    </span>`;
+    const sc    = displayConfig[itemStatus] || displayConfig.pending;
+    const badge = `<span class="item-status-badge ${sc.cls}"><i class="fas ${sc.icon}"></i> ${sc.label}</span>`;
 
     let actionBtn = '';
     if (canUpdate && !orderDone && !isReady) {
@@ -648,143 +657,197 @@ function buildItemCardHTML(item, orderStatus) {
     }
 
     const addonsHTML = (item.addons && item.addons.length > 0)
-        ? `<div class="item-addons">
-               <span class="item-addons-label">Add-ons:</span>
-               ${item.addons.map(a =>
-                   `<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>`
-               ).join('')}
-           </div>`
+        ? `<div class="item-addons"><span class="item-addons-label">Add-ons:</span>
+           ${item.addons.map(a => `<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>`).join('')}</div>`
         : '';
 
     const noteHTML = (item.item_notes && item.item_notes.trim())
-        ? `<div class="item-card-note-inline">
-               <span class="item-card-note-label">Note:</span>
-               <span class="item-card-note-text">${escapeHtml(item.item_notes)}</span>
-           </div>`
+        ? `<div class="item-card-note-inline"><span class="item-card-note-label">Note:</span><span class="item-card-note-text">${escapeHtml(item.item_notes)}</span></div>`
         : '';
 
-    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}" data-item-notes="${escapeHtml(item.item_notes || '')}" data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
+    return `<div class="item-card item-card-${itemStatus}"
+                 data-item-id="${item.order_item_id}"
+                 data-item-notes="${escapeHtml(item.item_notes || '')}"
+                 data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
                 <div class="item-card-header">
                     <div class="item-card-name">
                         <span class="item-name-text">${escapeHtml(item.item_name)}</span>
                         <span class="item-qty-badge">×${item.quantity || 1}</span>
                     </div>
-                    <div class="item-card-right">
-                        ${badge}
-                        ${actionBtn}
-                    </div>
+                    <div class="item-card-right">${badge}${actionBtn}</div>
                 </div>
-                ${addonsHTML}
-                ${noteHTML}
+                ${addonsHTML}${noteHTML}
             </div>`;
 }
 
-function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
-    const modal = document.getElementById('kitchenItemsModal');
-    if (!modal || !kitchenItemsModal) return;
+// ============================================
+// ORDER DETAILS MODAL — realtime via AJAX
+// ============================================
+function viewOrderDetails(orderId, orderNumber) {
+    if (!orderDetailsModal) return;
 
-    const orderIdStr = String(orderId);
-    modal.setAttribute('data-open-order-id', orderIdStr);
+    openDetailsOrderId = String(orderId);
 
-    // Show from cache immediately if available
-    const cached = currentOrdersCache[orderIdStr] || currentOrdersCache[orderId];
-    if (cached) {
-        showKitchenItemsModal(orderId, orderNumber, cached.status || orderStatus, cached);
+    const loaderEl  = document.getElementById('orderDetailsLoader');
+    const contentEl = document.getElementById('orderDetailsContent');
+    const errorEl   = document.getElementById('orderDetailsError');
+
+    if (loaderEl)  loaderEl.style.display  = 'block';
+    if (contentEl) contentEl.style.display = 'none';
+    if (errorEl)   errorEl.style.display   = 'none';
+
+    const numEl = document.getElementById('detailOrderNumber');
+    if (numEl) numEl.textContent = '#' + (orderNumber || '');
+
+    const printBtn = document.getElementById('printReceiptBtn');
+    if (printBtn) printBtn.style.display = 'none';
+
+    orderDetailsModal.show();
+    fetchAndPopulateOrderDetails(orderId);
+}
+
+async function fetchAndPopulateOrderDetails(orderId) {
+    const loaderEl  = document.getElementById('orderDetailsLoader');
+    const contentEl = document.getElementById('orderDetailsContent');
+    const errorEl   = document.getElementById('orderDetailsError');
+
+    try {
+        const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch (e) { console.error('❌ Raw PHP response:', text); throw new Error('Invalid JSON from server'); }
+
+        if (!data.success) throw new Error(data.message || 'Failed to load');
+
+        populateOrderDetailsModal(data.data.order || {}, data.data.items || [], data.data.payment || null);
+
+        if (loaderEl)  loaderEl.style.display  = 'none';
+        if (contentEl) contentEl.style.display = 'block';
+        if (errorEl)   errorEl.style.display   = 'none';
+
+    } catch (err) {
+        console.error('❌ Order details error:', err);
+        if (loaderEl)  loaderEl.style.display  = 'none';
+        if (errorEl)   errorEl.style.display   = 'block';
+        if (contentEl) contentEl.style.display = 'none';
+    }
+}
+
+async function refreshOrderDetailsModal(orderId) {
+    const modal = document.getElementById('orderDetailsModal');
+    if (!modal || !modal.classList.contains('show')) return;
+    try {
+        const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const data = await res.json();
+        if (!data.success) return;
+        populateOrderDetailsModal(data.data.order || {}, data.data.items || [], data.data.payment || null);
+    } catch (err) { /* silent */ }
+}
+
+function populateOrderDetailsModal(order, items, payment) {
+    const set     = (id, val)  => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML  = html; };
+
+    const numEl = document.getElementById('detailOrderNumber');
+    if (numEl) numEl.textContent = '#' + (order.order_number || '');
+
+    set('detailCustomer', order.customer_name || 'Walk-in');
+    if (order.created_at) {
+        set('detailDate', new Date(order.created_at).toLocaleString('en-PH', {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        }));
+    }
+    set('detailCashier', order.cashier_name || 'N/A');
+    setHTML('detailOrderType', order.order_type ? getOrderTypeBadge(order.order_type) : '—');
+    setHTML('detailStatus',    getOrderStatusBadge(order.status));
+
+    const tableWrap = document.getElementById('detailTableWrap');
+    const tableEl   = document.getElementById('detailTable');
+    if (order.table_number) {
+        if (tableEl)   tableEl.innerHTML       = `<span class="table-number-badge"><i class="fas fa-chair"></i> ${escapeHtml(order.table_number)}</span>`;
+        if (tableWrap) tableWrap.style.display = '';
     } else {
-        const bodyEl = document.getElementById('kitchenModalBody');
-        if (bodyEl) bodyEl.innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <div class="spinner-border spinner-border-sm mb-2" style="color:var(--primary);" role="status"></div>
-                <p class="mb-0" style="font-size:0.85rem;">Loading…</p>
-            </div>`;
-        kitchenItemsModal.show();
+        if (tableWrap) tableWrap.style.display = 'none';
     }
 
-    // Always fetch fresh state
-    fetch(`${AJAX_URL}?limit=1&offset=0&status=all&search=${encodeURIComponent(orderNumber)}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-    })
-        .then(r => r.json())
-        .then(data => {
-            if (!data.success) return;
-            const freshOrder = (data.data || []).find(o => String(o.order_id) === orderIdStr);
-            if (!freshOrder) return;
+    const itemsBody = document.getElementById('detailItemsBody');
+    if (itemsBody) {
+        itemsBody.innerHTML = '';
+        items.forEach(item => {
+            const itemSubtotal = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)).toFixed(2);
+            const notePill     = (item.item_notes && item.item_notes.trim())
+                ? `<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>` : '';
+            const tr = document.createElement('tr');
+            tr.className = 'od-item-row';
+            tr.innerHTML = `
+                <td class="od-td od-td-item"><span class="od-item-name">${escapeHtml(item.item_name)}</span>${notePill}</td>
+                <td class="od-td od-td-center">${item.quantity || 1}</td>
+                <td class="od-td od-td-right od-muted">₱${formatPrice(item.unit_price)}</td>
+                <td class="od-td od-td-right od-item-subtotal">₱${itemSubtotal}</td>`;
+            itemsBody.appendChild(tr);
+            (item.addons || []).forEach(addon => {
+                const addonSubtotal = (parseFloat(addon.unit_price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
+                const addonTr = document.createElement('tr');
+                addonTr.className = 'od-addon-row';
+                addonTr.innerHTML = `
+                    <td class="od-td od-td-addon"><i class="fas fa-corner-down-right od-addon-icon"></i>${escapeHtml(addon.addon_name)}</td>
+                    <td class="od-td od-td-center od-muted">${addon.quantity || 1}</td>
+                    <td class="od-td od-td-right od-muted">₱${formatPrice(addon.unit_price)}</td>
+                    <td class="od-td od-td-right od-muted">₱${addonSubtotal}</td>`;
+                itemsBody.appendChild(addonTr);
+            });
+        });
+    }
 
-            currentOrdersCache[orderIdStr] = freshOrder;
+    const total    = parseFloat(order.total_amount || 0);
+    const subtotal = total / 1.12;
+    const vat      = total - subtotal;
+    set('detailSubtotal', subtotal.toFixed(2));
+    set('detailVat',      vat.toFixed(2));
+    set('detailTotal',    total.toFixed(2));
 
-            const openModal = document.getElementById('kitchenItemsModal');
-            if (openModal && openModal.classList.contains('show') &&
-                openModal.getAttribute('data-open-order-id') === orderIdStr) {
-                showKitchenItemsModal(orderId, orderNumber, freshOrder.status, freshOrder);
+    const totalDisplay = document.getElementById('detailTotalDisplay');
+    if (totalDisplay) totalDisplay.style.color = order.status === 'completed' ? 'var(--success)' : 'var(--danger)';
+
+    const paySection = document.getElementById('detailPaymentSection');
+    if (paySection) {
+        if (payment && order.status === 'completed') {
+            paySection.style.display = '';
+            set('detailPayMethod',  payment.payment_method || '—');
+            set('detailAmountPaid', formatPrice(payment.amount_paid));
+            set('detailChange',     formatPrice(payment.change_amount));
+            const processedByRow = document.getElementById('detailProcessedByRow');
+            const processedByEl  = document.getElementById('detailProcessedBy');
+            if (processedByRow && processedByEl) {
+                const cashierId     = parseInt(order.cashier_id);
+                const processedById = parseInt(payment.processed_by);
+                if (payment.processed_by && processedById !== cashierId && payment.processed_by_name) {
+                    processedByEl.textContent    = payment.processed_by_name;
+                    processedByRow.style.display = '';
+                } else {
+                    processedByRow.style.display = 'none';
+                }
             }
-        })
-        .catch(() => {});
-}
-
-function showKitchenItemsModal(orderId, orderNumber, orderStatus, orderData) {
-    const modal = document.getElementById('kitchenItemsModal');
-    if (!modal || !kitchenItemsModal) return;
-
-    modal.setAttribute('data-open-order-id', orderId);
-
-    const headerEl = document.getElementById('kitchenModalHeader');
-    if (headerEl) {
-        const statusCfg = {
-            pending:   { color: '#f59e0b', label: 'Pending'   },
-            preparing: { color: '#3b82f6', label: 'Preparing' },
-            ready:     { color: '#10b981', label: 'Ready'     },
-            completed: { color: '#2c7a5a', label: 'Completed' },
-            cancelled: { color: '#d64045', label: 'Cancelled' },
-        };
-        const sc = statusCfg[orderStatus] || statusCfg.pending;
-        headerEl.innerHTML = `
-            <div style="display:flex;align-items:center;gap:0.75rem;">
-                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);
-                            display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
-                    <i class="fas fa-receipt"></i>
-                </div>
-                <div>
-                    <div style="font-size:1.1rem;font-weight:700;color:white;">Order #${escapeHtml(orderNumber)}</div>
-                    <div style="font-size:0.78rem;opacity:0.75;color:white;">${(orderData.items || []).length} item${(orderData.items || []).length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${orderData.order_type === 'dine_in' ? 'Dine In' : orderData.order_type === 'takeout' ? 'Takeout' : '—'}</div>
-                </div>
-            </div>
-            <div style="margin-left:auto;">
-                <span class="kitchen-modal-status-pill kitchen-modal-status-${orderStatus}">${capitalize(orderStatus)}</span>
-            </div>`;
+        } else {
+            paySection.style.display = 'none';
+        }
     }
 
-    const bodyEl = document.getElementById('kitchenModalBody');
-    if (bodyEl) {
-        const items = orderData.items || [];
-        bodyEl.innerHTML = items.length
-            ? '<div class="kitchen-modal-items">' + items.map(item => buildItemCardHTML(item, orderStatus)).join('') + '</div>'
-            : '<p class="text-muted text-center py-3">No items found.</p>';
-    }
-
-    kitchenItemsModal.show();
-}
-
-function patchKitchenItemsModal(order) {
-    const modal  = document.getElementById('kitchenItemsModal');
-    const bodyEl = document.getElementById('kitchenModalBody');
-    if (!modal || !bodyEl || !order.items) return;
-
-    const orderStatus = order.status || 'pending';
-
-    bodyEl.innerHTML = '<div class="kitchen-modal-items">' +
-        order.items.map(item => buildItemCardHTML(item, orderStatus)).join('') +
-        '</div>';
-
-    const headerEl = document.getElementById('kitchenModalHeader');
-    if (headerEl) {
-        const pill = headerEl.querySelector('.kitchen-modal-status-pill');
-        if (pill) {
-            pill.className   = `kitchen-modal-status-pill kitchen-modal-status-${orderStatus}`;
-            pill.textContent = capitalize(orderStatus);
+    const printBtn = document.getElementById('printReceiptBtn');
+    if (printBtn) {
+        if (order.status === 'completed' && order.order_id) {
+            printBtn.href          = `${window.location.pathname}?page=print_receipt&order_id=${order.order_id}`;
+            printBtn.style.display = '';
+        } else {
+            printBtn.style.display = 'none';
         }
     }
 }
 
+// ============================================
+// PAYMENT + CANCEL MODALS
+// ============================================
 function showPaymentModal(orderId, orderNumber, orderTotal) {
     if (!paymentModal) return;
     currentOrderTotal = parseFloat(orderTotal) || 0;
@@ -804,135 +867,6 @@ function showCancelOrderModal(orderId, orderNumber) {
     document.getElementById('cancelOrderNumber').textContent = orderNumber || '';
     document.getElementById('cancelOrderId').value           = orderId || '';
     cancelOrderModal.show();
-}
-
-function viewOrderDetails(orderId, orderNumber) {
-    if (!orderDetailsModal) return;
-    const loaderEl  = document.getElementById('orderDetailsLoader');
-    const contentEl = document.getElementById('orderDetailsContent');
-    const errorEl   = document.getElementById('orderDetailsError');
-
-    if (loaderEl)  loaderEl.style.display  = 'block';
-    if (contentEl) contentEl.style.display = 'none';
-    if (errorEl)   errorEl.style.display   = 'none';
-
-    const detailOrderNumber = document.getElementById('detailOrderNumber');
-    if (detailOrderNumber) detailOrderNumber.textContent = '#' + (orderNumber || '');
-
-    const printBtn = document.getElementById('printReceiptBtn');
-    if (printBtn) printBtn.style.display = 'none';
-
-    orderDetailsModal.show();
-
-    fetch(`/coffee_shop/app/ajax/get_order_details.php?order_id=${orderId}`)
-        .then(r => r.json())
-        .then(res => {
-            if (loaderEl) loaderEl.style.display = 'none';
-            if (!res.success) { if (errorEl) errorEl.style.display = 'block'; return; }
-            populateOrderDetailsModal(res.data.order || {}, res.data.items || [], res.data.payment || {});
-            if (contentEl) contentEl.style.display = 'block';
-        })
-        .catch(() => {
-            if (loaderEl) loaderEl.style.display = 'none';
-            if (errorEl)  errorEl.style.display  = 'block';
-        });
-}
-
-function populateOrderDetailsModal(order, items, payment) {
-    const set     = (id, val)  => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML  = html; };
-
-    const numEl = document.getElementById('detailOrderNumber');
-    if (numEl) numEl.textContent = '#' + (order.order_number || '');
-
-    set('detailCustomer', order.customer_name || 'Walk-in');
-    if (order.created_at) {
-        set('detailDate', new Date(order.created_at).toLocaleString('en-PH', {
-            year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
-        }));
-    }
-    set('detailCashier', order.cashier_name || 'N/A');
-    setHTML('detailOrderType', order.order_type ? getOrderTypeBadge(order.order_type) : '—');
-    setHTML('detailStatus', getOrderStatusBadge(order.status));
-
-    const tableWrap = document.getElementById('detailTableWrap');
-    const tableEl   = document.getElementById('detailTable');
-    if (order.table_number) {
-        if (tableEl)   tableEl.innerHTML    = `<span class="table-number-badge"><i class="fas fa-chair"></i> Table ${escapeHtml(order.table_number)}</span>`;
-        if (tableWrap) tableWrap.style.display = '';
-    } else {
-        if (tableWrap) tableWrap.style.display = 'none';
-    }
-
-    const itemsBody = document.getElementById('detailItemsBody');
-    if (itemsBody) {
-        itemsBody.innerHTML = '';
-        items.forEach(item => {
-            const itemSubtotal = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)).toFixed(2);
-            const notePill = (item.item_notes && item.item_notes.trim())
-                ? `<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>`
-                : '';
-            const tr = document.createElement('tr');
-            tr.className = 'od-item-row';
-            tr.innerHTML = `
-                <td class="od-td od-td-item">
-                    <span class="od-item-name">${escapeHtml(item.item_name)}</span>
-                    ${notePill}
-                </td>
-                <td class="od-td od-td-center">${item.quantity || 1}</td>
-                <td class="od-td od-td-right od-muted">₱${formatPrice(item.unit_price)}</td>
-                <td class="od-td od-td-right od-item-subtotal">₱${itemSubtotal}</td>`;
-            itemsBody.appendChild(tr);
-
-            (item.addons || []).forEach(addon => {
-                const addonSubtotal = (parseFloat(addon.unit_price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
-                const addonTr = document.createElement('tr');
-                addonTr.className = 'od-addon-row';
-                addonTr.innerHTML = `
-                    <td class="od-td od-td-addon">
-                        <i class="fas fa-corner-down-right od-addon-icon"></i>${escapeHtml(addon.addon_name)}
-                    </td>
-                    <td class="od-td od-td-center od-muted">${addon.quantity || 1}</td>
-                    <td class="od-td od-td-right od-muted">₱${formatPrice(addon.unit_price)}</td>
-                    <td class="od-td od-td-right od-muted">₱${addonSubtotal}</td>`;
-                itemsBody.appendChild(addonTr);
-            });
-        });
-    }
-
-    const total    = parseFloat(order.total_amount || 0);
-    const subtotal = total / 1.12;
-    const vat      = total - subtotal;
-    set('detailSubtotal', subtotal.toFixed(2));
-    set('detailVat',      vat.toFixed(2));
-    set('detailTotal',    total.toFixed(2));
-
-    const totalDisplay = document.getElementById('detailTotalDisplay');
-    if (totalDisplay) {
-        totalDisplay.style.color = order.status === 'completed' ? 'var(--success)' : 'var(--danger)';
-    }
-
-    const paySection = document.getElementById('detailPaymentSection');
-    if (paySection) {
-        if (payment && order.status === 'completed') {
-            paySection.style.display = '';
-            set('detailPayMethod',  payment.payment_method || '—');
-            set('detailAmountPaid', formatPrice(payment.amount_paid));
-            set('detailChange',     formatPrice(payment.change_amount));
-        } else {
-            paySection.style.display = 'none';
-        }
-    }
-
-    const printBtn = document.getElementById('printReceiptBtn');
-    if (printBtn) {
-        if (order.status === 'completed' && order.order_id) {
-            printBtn.href          = `${window.location.pathname}?page=print_receipt&order_id=${order.order_id}`;
-            printBtn.style.display = '';
-        } else {
-            printBtn.style.display = 'none';
-        }
-    }
 }
 
 // ============================================
@@ -956,7 +890,6 @@ function setupEventListeners() {
         });
     }
 
-    // ── Cashier view toggle (admin only) ──
     document.querySelectorAll('.cashier-view-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             document.querySelectorAll('.cashier-view-btn').forEach(b => b.classList.remove('active'));
@@ -966,7 +899,11 @@ function setupEventListeners() {
         });
     });
 
-    // ── Date filter ──
+    document.getElementById('processedByFilter')?.addEventListener('change', function () {
+        currentProcessedBy = parseInt(this.value) || 0;
+        loadPage(1);
+    });
+
     const dateFrom        = document.getElementById('dateFrom');
     const dateTo          = document.getElementById('dateTo');
     const btnAll          = document.getElementById('btnAll');
@@ -976,207 +913,140 @@ function setupEventListeners() {
     const btnCustom       = document.getElementById('btnCustom');
     const dateCustomRange = document.getElementById('dateCustomRange');
 
-    // ── Local date helpers (avoids UTC off-by-one bug) ──
     function todayStr(offsetDays = 0) {
         const d = new Date();
         d.setDate(d.getDate() + offsetDays);
-        const yyyy = d.getFullYear();
-        const mm   = String(d.getMonth() + 1).padStart(2, '0');
-        const dd   = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
-
     function toLocalStr(dateObj) {
-        const yyyy = dateObj.getFullYear();
-        const mm   = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const dd   = String(dateObj.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
+        return `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')}`;
     }
 
     const today = todayStr();
     if (dateFrom) dateFrom.max = today;
     if (dateTo)   dateTo.max   = today;
 
-    // ── Shortcut active state management ──
     const allShortcutBtns = [btnAll, btnToday, btnYesterday, btnThisWeek, btnCustom];
-
     function setActiveShortcut(name) {
         allShortcutBtns.forEach(btn => { if (btn) btn.classList.remove('active'); });
-        const map = {
-            all:       btnAll,
-            today:     btnToday,
-            yesterday: btnYesterday,
-            week:      btnThisWeek,
-            custom:    btnCustom,
-        };
+        const map = { all: btnAll, today: btnToday, yesterday: btnYesterday, week: btnThisWeek, custom: btnCustom };
         if (map[name]) map[name].classList.add('active');
-
-        // Show custom pickers only when Custom is selected
-        if (dateCustomRange) {
-            dateCustomRange.style.display = name === 'custom' ? 'flex' : 'none';
-        }
+        if (dateCustomRange) dateCustomRange.style.display = name === 'custom' ? 'flex' : 'none';
     }
 
-    // ── Custom date range input handler ──
     function applyCustomDateFilter() {
         const from = dateFrom?.value || '';
         const to   = dateTo?.value   || '';
-
-        // Auto-correct overlap
         if (from && to && from > to) {
-            if (document.activeElement === dateFrom) {
-                if (dateTo) dateTo.value = from;
-            } else {
-                if (dateFrom) dateFrom.value = to;
-            }
+            if (document.activeElement === dateFrom) { if (dateTo) dateTo.value = from; }
+            else { if (dateFrom) dateFrom.value = to; }
         }
-
         currentDateFrom = dateFrom?.value || '';
         currentDateTo   = dateTo?.value   || '';
-
-        // Keep min/max in sync so calendar blocks invalid picks
         if (dateFrom && currentDateTo)    dateFrom.max = currentDateTo;
         if (dateTo   && currentDateFrom)  dateTo.min   = currentDateFrom;
         if (dateFrom && !currentDateTo)   dateFrom.max = today;
         if (dateTo   && !currentDateFrom) dateTo.min   = '';
-
         loadPage(1);
     }
 
     dateFrom?.addEventListener('change', applyCustomDateFilter);
     dateTo?.addEventListener('change',   applyCustomDateFilter);
 
-    // ── All: clear date filter, show everything ──
     btnAll?.addEventListener('click', () => {
-        setActiveShortcut('all');
-        currentDateFrom = '';
-        currentDateTo   = '';
+        setActiveShortcut('all'); currentDateFrom = ''; currentDateTo = '';
         if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
         if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
         loadPage(1);
     });
-
-    // ── Today ──
     btnToday?.addEventListener('click', () => {
-        setActiveShortcut('today');
-        currentDateFrom = today;
-        currentDateTo   = today;
+        setActiveShortcut('today'); currentDateFrom = today; currentDateTo = today;
         if (dateFrom) { dateFrom.value = today; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = today; dateTo.min   = today; dateTo.max  = today; }
+        if (dateTo)   { dateTo.value   = today; dateTo.min   = today; dateTo.max = today; }
         loadPage(1);
     });
-
-    // ── Yesterday ──
     btnYesterday?.addEventListener('click', () => {
         setActiveShortcut('yesterday');
-        const y = todayStr(-1);
-        currentDateFrom = y;
-        currentDateTo   = y;
+        const y = todayStr(-1); currentDateFrom = y; currentDateTo = y;
         if (dateFrom) { dateFrom.value = y; dateFrom.min = ''; dateFrom.max = today; }
         if (dateTo)   { dateTo.value   = y; dateTo.min   = y;  dateTo.max   = today; }
         loadPage(1);
     });
-
-    // ── This Week ──
     btnThisWeek?.addEventListener('click', () => {
         setActiveShortcut('week');
-        const now = new Date();
-        const day = now.getDay();
+        const now = new Date(), day = now.getDay();
         const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
         const endOfWeek = new Date(mon); endOfWeek.setDate(mon.getDate() + 6);
-        const sun    = endOfWeek > now ? now : endOfWeek;
-        const monStr = toLocalStr(mon);
-        const sunStr = toLocalStr(sun);
-        currentDateFrom = monStr;
-        currentDateTo   = sunStr;
+        const sun = endOfWeek > now ? now : endOfWeek;
+        const monStr = toLocalStr(mon), sunStr = toLocalStr(sun);
+        currentDateFrom = monStr; currentDateTo = sunStr;
         if (dateFrom) { dateFrom.value = monStr; dateFrom.min = ''; dateFrom.max = sunStr; }
         if (dateTo)   { dateTo.value   = sunStr; dateTo.min   = monStr; dateTo.max = today; }
         loadPage(1);
     });
-
-    // ── Custom: reveal pickers, reset range so user picks fresh ──
     btnCustom?.addEventListener('click', () => {
-        setActiveShortcut('custom');
-        currentDateFrom = '';
-        currentDateTo   = '';
+        setActiveShortcut('custom'); currentDateFrom = ''; currentDateTo = '';
         if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
         if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
         loadPage(1);
     });
 
-    // ── Default: Today active on page load ──
     setActiveShortcut('today');
     currentDateFrom = today;
     currentDateTo   = today;
 
-    // ── Search ──
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         let debounce;
         searchInput.addEventListener('input', function () {
             clearTimeout(debounce);
-            debounce = setTimeout(() => {
-                currentSearch = this.value.toLowerCase().trim();
-                loadPage(1);
-            }, 300);
+            debounce = setTimeout(() => { currentSearch = this.value.toLowerCase().trim(); loadPage(1); }, 300);
         });
     }
 
-    // ── Status filter tabs ──
     document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.addEventListener('click', function () {
             document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
             this.classList.add('active');
             currentFilter = this.getAttribute('data-status') || 'all';
+            syncProcessedByVisibility();
             loadPage(1);
         });
     });
 
-    // ── Delegated click handlers ──
     document.addEventListener('click', function (e) {
         if (e.target.closest('.items-manage-btn')) {
             const btn = e.target.closest('.items-manage-btn');
             const row = btn.closest('tr');
             if (!row) return;
-            const orderId     = row.getAttribute('data-order-id');
-            const orderNumber = row.getAttribute('data-order-number');
-            const orderStatus = row.getAttribute('data-status');
-            openKitchenItemsModal(orderId, orderNumber, orderStatus);
+            openKitchenItemsModal(row.getAttribute('data-order-id'), row.getAttribute('data-order-number'), row.getAttribute('data-status'));
         }
-
         if (e.target.closest('.view-order-btn')) {
             const btn = e.target.closest('.view-order-btn');
             viewOrderDetails(btn.dataset.orderId, btn.dataset.orderNumber);
         }
-
         if (e.target.closest('.collect-payment-btn')) {
             const btn = e.target.closest('.collect-payment-btn');
             showPaymentModal(btn.dataset.orderId, btn.dataset.orderNumber, btn.dataset.orderTotal);
         }
-
         if (e.target.closest('.cancel-order-btn')) {
             const btn = e.target.closest('.cancel-order-btn');
             showCancelOrderModal(btn.dataset.orderId, btn.dataset.orderNumber);
         }
-
         if (e.target.closest('.item-status-btn')) {
-            const btn        = e.target.closest('.item-status-btn');
+            const btn = e.target.closest('.item-status-btn');
             if (btn.disabled) return;
-            const itemId     = btn.getAttribute('data-order-item-id');
-            const nextStatus = btn.getAttribute('data-next-status');
-            updateItemStatus(itemId, nextStatus, btn);
+            updateItemStatus(btn.getAttribute('data-order-item-id'), btn.getAttribute('data-next-status'), btn);
         }
     });
 
-    // ── Payment amount input ──
     const amountPaid = document.getElementById('amountPaid');
     if (amountPaid) {
         amountPaid.addEventListener('input', function () {
-            const amount      = parseFloat(this.value) || 0;
+            const amount     = parseFloat(this.value) || 0;
             const changeAlert = document.getElementById('changeAlert');
             const insufAlert  = document.getElementById('insufficientAlert');
             const confirmBtn  = document.getElementById('confirmPaymentBtn');
-
             if (amount >= currentOrderTotal && amount > 0) {
                 const change = amount - currentOrderTotal;
                 document.getElementById('changeAmount').textContent = change.toFixed(2);
@@ -1186,22 +1056,17 @@ function setupEventListeners() {
                 if (confirmBtn) confirmBtn.disabled = false;
             } else {
                 changeAlert?.classList.add('pm-hidden');
-                if (amount > 0) {
-                    insufAlert?.classList.remove('pm-hidden');
-                } else {
-                    insufAlert?.classList.add('pm-hidden');
-                }
+                if (amount > 0) insufAlert?.classList.remove('pm-hidden');
+                else insufAlert?.classList.add('pm-hidden');
                 if (confirmBtn) confirmBtn.disabled = true;
             }
         });
     }
 
-    // ── Pause refresh when tab is hidden ──
     document.addEventListener('visibilitychange', () => {
         document.hidden ? stopAutoRefresh() : startAutoRefresh();
     });
 
-    // ── Clean up stray modal backdrops ──
     document.addEventListener('hidden.bs.modal', () => {
         document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
         document.body.classList.remove('modal-open');
@@ -1209,7 +1074,6 @@ function setupEventListeners() {
         document.body.style.paddingRight = '';
     });
 
-    // ── Auto-show + auto-dismiss success/error modals ──
     ['successModal', 'errorModal'].forEach(id => {
         const el = document.getElementById(id);
         if (el && typeof bootstrap !== 'undefined') {
@@ -1229,21 +1093,15 @@ function escapeHtml(text) {
     div.textContent = String(text);
     return div.innerHTML;
 }
-
 function formatDate(dateString) {
     if (!dateString) return '';
-    try {
-        return new Date(dateString).toLocaleString('en-US', {
-            month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit'
-        });
-    } catch { return ''; }
+    try { return new Date(dateString).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    catch { return ''; }
 }
-
 function formatPrice(amount) {
     const n = parseFloat(amount || 0);
     return isNaN(n) ? '0.00' : n.toFixed(2);
 }
-
 function capitalize(str) {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -1252,5 +1110,3 @@ function capitalize(str) {
 window.refreshOrders    = refreshOrders;
 window.startAutoRefresh = startAutoRefresh;
 window.stopAutoRefresh  = stopAutoRefresh;
-
-console.log('✅ Orders management script loaded (item-level tracking + date shortcuts)');
