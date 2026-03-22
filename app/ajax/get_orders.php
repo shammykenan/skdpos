@@ -24,6 +24,9 @@ try {
     $where  = [];
     $params = [];
 
+    // Always exclude draft orders
+    $where[] = "o.status != 'draft'";
+
     // Non-admin/non-kitchen always restricted to their own orders
     if (!$isAdmin && !$isKitchen) {
         $where[] = "o.cashier_id = :cashier_id";
@@ -59,7 +62,7 @@ try {
         $params[':date_to'] = $dateTo;
     }
 
-    $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $whereSQL = 'WHERE ' . implode(' AND ', $where);
 
     // ── Filtered total ─────────────────────────────────────────────────
     $countParams = $params;
@@ -104,6 +107,10 @@ try {
     // ── Grand totals per status (respects date + cashier filter) ────────
     $cWhere  = [];
     $cParams = [];
+
+    // Always exclude draft orders
+    $cWhere[] = "status != 'draft'";
+
     if (!$isAdmin && !$isKitchen) {
         $cWhere[] = "cashier_id = :cashier_id";
         $cParams[':cashier_id'] = $currentUserId;
@@ -120,7 +127,7 @@ try {
         $cWhere[] = "DATE(created_at) <= :date_to";
         $cParams[':date_to'] = $dateTo;
     }
-    $cWhereSQL    = $cWhere ? 'WHERE ' . implode(' AND ', $cWhere) : '';
+    $cWhereSQL    = 'WHERE ' . implode(' AND ', $cWhere);
     $countAllStmt = $pdo->prepare("SELECT status, COUNT(*) AS cnt FROM orders $cWhereSQL GROUP BY status");
     $countAllStmt->execute($cParams);
     $statusCounts = ['pending' => 0, 'preparing' => 0, 'ready' => 0, 'completed' => 0, 'cancelled' => 0];

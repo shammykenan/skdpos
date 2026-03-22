@@ -20,7 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['free_table'])) {
     } elseif ($tableRow['status'] !== 'occupied') {
         $_SESSION['error'] = 'Table is already available.';
     } else {
-        // Block freeing until payment is collected
         $stmt = $pdo->prepare("SELECT status FROM orders WHERE order_id = ?");
         $stmt->execute([$tableRow['current_order_id']]);
         $orderStatus = $stmt->fetchColumn();
@@ -38,52 +37,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['free_table'])) {
     exit;
 }
 
-// ── Add a table (admin only) ──────────────────────────────────
+// ── Add a table (admin only) ──────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_table'])) {
     if (!hasRole('admin')) {
         $_SESSION['error'] = 'Only admin can add tables.';
         header("Location: $baseUrl/index.php?page=manage_tables");
         exit;
     }
+
     $table_name = trim($_POST['table_name'] ?? '');
     $capacity   = max(1, (int) ($_POST['capacity'] ?? 4));
+
     if ($table_name === '') {
         $_SESSION['error'] = 'Table name cannot be empty.';
     } else {
-        try {
-            createTable($pdo, $table_name, $capacity);
-            $_SESSION['success'] = "Table \"$table_name\" added.";
-        } catch (Exception $e) {
-            $_SESSION['error'] = 'Could not add table: ' . $e->getMessage();
+        // Check for duplicate name explicitly before inserting
+        $check = $pdo->prepare("SELECT COUNT(*) FROM `tables` WHERE table_name = ?");
+        $check->execute([$table_name]);
+        if ($check->fetchColumn() > 0) {
+            $_SESSION['error'] = "A table named \"{$table_name}\" already exists. Please use a different name.";
+        } else {
+            try {
+                createTable($pdo, $table_name, $capacity);
+                $_SESSION['success'] = "Table \"{$table_name}\" added successfully.";
+            } catch (Exception $e) {
+                // Catch any remaining DB errors (e.g. race condition duplicate)
+                $msg = $e->getMessage();
+                if (str_contains($msg, 'Duplicate') || str_contains($msg, '1062')) {
+                    $_SESSION['error'] = "A table named \"{$table_name}\" already exists. Please use a different name.";
+                } else {
+                    $_SESSION['error'] = 'Could not add table: ' . $e->getMessage();
+                }
+            }
         }
     }
     header("Location: $baseUrl/index.php?page=manage_tables");
     exit;
 }
 
-// ── Edit a table (admin only) ─────────────────────────────────
+// ── Edit a table (admin only) ─────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_table'])) {
     if (!hasRole('admin')) {
         $_SESSION['error'] = 'Only admin can edit tables.';
         header("Location: $baseUrl/index.php?page=manage_tables");
         exit;
     }
+
     $table_id   = (int) ($_POST['table_id'] ?? 0);
     $table_name = trim($_POST['table_name'] ?? '');
     $capacity   = max(1, (int) ($_POST['capacity'] ?? 4));
-    if ($table_id && $table_name !== '') {
-        try {
-            updateTable($pdo, $table_id, $table_name, $capacity);
-            $_SESSION['success'] = 'Table updated.';
-        } catch (Exception $e) {
-            $_SESSION['error'] = 'Could not update table: ' . $e->getMessage();
+
+    if (!$table_id || $table_name === '') {
+        $_SESSION['error'] = 'Invalid table data.';
+    } else {
+        // Check for duplicate name, excluding this table's own current name
+        $check = $pdo->prepare("
+            SELECT COUNT(*) FROM `tables`
+            WHERE table_name = ? AND table_id != ?
+        ");
+        $check->execute([$table_name, $table_id]);
+        if ($check->fetchColumn() > 0) {
+            $_SESSION['error'] = "A table named \"{$table_name}\" already exists. Please use a different name.";
+        } else {
+            try {
+                updateTable($pdo, $table_id, $table_name, $capacity);
+                $_SESSION['success'] = 'Table updated successfully.';
+            } catch (Exception $e) {
+                $msg = $e->getMessage();
+                if (str_contains($msg, 'Duplicate') || str_contains($msg, '1062')) {
+                    $_SESSION['error'] = "A table named \"{$table_name}\" already exists. Please use a different name.";
+                } else {
+                    $_SESSION['error'] = 'Could not update table: ' . $e->getMessage();
+                }
+            }
         }
     }
     header("Location: $baseUrl/index.php?page=manage_tables");
     exit;
 }
 
-// ── Delete a table (admin only, available tables only) ────────
+// ── Delete a table (admin only, available tables only) ────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_table'])) {
     if (!hasRole('admin')) {
         $_SESSION['error'] = 'Only admin can delete tables.';
@@ -101,8 +134,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_table'])) {
     exit;
 }
 
-// ── Fetch data for the view ───────────────────────────────────
+// ── Fetch data for the view ───────────────────────────────────────────
 $tables = getAllTables($pdo);
 $stats  = getTableStats($pdo);
+
+// Keep backward compat with view variable name
+$tableStats = $stats;
 
 require_once __DIR__ . '/../views/cashier/manage_tables.php';

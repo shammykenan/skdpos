@@ -5,7 +5,7 @@ require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
-require_once __DIR__ . '/../core/tableHelper.php';   // ← NEW
+require_once __DIR__ . '/../core/tableHelper.php';
 require_once __DIR__ . '/../models/pos.php';
 
 requireRole(['admin', 'cashier']);
@@ -14,6 +14,41 @@ $baseUrl = $_ENV['BASE_URL'] ?? '';
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'cashier'])) {
     $_SESSION['error'] = 'Access denied. Please log in as admin or cashier.';
     header("Location: index.php?page=login");
+    exit;
+}
+
+// ── AJAX: Auto-save draft ─────────────────────────────────────────────────────
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['action']) &&
+    $_POST['action'] === 'save_draft'
+) {
+    header('Content-Type: application/json');
+    try {
+        $cart_rows     = json_decode($_POST['cart_data']     ?? '[]', true) ?? [];
+        $customer_name = trim($_POST['customer_name']        ?? '') ?: null;
+        $order_type    = trim($_POST['order_type']           ?? 'dine_in');
+        $table_id      = (int)($_POST['table_id']            ?? 0) ?: null;
+
+        if (empty($cart_rows)) {
+            // Cart was cleared — wipe any existing draft
+            clearDraftOrder($pdo, $_SESSION['user_id']);
+            echo json_encode(['ok' => true, 'cleared' => true]);
+        } else {
+            $draft_id = upsertDraftOrder(
+                $pdo,
+                $_SESSION['user_id'],
+                $cart_rows,
+                $customer_name,
+                $order_type,
+                $table_id
+            );
+            echo json_encode(['ok' => true, 'draft_id' => $draft_id]);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+    }
     exit;
 }
 
@@ -31,8 +66,8 @@ foreach ($menu_items as $item) {
 
 $stock_data = [];
 foreach ($menu_items as $item) {
-    $ingredients = getMenuItemIngredientStock($pdo, $item['item_id']);
-    $max_qty = PHP_INT_MAX;
+    $ingredients     = getMenuItemIngredientStock($pdo, $item['item_id']);
+    $max_qty         = PHP_INT_MAX;
     $limiting_ingredient = null;
     foreach ($ingredients as $ing) {
         if ($ing['quantity_required'] <= 0) continue;
@@ -64,7 +99,12 @@ $addon_ids        = array_unique($addon_ids);
 $addon_stock_data = getAddonsStockInfo($pdo, $addon_ids);
 
 // ── Load available tables for dropdown ───────────────────────────────────────
-$available_tables = getAvailableTables($pdo);   // ← NEW
+$available_tables = getAvailableTables($pdo);
+
+// ── Load cashier's draft cart (for page restore) ─────────────────────────────
+$draft_data = loadDraftCart($pdo, $_SESSION['user_id']);
+$draft_cart = $draft_data['cart'];
+$draft_meta = $draft_data['meta']; // customer_name, order_type, table_id — or null
 
 // ── Handle order submission ───────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
@@ -75,9 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     $cart_data     = json_decode($_POST['cart_data'] ?? '[]', true);
 
     // ── Table resolution ─────────────────────────────────────────────────────
-    // For dine-in we now use table_id (FK). table_name is stored for display.
     $table_id     = null;
-    $table_number = null;  // label kept for receipts / legacy columns
+    $table_number = null;
 
     if ($order_type === 'dine_in') {
         $raw_table_id = (int) ($_POST['table_id'] ?? 0);
@@ -98,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             exit;
         }
         $table_id     = $raw_table_id;
-        $table_number = $tableRow['table_name'];  // e.g. "Table 3"
+        $table_number = $tableRow['table_name'];
     }
 
     if (empty($cart_data)) {
@@ -168,8 +207,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         $item = getMenuItemById($pdo, $item_id);
         if (!$item) continue;
 
-        $unit_price = $item['price'];
-        $line_total = $unit_price * $item_qty;
+        $unit_price      = $item['price'];
+        $line_total      = $unit_price * $item_qty;
         $addons_for_item = [];
 
         foreach ($cart_item['addons'] ?? [] as $ad) {
@@ -179,9 +218,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
             if (!$addon_data) continue;
             if (!in_array($addon_id, array_column($addons_map[$item_id] ?? [], 'addon_id'))) continue;
 
-            $addon_line = $addon_data['price'] * $addon_qty;
+            $addon_line       = $addon_data['price'] * $addon_qty;
             $addons_for_item[] = ['addon_id' => $addon_id, 'quantity' => $addon_qty, 'price' => $addon_data['price'], 'total_price' => $addon_line];
-            $line_total += $addon_line;
+            $line_total       += $addon_line;
         }
 
         $subtotal       += $line_total;
@@ -195,18 +234,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     try {
         $pdo->beginTransaction();
 
-        // createOrder now also calls occupyTable() internally
         $order_id = createOrder(
             $pdo,
             $_SESSION['user_id'],
             $customer_name,
-            $table_number,     // display label
+            $table_number,
             $order_type,
             $order_source,
             $subtotal,
             $discount,
             $total_amount,
-            $table_id          // FK
+            $table_id
         );
 
         $stmt = $pdo->prepare("SELECT order_number FROM orders WHERE order_id = ?");
@@ -226,6 +264,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                 deductIngredientsForAddon($pdo, $ad['addon_id'], $ad['quantity']);
             }
         }
+
+        // ── Clear draft now that the real order is committed ──────────────────
+        clearDraftOrder($pdo, $_SESSION['user_id']);
 
         $pdo->commit();
         $_SESSION['success'] = "Order {$order_number} submitted successfully.";
