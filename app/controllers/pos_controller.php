@@ -2,11 +2,13 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
+require_once __DIR__ . '/../core/recipesHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/tableHelper.php';
 require_once __DIR__ . '/../models/pos.php';
+require_once __DIR__ . '/../models/variants.php';
 
 requireRole(['admin', 'cashier']);
 $baseUrl = $_ENV['BASE_URL'] ?? '';
@@ -64,32 +66,45 @@ foreach ($menu_items as $item) {
     $addons_map[(int)$item['item_id']] = getAddonsForMenuItem($pdo, (int)$item['item_id']);
 }
 
+// After $menu_items is loaded:
+$variants_map = getAllVariantsGrouped($pdo);
+
+// FIX: Correctly nested stock calculation
 $stock_data = [];
 foreach ($menu_items as $item) {
-    $ingredients     = getMenuItemIngredientStock($pdo, $item['item_id']);
-    $max_qty         = PHP_INT_MAX;
-    $limiting_ingredient = null;
-    foreach ($ingredients as $ing) {
-        if ($ing['quantity_required'] <= 0) continue;
-        $possible = floor($ing['stock_quantity'] / $ing['quantity_required']);
-        if ($possible < $max_qty) {
-            $max_qty = $possible;
-            $limiting_ingredient = [
-                'name'              => $ing['ingredient_name'],
-                'stock'             => $ing['stock_quantity'],
-                'required_per_unit' => $ing['quantity_required'],
-            ];
+    $id            = $item['item_id'];
+    $item_variants = $variants_map[$id] ?? [];
+
+    if (!empty($item_variants)) {
+        // ✅ Variant item — skip base, only compute per-variant stock
+        $stock_data[$id]['base'] = [
+            'has_stock'    => false,
+            'max_quantity' => 0,
+            'ingredients'  => [],
+        ];
+        foreach ($item_variants as $variant) {
+            $v_id = (int)$variant['variant_id'];
+            $stock_data[$id]['variants'][$v_id] = buildStockDataForVariant($pdo, $id, $v_id);
         }
+    } else {
+        // ✅ Base-only item — no variants
+        $stock_data[$id]['base']     = buildStockDataForVariant($pdo, $id, null);
+        $stock_data[$id]['variants'] = [];
     }
-    $max_qty   = ($max_qty === PHP_INT_MAX || $max_qty < 0) ? 0 : $max_qty;
-    $has_stock = $max_qty > 0;
-    $stock_data[$item['item_id']] = [
-        'has_stock'           => $has_stock,
-        'max_quantity'        => $max_qty,
-        'limiting_ingredient' => $limiting_ingredient,
-        'ingredients'         => $ingredients,
-    ];
 }
+
+// ✅ Fix menu card has_stock: variant items are available if ANY variant has stock
+foreach ($menu_items as &$item) {
+    $id            = $item['item_id'];
+    $item_variants = $variants_map[$id] ?? [];
+
+    if (!empty($item_variants)) {
+        $item['has_stock'] = collect_any_variant_has_stock($stock_data[$id]['variants'] ?? []);
+    } else {
+        $item['has_stock'] = $stock_data[$id]['base']['has_stock'] ?? false;
+    }
+}
+unset($item);
 
 $addon_ids = [];
 foreach ($addons_map as $item_addons) {
@@ -155,33 +170,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     // ── Cumulative stock validation ───────────────────────────────────────────
     $ingredient_demand = [];
 
-    foreach ($cart_data as $cart_item) {
-        $item_id  = $cart_item['id'];
-        $item_qty = (int)($cart_item['quantity'] ?? 1);
-        if ($item_qty <= 0) continue;
+foreach ($cart_data as $cart_item) {
+    $item_id    = $cart_item['id'];
+    $item_qty   = (int)($cart_item['quantity'] ?? 1);
+    $variant_id = isset($cart_item['variant_id']) && $cart_item['variant_id']
+                  ? (int)$cart_item['variant_id'] : null;
 
-        foreach (getMenuItemIngredientStock($pdo, $item_id) as $ing) {
+    // Variant-aware recipe fetch
+    $recipe = getEffectiveRecipe($pdo, $item_id, $variant_id);
+
+    foreach ($recipe as $ing) {
+        if ($ing['quantity_required'] <= 0) continue;
+        $id = $ing['ingredient_id'];
+        if (!isset($ingredient_demand[$id])) {
+            $ingredient_demand[$id] = [
+                'name'      => $ing['ingredient_name'],
+                'needed'    => 0,
+                'available' => (float)$ing['stock_quantity'],
+            ];
+        }
+        $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $item_qty;
+    }
+
+    // Addon loop — unchanged
+    foreach ($cart_item['addons'] ?? [] as $ad) {
+        $addon_qty = (int)($ad['quantity'] ?? 1);
+        if ($addon_qty <= 0) continue;
+        foreach (getAddonIngredientStock($pdo, (int)$ad['id']) as $ing) {
             if ($ing['quantity_required'] <= 0) continue;
             $id = $ing['ingredient_id'];
             if (!isset($ingredient_demand[$id])) {
-                $ingredient_demand[$id] = ['name' => $ing['ingredient_name'], 'needed' => 0, 'available' => (float)$ing['stock_quantity']];
+                $ingredient_demand[$id] = [
+                    'name'      => $ing['ingredient_name'],
+                    'needed'    => 0,
+                    'available' => (float)$ing['stock_quantity'],
+                ];
             }
-            $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $item_qty;
-        }
-
-        foreach ($cart_item['addons'] ?? [] as $ad) {
-            $addon_qty = (int)($ad['quantity'] ?? 1);
-            if ($addon_qty <= 0) continue;
-            foreach (getAddonIngredientStock($pdo, (int)$ad['id']) as $ing) {
-                if ($ing['quantity_required'] <= 0) continue;
-                $id = $ing['ingredient_id'];
-                if (!isset($ingredient_demand[$id])) {
-                    $ingredient_demand[$id] = ['name' => $ing['ingredient_name'], 'needed' => 0, 'available' => (float)$ing['stock_quantity']];
-                }
-                $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $addon_qty;
-            }
+            $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $addon_qty;
         }
     }
+}
 
     foreach ($ingredient_demand as $info) {
         if ($info['needed'] > $info['available']) {
@@ -199,33 +227,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     $order_details = [];
 
     foreach ($cart_data as $cart_item) {
-        $item_id   = $cart_item['id'];
-        $item_qty  = (int)($cart_item['quantity'] ?? 1);
-        $item_note = trim((string)($cart_item['note'] ?? '')) ?: null;
-        if ($item_qty <= 0) continue;
+    $item_id    = $cart_item['id'];
+    $item_qty   = (int)($cart_item['quantity'] ?? 1);
+    $variant_id = isset($cart_item['variant_id']) && $cart_item['variant_id']
+                  ? (int)$cart_item['variant_id'] : null;
+    $item_note  = trim((string)($cart_item['note'] ?? '')) ?: null;
+    if ($item_qty <= 0) continue;
 
-        $item = getMenuItemById($pdo, $item_id);
-        if (!$item) continue;
+    $item = getMenuItemById($pdo, $item_id);
+    if (!$item) continue;
 
-        $unit_price      = $item['price'];
-        $line_total      = $unit_price * $item_qty;
-        $addons_for_item = [];
-
-        foreach ($cart_item['addons'] ?? [] as $ad) {
-            $addon_id   = (int)$ad['id'];
-            $addon_qty  = (int)($ad['quantity'] ?? 1);
-            $addon_data = getAddonById($pdo, $addon_id);
-            if (!$addon_data) continue;
-            if (!in_array($addon_id, array_column($addons_map[$item_id] ?? [], 'addon_id'))) continue;
-
-            $addon_line       = $addon_data['price'] * $addon_qty;
-            $addons_for_item[] = ['addon_id' => $addon_id, 'quantity' => $addon_qty, 'price' => $addon_data['price'], 'total_price' => $addon_line];
-            $line_total       += $addon_line;
-        }
-
-        $subtotal       += $line_total;
-        $order_details[] = ['item_id' => $item_id, 'quantity' => $item_qty, 'unit_price' => $unit_price, 'line_total' => $line_total, 'item_note' => $item_note, 'addons' => $addons_for_item];
+    // Resolve price: variant price if variant, else base item price
+    $variant_name_snapshot = null;
+    if ($variant_id !== null) {
+        $variant               = getVariantById($pdo, $variant_id);
+        $unit_price            = $variant ? (float)$variant['price'] : (float)$item['price'];
+        $variant_name_snapshot = $variant['variant_name'] ?? null;
+    } else {
+        $unit_price = (float)$item['price'];
     }
+
+    $line_total      = $unit_price * $item_qty;
+    $addons_for_item = [];
+
+    foreach ($cart_item['addons'] ?? [] as $ad) {
+        $addon_id  = (int)$ad['id'];
+        $addon_qty = (int)($ad['quantity'] ?? 1);
+        $addon_data = getAddonById($pdo, $addon_id);
+        if (!$addon_data) continue;
+        if (!in_array($addon_id, array_column($addons_map[$item_id] ?? [], 'addon_id'))) continue;
+        $addon_line       = $addon_data['price'] * $addon_qty;
+        $addons_for_item[] = [
+            'addon_id'   => $addon_id,
+            'quantity'   => $addon_qty,
+            'price'      => $addon_data['price'],
+            'total_price'=> $addon_line,
+        ];
+        $line_total += $addon_line;
+    }
+
+    $subtotal       += $line_total;
+    $order_details[] = [
+        'item_id'      => $item_id,
+        'item_name'    => $item['item_name'],
+        'variant_id'   => $variant_id,
+        'variant_name' => $variant_name_snapshot,
+        'quantity'     => $item_qty,
+        'unit_price'   => $unit_price,
+        'line_total'   => $line_total,
+        'item_note'    => $item_note,
+        'addons'       => $addons_for_item,
+    ];
+}
 
     $discount     = 0;
     $total_amount = $subtotal - $discount;
@@ -252,18 +305,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
         $order_number = $stmt->fetchColumn();
 
         foreach ($order_details as $detail) {
-            $order_item_id = createOrderItem($pdo, $order_id, $detail['item_id'], $detail['quantity'], $detail['unit_price'], $detail['item_note']);
+    // Inside foreach ($order_details as $detail):
+        $order_item_id = createOrderItem(
+            $pdo,
+            $order_id,
+            $detail['item_id'],
+            $detail['item_name'],        // ADD: snapshot captured when building $order_details
+            $detail['quantity'],
+            $detail['unit_price'],
+            $detail['item_note'],
+            $detail['variant_id'],
+            $detail['variant_name']
+        );
 
-            foreach ($detail['addons'] as $ad) {
-                createOrderItemAddon($pdo, $order_item_id, $ad['addon_id'], $ad['quantity'], $ad['price']);
-            }
+    foreach ($detail['addons'] as $ad) {
+        createOrderItemAddon($pdo, $order_item_id, $ad['addon_id'], $ad['quantity'], $ad['price']);
+    }
 
-            deductIngredientsForItem($pdo, $detail['item_id'], $detail['quantity']);
+    // Variant-aware stock deduction
+    deductIngredientsForItem($pdo, $detail['item_id'], $detail['quantity'], $detail['variant_id']);
 
-            foreach ($detail['addons'] as $ad) {
-                deductIngredientsForAddon($pdo, $ad['addon_id'], $ad['quantity']);
-            }
-        }
+    foreach ($detail['addons'] as $ad) {
+        deductIngredientsForAddon($pdo, $ad['addon_id'], $ad['quantity']);
+    }
+}
 
         // ── Clear draft now that the real order is committed ──────────────────
         clearDraftOrder($pdo, $_SESSION['user_id']);

@@ -56,16 +56,30 @@ function getAddonsForMenuItem(PDO $pdo, int $item_id): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function deductIngredientsForAddon(PDO $pdo, int $addon_id, int $quantity): void
+function deductIngredientsForAddon(PDO $pdo, int $addon_id, int $addon_quantity): void
 {
-    $stmt = $pdo->prepare("SELECT ingredient_id, quantity_used FROM addons WHERE addon_id = ?");
-    $stmt->execute([$addon_id]);
-    $addon = $stmt->fetch();
+    $stmt = $pdo->prepare("
+        SELECT ingredient_id, quantity_used
+        FROM addons
+        WHERE addon_id = :addon_id
+    ");
+    $stmt->execute([':addon_id' => $addon_id]);
+    $addon = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($addon) {
-        $pdo->prepare("UPDATE ingredients SET stock_quantity = stock_quantity - ? WHERE ingredient_id = ?")
-            ->execute([$addon['quantity_used'] * $quantity, $addon['ingredient_id']]);
+    if (!$addon || (float)$addon['quantity_used'] <= 0) {
+        return;
     }
+
+    $deduct = (float)$addon['quantity_used'] * $addon_quantity;
+
+    $pdo->prepare("
+        UPDATE ingredients
+        SET stock_quantity = stock_quantity - :deduct
+        WHERE ingredient_id = :ingredient_id
+    ")->execute([
+        ':deduct'        => $deduct,
+        ':ingredient_id' => $addon['ingredient_id'],
+    ]);
 }
 
 /**
@@ -104,48 +118,44 @@ function checkAddonStock(PDO $pdo, int $addon_id, int $quantity = 1): array
 
 function getAddonsStockInfo(PDO $pdo, array $addon_ids): array
 {
-    if (empty($addon_ids)) return [];
+    if (empty($addon_ids)) {
+        return [];
+    }
 
-    $addon_ids    = array_values(array_unique(array_map('intval', $addon_ids)));
     $placeholders = implode(',', array_fill(0, count($addon_ids), '?'));
 
-    $sql = "SELECT a.addon_id,
-                   a.addon_name,
-                   a.price,
-                   a.quantity_used,
-                   i.ingredient_id,
-                   i.ingredient_name,
-                   i.stock_quantity,
-                   FLOOR(i.stock_quantity / a.quantity_used) AS max_quantity
-            FROM addons a
-            JOIN ingredients i ON a.ingredient_id = i.ingredient_id
-            WHERE a.addon_id IN ($placeholders)
-              AND a.is_active = 1";
-
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT
+            a.addon_id,
+            a.ingredient_id,
+            a.quantity_used       AS quantity_required,
+            i.ingredient_name,
+            i.stock_quantity
+        FROM addons a
+        JOIN ingredients i ON i.ingredient_id = a.ingredient_id
+        WHERE a.addon_id IN ($placeholders)
+    ");
     $stmt->execute(array_values($addon_ids));
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $result = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $maxQty = (int) floor($row['max_quantity']);
-        $result[(int)$row['addon_id']] = [
-            'addon_name'      => $row['addon_name'],
-            'price'           => $row['price'],
-            'ingredient_id'   => $row['ingredient_id'],
-            'ingredient_name' => $row['ingredient_name'],
-            'quantity_used'   => $row['quantity_used'],
-            'stock_quantity'  => $row['stock_quantity'],
-            'max_quantity'    => $maxQty,
-            'has_stock'       => $maxQty > 0,
-            'ingredients'     => [[
+    foreach ($rows as $row) {
+        $id      = (int)$row['addon_id'];
+        $maxQty  = ($row['quantity_required'] > 0)
+                   ? (int)floor((float)$row['stock_quantity'] / (float)$row['quantity_required'])
+                   : 0;
+
+        $result[$id] = [
+            'max_quantity' => $maxQty,
+            'has_stock'    => $maxQty > 0,
+            'ingredients'  => [[
                 'ingredient_id'     => $row['ingredient_id'],
                 'ingredient_name'   => $row['ingredient_name'],
-                'quantity_required' => (float) $row['quantity_used'],
-                'stock_quantity'    => (float) $row['stock_quantity'],
+                'quantity_required' => (float)$row['quantity_required'],
+                'stock_quantity'    => (float)$row['stock_quantity'],
             ]],
         ];
     }
-
     return $result;
 }
 

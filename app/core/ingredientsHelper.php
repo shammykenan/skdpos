@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/ingredients.php';
-
+require_once __DIR__ . '/recipesHelper.php';
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE: ingredients no longer has a `unit` column.
 // Unit info is in the `units` table, joined via ingredients.unit_id (FK).
@@ -156,57 +156,159 @@ function checkIngredientsStockForAddon(PDO $pdo, int $addon_id, int $order_qty):
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Deduct ingredient stock when a menu item is ordered.
+ * Restore ingredient stock when an order is cancelled or refunded.
  */
-function deductIngredientsForItem(PDO $pdo, int $item_id, int $quantity): void {
-    $ingredients = getIngredientsForItem($pdo, $item_id);
-    foreach ($ingredients as $ing) {
-        $stmt = $pdo->prepare("
-            UPDATE ingredients
-            SET stock_quantity = stock_quantity - ?
-            WHERE ingredient_id = ?
-        ");
-        $stmt->execute([$ing['quantity_required'] * $quantity, $ing['ingredient_id']]);
+// FIX (BUG 7): Uses restoreIngredientsForItem() and restoreIngredientsForAddon()
+// with positive quantities. No more negative-qty trick.
+function restoreIngredientsForOrder(PDO $pdo, int $order_id): void
+{
+    $stmt = $pdo->prepare("
+        SELECT item_id, variant_id, quantity
+        FROM order_items
+        WHERE order_id = ? AND status != 'cancelled'
+    ");
+    $stmt->execute([$order_id]);
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        restoreIngredientsForItem(
+            $pdo,
+            (int)$row['item_id'],
+            (int)$row['quantity'],
+            $row['variant_id'] !== null ? (int)$row['variant_id'] : null
+        );
+    }
+
+    // Restore addon ingredients
+    $stmt = $pdo->prepare("
+        SELECT oia.addon_id, oia.quantity
+        FROM order_item_addons oia
+        JOIN order_items oi ON oia.order_item_id = oi.order_item_id
+        WHERE oi.order_id = ?
+    ");
+    $stmt->execute([$order_id]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        restoreIngredientsForAddon($pdo, (int)$row['addon_id'], (int)$row['quantity']);
+    }
+}
+/**
+ * Deduct ingredients for one ordered item, variant-aware.
+ */
+function deductIngredientsForItem(
+    PDO  $pdo,
+    int  $item_id,
+    int  $quantity,
+    ?int $variant_id = null
+): void {
+    $recipe = getEffectiveRecipe($pdo, $item_id, $variant_id);
+
+    if (empty($recipe)) {
+        return; // No recipe → nothing to deduct (item has no tracked ingredients)
+    }
+
+    $stmt = $pdo->prepare("
+        UPDATE ingredients
+        SET stock_quantity = stock_quantity - :deduct
+        WHERE ingredient_id = :ingredient_id
+    ");
+
+    foreach ($recipe as $row) {
+        $deduct = (float)$row['quantity_required'] * $quantity;
+        if ($deduct <= 0) {
+            continue;
+        }
+        $stmt->execute([
+            ':deduct'        => $deduct,
+            ':ingredient_id' => $row['ingredient_id'],
+        ]);
     }
 }
 
 /**
- * Restore ingredient stock when an order is cancelled or refunded.
+ * Restore ingredients for one item when an order is cancelled.
+ * FIX (BUG 7): Uses a dedicated restore function with positive quantity,
+ * instead of passing negative qty to the deduct function.
  */
-function restoreIngredientsForOrder(PDO $pdo, int $order_id): void {
-    $stmt = $pdo->prepare("SELECT order_item_id, item_id, quantity FROM order_items WHERE order_id = ?");
-    $stmt->execute([$order_id]);
-    $order_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+function restoreIngredientsForItem(
+    PDO  $pdo,
+    int  $item_id,
+    int  $quantity,
+    ?int $variant_id = null
+): void {
+    $recipe = getEffectiveRecipe($pdo, $item_id, $variant_id);
+    foreach ($recipe as $row) {
+        $pdo->prepare("
+            UPDATE ingredients
+            SET stock_quantity = stock_quantity + ?
+            WHERE ingredient_id = ?
+        ")->execute([$row['quantity_required'] * $quantity, $row['ingredient_id']]);
+    }
+}
 
-    foreach ($order_items as $item) {
-        // Restore base item ingredients
-        $ingredients = getIngredientsForItem($pdo, $item['item_id']);
-        foreach ($ingredients as $ing) {
-            $stmt2 = $pdo->prepare("
-                UPDATE ingredients
-                SET stock_quantity = stock_quantity + ?
-                WHERE ingredient_id = ?
-            ");
-            $stmt2->execute([$ing['quantity_required'] * $item['quantity'], $ing['ingredient_id']]);
-        }
+/**
+ * Restore addon ingredients when an order is cancelled.
+ * FIX (BUG 7): Dedicated restore function — no negative qty tricks.
+ */
+function restoreIngredientsForAddon(PDO $pdo, int $addon_id, int $quantity): void
+{
+    $stmt = $pdo->prepare("
+        SELECT ingredient_id, quantity_used
+        FROM addons
+        WHERE addon_id = ?
+    ");
+    $stmt->execute([$addon_id]);
+    $addon = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$addon) return;
 
-        // Restore add-on ingredients
-        $stmt3 = $pdo->prepare("
-            SELECT oia.addon_id, oia.quantity, a.quantity_used
-            FROM order_item_addons oia
-            JOIN addons a ON oia.addon_id = a.addon_id
-            WHERE oia.order_item_id = ?
+    $pdo->prepare("
+        UPDATE ingredients
+        SET stock_quantity = stock_quantity + ?
+        WHERE ingredient_id = ?
+    ")->execute([$addon['quantity_used'] * $quantity, $addon['ingredient_id']]);
+}
+
+/**
+ * Get stock info for one item+variant. Used by POS stock calculations.
+ */
+function getMenuItemIngredientStockForVariant(
+    PDO  $pdo,
+    int  $item_id,
+    ?int $variant_id
+): array {
+    // Try variant-specific recipe first
+    if ($variant_id !== null) {
+        $stmt = $pdo->prepare("
+            SELECT
+                r.ingredient_id,
+                i.ingredient_name,
+                r.quantity_required,
+                i.stock_quantity
+            FROM recipes r
+            JOIN ingredients i ON i.ingredient_id = r.ingredient_id
+            WHERE r.item_id    = :item_id
+              AND r.variant_id = :variant_id
         ");
-        $stmt3->execute([$item['order_item_id']]);
-        $addons = $stmt3->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($addons as $ad) {
-            $stmt4 = $pdo->prepare("
-                UPDATE ingredients
-                SET stock_quantity = stock_quantity + ?
-                WHERE ingredient_id = (SELECT ingredient_id FROM addons WHERE addon_id = ?)
-            ");
-            $stmt4->execute([$ad['quantity_used'] * $ad['quantity'], $ad['addon_id']]);
+        $stmt->execute([
+            ':item_id'    => $item_id,
+            ':variant_id' => $variant_id,
+        ]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!empty($rows)) {
+            return $rows;
         }
     }
+
+    // Fall back to base recipe
+    $stmt = $pdo->prepare("
+        SELECT
+            r.ingredient_id,
+            i.ingredient_name,
+            r.quantity_required,
+            i.stock_quantity
+        FROM recipes r
+        JOIN ingredients i ON i.ingredient_id = r.ingredient_id
+        WHERE r.item_id    = :item_id
+          AND r.variant_id IS NULL
+    ");
+    $stmt->execute([':item_id' => $item_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

@@ -43,6 +43,10 @@ switch ($page) {
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/admin_manage_addons_controller.php';
         break;
+    case 'manage_variants':
+        requireRole(['admin']);
+        require_once BASE_PATH . '/app/controllers/admin_manage_variants_controller.php';
+        break;
 
     //cashier
     case 'manage_pos':

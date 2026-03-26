@@ -123,32 +123,24 @@
         .no-results { text-align: center; padding: 3rem 1rem; color: var(--warm-gray); }
         .no-results i { font-size: 2.5rem; color: #d0d8e4; display: block; margin-bottom: 0.75rem; }
 
+        /* ─── VARIANT ─── */
+        .cart-item-variant { font-size: 0.72rem; color: var(--primary-light); font-weight: 600; margin-top: 0.1rem; display: flex; align-items: center; gap: 0.3rem; }
+        .variant-option { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.4rem; border-bottom: 1px solid #edf2f7; cursor: pointer; transition: background 0.15s; }
+        .variant-option:last-child { border-bottom: none; }
+        .variant-option:hover { background: #f4f7fb; }
+        .variant-option.out-of-stock-variant { opacity: 0.45; cursor: not-allowed; }
+        .variant-option .variant-name { font-weight: 700; color: var(--navy); font-size: 0.95rem; }
+        .variant-option .variant-price { font-weight: 800; color: var(--success); font-size: 1rem; }
+
         /* ─── CART PANEL ─── */
         .cart-panel { background: white; border-radius: 20px; border: 1px solid rgba(203,213,224,0.5); box-shadow: 0 4px 16px rgba(15,76,92,0.04); position: sticky; top: calc(var(--topbar-height) + 1.25rem); overflow: hidden; display: flex; flex-direction: column; max-height: calc(100vh - var(--topbar-height) - 2.5rem); }
         .cart-panel-header { padding: 1rem 1.2rem; border-bottom: 1px solid #f0f4f8; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
         .cart-panel-title { font-size: 1rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.5rem; }
         .cart-panel-title i { color: var(--primary); }
         .cart-item-count-pill { background: var(--primary); color: white; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 40px; min-width: 22px; text-align: center; }
-        .clear-cart-btn {
-            background: rgba(214,64,69,0.08);
-            border: 1.5px solid rgba(214,64,69,0.35);
-            color: var(--danger);
-            font-size: 0.78rem;
-            font-weight: 700;
-            padding: 0.45rem 1rem;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.18s;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            white-space: nowrap;
-        }
-        .clear-cart-btn:hover {
-            background: var(--danger);
-            color: white;
-            border-color: var(--danger);
-        }
+        .clear-cart-btn { background: rgba(214,64,69,0.08); border: 1.5px solid rgba(214,64,69,0.35); color: var(--danger); font-size: 0.78rem; font-weight: 700; padding: 0.45rem 1rem; border-radius: 10px; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+        .clear-cart-btn:hover { background: var(--danger); color: white; border-color: var(--danger); }
+
         /* ─── CART CHECKOUT FIELDS ─── */
         .cart-fields { padding: 1rem 1.2rem 0.75rem; flex-shrink: 0; border-bottom: 1px solid #f0f4f8; }
         .form-label { font-weight: 600; color: var(--navy); margin-bottom: 0.3rem; font-size: 0.75rem; display: block; }
@@ -172,90 +164,39 @@
         .draft-dismiss-btn:hover { opacity: 1; }
 
         /* ─── CART ITEMS ─── */
-        .cart-items-wrapper {
-            flex: 1; overflow-y: scroll; min-height: 0;
-            /* Always show scrollbar track so users know it's scrollable */
-            scrollbar-width: thin;
-            scrollbar-color: #cbd5e0 #f4f7fb;
-        }
+        .cart-items-wrapper { flex: 1; overflow-y: scroll; min-height: 0; scrollbar-width: thin; scrollbar-color: #cbd5e0 #f4f7fb; }
         .cart-items-wrapper::-webkit-scrollbar { width: 6px; }
         .cart-items-wrapper::-webkit-scrollbar-track { background: #f4f7fb; }
         .cart-items-wrapper::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 8px; }
         .cart-items-wrapper::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
-
-        .cart-item {
-            padding: 1rem 1.2rem;
-            border-bottom: 1px solid #edf2f7;
-            transition: background 0.15s;
-            position: relative;
-        }
+        .cart-item { padding: 1rem 1.2rem; border-bottom: 1px solid #edf2f7; transition: background 0.15s; position: relative; }
         .cart-item:last-child { border-bottom: none; }
         .cart-item:hover { background: #fafcff; }
         .cart-item.insufficient-stock { background: rgba(214,64,69,0.03); border-left: 3px solid var(--danger); padding-left: calc(1.2rem - 3px); }
-
         .cart-item-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
         .cart-item-info { flex: 1; min-width: 0; }
-        .cart-item-name {
-            font-weight: 700; font-size: 0.92rem; color: var(--navy);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            line-height: 1.35;
-        }
+        .cart-item-name { font-weight: 700; font-size: 0.92rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
         .cart-item-unit-price { font-size: 0.73rem; color: var(--warm-gray); margin-top: 0.1rem; }
         .cart-item-price { font-size: 1rem; font-weight: 800; color: var(--success); margin-top: 0.2rem; }
-        .cart-item-remove {
-            background: none; border: none; color: #cbd5e0; cursor: pointer;
-            padding: 0.2rem; font-size: 1rem; flex-shrink: 0;
-            transition: color 0.15s; line-height: 1; margin-top: 1px;
-        }
+        .cart-item-remove { background: none; border: none; color: #cbd5e0; cursor: pointer; padding: 0.2rem; font-size: 1rem; flex-shrink: 0; transition: color 0.15s; line-height: 1; margin-top: 1px; }
         .cart-item-remove:hover { color: var(--danger); }
-
-        .addon-item {
-            font-size: 0.73rem; color: var(--warm-gray);
-            padding: 0.25rem 0.6rem; margin-top: 0.35rem;
-            background: #f7f9fc; border-radius: 6px;
-            border-left: 2px solid var(--primary-light);
-        }
-
-        .cart-item-qty {
-            display: flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem;
-            /* Push qty to the right so it doesn't crowd the name */
-            justify-content: flex-end;
-        }
-        .qty-btn {
-            width: 30px; height: 30px; border: 1.5px solid var(--border); background: white;
-            border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            transition: all 0.15s; color: var(--warm-gray); font-size: 0.78rem; flex-shrink: 0;
-        }
+        .addon-item { font-size: 0.73rem; color: var(--warm-gray); padding: 0.25rem 0.6rem; margin-top: 0.35rem; background: #f7f9fc; border-radius: 6px; border-left: 2px solid var(--primary-light); }
+        .cart-item-qty { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem; justify-content: flex-end; }
+        .qty-btn { width: 30px; height: 30px; border: 1.5px solid var(--border); background: white; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; color: var(--warm-gray); font-size: 0.78rem; flex-shrink: 0; }
         .qty-btn:hover:not(:disabled) { border-color: var(--primary); background: var(--primary); color: white; }
         .qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        .qty-input {
-            width: 46px; text-align: center; border: 1.5px solid var(--border);
-            border-radius: 8px; padding: 0.3rem 0.25rem; font-weight: 700;
-            font-size: 0.88rem; font-family: inherit; color: var(--navy);
-        }
+        .qty-input { width: 46px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.3rem 0.25rem; font-weight: 700; font-size: 0.88rem; font-family: inherit; color: var(--navy); }
         .qty-input:focus { outline: none; border-color: var(--primary); }
 
         /* ─── CART NOTES ─── */
-        .cart-item-note {
-            display: flex; align-items: flex-start; gap: 0.4rem; margin-top: 0.5rem;
-            padding: 0.4rem 0.65rem; background: rgba(254,228,64,0.12);
-            border: 1px dashed rgba(244,185,66,0.5); border-radius: 8px;
-            font-size: 0.75rem; color: #7a5c00; cursor: pointer; transition: background 0.15s;
-        }
+        .cart-item-note { display: flex; align-items: flex-start; gap: 0.4rem; margin-top: 0.5rem; padding: 0.4rem 0.65rem; background: rgba(254,228,64,0.12); border: 1px dashed rgba(244,185,66,0.5); border-radius: 8px; font-size: 0.75rem; color: #7a5c00; cursor: pointer; transition: background 0.15s; }
         .cart-item-note:hover { background: rgba(254,228,64,0.25); }
         .cart-item-note i { font-size: 0.72rem; margin-top: 2px; flex-shrink: 0; color: #b87a1a; }
         .cart-item-note-text { flex: 1; font-style: italic; word-break: break-word; line-height: 1.4; }
-        .cart-item-note-empty {
-            display: flex; align-items: center; gap: 0.35rem; margin-top: 0.45rem;
-            font-size: 0.73rem; color: var(--warm-gray); opacity: 0.5; cursor: pointer; transition: opacity 0.15s;
-        }
+        .cart-item-note-empty { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.45rem; font-size: 0.73rem; color: var(--warm-gray); opacity: 0.5; cursor: pointer; transition: opacity 0.15s; }
         .cart-item-note-empty:hover { opacity: 1; color: var(--primary); }
         .cart-item-note-editor { margin-top: 0.45rem; }
-        .cart-item-note-editor textarea {
-            width: 100%; border: 1.5px solid var(--primary-light); border-radius: 9px;
-            padding: 0.4rem 0.65rem; font-size: 0.8rem; resize: none; outline: none;
-            font-family: inherit; color: var(--dark); background: #fafcff; line-height: 1.5;
-        }
+        .cart-item-note-editor textarea { width: 100%; border: 1.5px solid var(--primary-light); border-radius: 9px; padding: 0.4rem 0.65rem; font-size: 0.8rem; resize: none; outline: none; font-family: inherit; color: var(--dark); background: #fafcff; line-height: 1.5; }
         .cart-item-note-editor textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15,76,92,0.08); }
         .cart-item-note-editor .note-actions { display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.3rem; }
         .note-save-btn { padding: 0.25rem 0.75rem; font-size: 0.72rem; border-radius: 20px; background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
@@ -331,9 +272,7 @@
         .clear-confirm-item { font-size: 0.8rem; color: var(--navy); padding: 0.2rem 0; display: flex; align-items: center; gap: 0.4rem; }
         .clear-confirm-item i { color: var(--danger); font-size: 0.6rem; }
 
-        /* ════════════════════════════════════════
-           MOBILE (≤ 991px)
-        ════════════════════════════════════════ */
+        /* ════════════════ MOBILE ════════════════ */
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.1); }
@@ -342,8 +281,6 @@
             .main-content { margin-left: 0; padding: 1.1rem; padding-bottom: calc(var(--mobile-bottom-bar) + 1.1rem); }
             .pos-layout { display: block; }
             .cart-panel { display: none; }
-
-            /* Mobile bottom bar */
             .mobile-bottom-bar { display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; height: var(--mobile-bottom-bar); background: white; border-top: 1px solid var(--border); z-index: 1050; box-shadow: 0 -4px 16px rgba(15,76,92,0.08); align-items: center; padding: 0 1rem; gap: 0.75rem; }
             .cart-preview-btn { flex: 1; display: flex; align-items: center; gap: 0.65rem; background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
             .cart-preview-icon { position: relative; width: 44px; height: 44px; background: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.1rem; flex-shrink: 0; }
@@ -353,8 +290,6 @@
             .cart-preview-total { font-size: 0.95rem; font-weight: 700; color: var(--navy); line-height: 1; }
             .mobile-place-btn { background: var(--success); color: white; border: none; border-radius: 12px; padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.83rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; }
             .mobile-place-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-            /* Mobile cart drawer */
             .mobile-cart-drawer { display: flex !important; flex-direction: column; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 22px 22px 0 0; box-shadow: 0 -8px 30px rgba(15,76,92,0.12); z-index: 1060; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); max-height: 92vh; overflow: hidden; }
             .mobile-cart-drawer.open { transform: translateY(0); }
             .drawer-backdrop { position: fixed; inset: 0; background: rgba(15,76,92,0.35); backdrop-filter: blur(3px); z-index: 1055; display: none; }
@@ -367,7 +302,6 @@
             .drawer-body::-webkit-scrollbar { width: 3px; }
             .drawer-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
             .drawer-footer { padding: 0.75rem 1rem; border-top: 1px solid var(--border); background: white; flex-shrink: 0; }
-
             .menu-grid { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
             .menu-item-image, .menu-item-placeholder { height: 105px; }
             .menu-item-body { padding: 0.65rem; }
@@ -519,14 +453,16 @@
             <div class="menu-grid-wrapper">
                 <div class="menu-grid" id="menuGrid">
                     <?php foreach ($menu_items as $item):
-                        $hasStock = checkMenuItemStock($pdo, $item['item_id'], 1);
-                        $hasAddons = !empty((array)($addons_map[$item['item_id']] ?? []));
-                    ?>
+    $hasAddons = !empty((array)($addons_map[$item['item_id']] ?? []));
+    $itemStock = $stock_data[$item['item_id']] ?? null;
+    // ✅ FIX: use the pre-computed has_stock from the controller, not base directly
+    $hasStock  = $item['has_stock'] ?? false;
+?>
                     <div class="menu-item-card <?= !$hasStock ? 'out-of-stock' : '' ?>"
                          data-category="<?= $item['category_id'] ?>"
                          data-item-id="<?= $item['item_id'] ?>"
                          data-item-name="<?= htmlspecialchars($item['item_name']) ?>"
-                         data-item-price="<?= $item['price'] ?>"
+                         data-item-price="<?= $item['base_price'] ?>"
                          data-category-id="<?= $item['category_id'] ?>"
                          data-search-text="<?= htmlspecialchars(strtolower($item['item_name'])) ?>"
                          data-has-stock="<?= $hasStock ? 'true' : 'false' ?>">
@@ -541,7 +477,20 @@
                         <?php endif; ?>
                         <div class="menu-item-body">
                             <div class="menu-item-name"><?= htmlspecialchars($item['item_name']) ?></div>
-                            <div class="menu-item-price">₱<?= number_format($item['price'], 2) ?></div>
+                            <?php
+$itemVariants = $variants_map[$item['item_id']] ?? [];
+if (!empty($itemVariants)) {
+    $prices   = array_column($itemVariants, 'price');
+    $minPrice = min($prices);
+    $maxPrice = max($prices);
+    $priceDisplay = ($minPrice === $maxPrice)
+        ? '₱' . number_format($minPrice, 2)
+        : '₱' . number_format($minPrice, 2) . ' – ₱' . number_format($maxPrice, 2);
+} else {
+    $priceDisplay = '₱' . number_format($item['base_price'], 2);
+}
+?>
+<div class="menu-item-price"><?= $priceDisplay ?></div>
                             <?php if (!empty($item['ingredients'])): ?>
                                 <div class="menu-item-desc"><?php
                                     $ingNames = array_map(fn($i) => $i['ingredient_name'], $item['ingredients']);
@@ -568,8 +517,6 @@
 
         <!-- ═══ CART PANEL (desktop) ═══ -->
         <div class="cart-panel fade-in" style="animation-delay:0.06s">
-
-            <!-- Header -->
             <div class="cart-panel-header">
                 <div class="cart-panel-title">
                     <i class="fas fa-shopping-cart"></i>
@@ -581,7 +528,6 @@
                 </button>
             </div>
 
-            <!-- Checkout fields -->
             <div class="cart-fields">
                 <div class="mb-2">
                     <label class="form-label">Order Type <span class="text-danger">*</span></label>
@@ -616,14 +562,12 @@
                 </div>
             </div>
 
-            <!-- Draft restored banner -->
             <div id="draftBanner" class="draft-restored-banner d-none mt-2 mx-3">
                 <i class="fas fa-clock-rotate-left"></i>
                 <span>Cart restored from your last session.</span>
                 <button class="draft-dismiss-btn" onclick="dismissDraftBanner()"><i class="fas fa-times"></i></button>
             </div>
 
-            <!-- Cart items -->
             <div class="cart-items-wrapper" id="cartItemsWrapper">
                 <div class="cart-items" id="cartItems">
                     <div class="empty-cart">
@@ -634,7 +578,6 @@
                 </div>
             </div>
 
-            <!-- Footer: total + submit -->
             <div class="cart-footer d-none" id="cartFooter">
                 <div class="cart-total-row">
                     <span class="cart-total-label">Total</span>
@@ -688,7 +631,6 @@
         </div>
     </div>
     <div class="drawer-body">
-        <!-- Checkout fields (mobile) -->
         <div class="cart-fields">
             <div class="mb-2">
                 <label class="form-label">Order Type <span class="text-danger">*</span></label>
@@ -749,7 +691,26 @@
     </div>
 </div>
 
-<!-- ══════════ ADDONS / CONFIRM MODAL ══════════ -->
+<!-- ══════════ VARIANT MODAL ══════════ -->
+<div class="modal fade" id="variantModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-layer-group me-2" style="color:var(--secondary)"></i>
+                    Choose Size — <span id="variantModalItemName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="variantList"></div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════ ADDONS MODAL ══════════ -->
 <div class="modal fade" id="addonsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -840,21 +801,24 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-const addonsMap      = <?= json_encode($addons_map      ?? []) ?>;
 const stockData      = <?= json_encode($stock_data      ?? []) ?>;
 const addonStockData = <?= json_encode($addon_stock_data ?? []) ?>;
+const addonsMap      = <?= json_encode($addons_map       ?? []) ?>;
+const variantsMap    = <?= json_encode($variants_map     ?? []) ?>;
 const DB_DRAFT_CART  = <?= json_encode($draft_cart      ?? []) ?>;
 const DB_DRAFT_META  = <?= json_encode($draft_meta      ?? null) ?>;
 
-let cart             = [];
-let currentItem      = null;
-let currentOrderType = 'dine_in';
-let hasStockIssues   = false;
+let cart               = [];
+let currentItem        = null;
+let currentVariantId   = null;
+let currentVariantName = null;
+let currentOrderType   = 'dine_in';
+let hasStockIssues     = false;
 
 const isMobile = () => window.innerWidth < 992;
 
 // ─────────────────────────────────────────────────────────────────
-// DRAFT PERSISTENCE (sendBeacon — guaranteed, cross-device)
+// DRAFT PERSISTENCE
 // ─────────────────────────────────────────────────────────────────
 function saveDraftToServer() {
     const mobile       = isMobile();
@@ -867,8 +831,11 @@ function saveDraftToServer() {
         : document.getElementById('table_id');
 
     navigator.sendBeacon('index.php?page=manage_pos', new URLSearchParams({
-        action: 'save_draft', cart_data: JSON.stringify(cart),
-        customer_name: customerName || '', order_type: orderType, table_id: tableIdEl?.value || '',
+        action:        'save_draft',
+        cart_data:     JSON.stringify(cart),
+        customer_name: customerName || '',
+        order_type:    orderType,
+        table_id:      tableIdEl?.value || '',
     }));
 }
 
@@ -876,6 +843,7 @@ function saveCart() {
     localStorage.setItem('pos_cart', JSON.stringify(cart));
     saveDraftToServer();
 }
+
 function loadCart() {
     try { cart = JSON.parse(localStorage.getItem('pos_cart') || '[]'); } catch(e) { cart = []; }
 }
@@ -889,13 +857,17 @@ function showModal(id) {
     if (existing) existing.dispose();
     new bootstrap.Modal(el).show();
 }
-function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id))?.hide(); }
+
+function hideModal(id) {
+    bootstrap.Modal.getInstance(document.getElementById(id))?.hide();
+}
 
 document.addEventListener('hidden.bs.modal', () => {
     if (document.querySelector('.modal.show')) return;
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
     document.body.classList.remove('modal-open');
-    document.body.style.overflow = ''; document.body.style.paddingRight = '';
+    document.body.style.overflow    = '';
+    document.body.style.paddingRight = '';
 });
 
 function showStockErrorModal(title, missing) {
@@ -913,6 +885,7 @@ function showStockErrorModal(title, missing) {
     });
     showModal('stockErrorModal');
 }
+
 function showErrorModal(title, msg) {
     document.getElementById('genericErrTitle').textContent = title;
     document.getElementById('genericErrMsg').textContent   = msg;
@@ -931,6 +904,7 @@ function confirmClearCart() {
     ).join('') + (cart.length > 6 ? `<div class="clear-confirm-item text-muted">…and ${cart.length - 6} more</div>` : '');
     showModal('clearCartModal');
 }
+
 function executeClearCart() {
     hideModal('clearCartModal');
     setTimeout(() => {
@@ -944,9 +918,22 @@ function executeClearCart() {
 // ─────────────────────────────────────────────────────────────────
 // DRAWER
 // ─────────────────────────────────────────────────────────────────
-function openCartDrawer()  { document.getElementById('mobileCartDrawer').classList.add('open');    document.getElementById('drawerBackdrop').classList.add('show');    document.body.style.overflow = 'hidden'; }
-function closeCartDrawer() { document.getElementById('mobileCartDrawer').classList.remove('open'); document.getElementById('drawerBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
-function dismissDraftBanner() { document.getElementById('draftBanner')?.classList.add('d-none'); document.getElementById('draftBannerM')?.classList.add('d-none'); }
+function openCartDrawer() {
+    document.getElementById('mobileCartDrawer').classList.add('open');
+    document.getElementById('drawerBackdrop').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCartDrawer() {
+    document.getElementById('mobileCartDrawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function dismissDraftBanner() {
+    document.getElementById('draftBanner')?.classList.add('d-none');
+    document.getElementById('draftBannerM')?.classList.add('d-none');
+}
 
 // ─────────────────────────────────────────────────────────────────
 // STOCK VALIDATION
@@ -954,97 +941,135 @@ function dismissDraftBanner() { document.getElementById('draftBanner')?.classLis
 function buildDemandMap(rows) {
     const d = {};
     for (const row of rows) {
-        (stockData[row.id]?.ingredients || []).forEach(ing => {
+        const itemStock = stockData[row.id];
+        let ingredients;
+
+        // ✅ Use variant ingredients if variant selected, else base
+        if (row.variant_id && itemStock?.variants?.[row.variant_id]?.ingredients?.length) {
+            ingredients = itemStock.variants[row.variant_id].ingredients;
+        } else {
+            ingredients = itemStock?.base?.ingredients || [];
+        }
+
+        ingredients.forEach(ing => {
             if (!ing.quantity_required || ing.quantity_required <= 0) return;
-            if (!d[ing.ingredient_id]) d[ing.ingredient_id] = { name: ing.ingredient_name, needed: 0, available: +ing.stock_quantity };
+            if (!d[ing.ingredient_id]) {
+                d[ing.ingredient_id] = { name: ing.ingredient_name, needed: 0, available: +ing.stock_quantity };
+            }
             d[ing.ingredient_id].needed += ing.quantity_required * row.quantity;
         });
+
         (row.addons || []).forEach(a => {
             (addonStockData[a.id]?.ingredients || []).forEach(ing => {
                 if (!ing.quantity_required || ing.quantity_required <= 0) return;
-                if (!d[ing.ingredient_id]) d[ing.ingredient_id] = { name: ing.ingredient_name, needed: 0, available: +ing.stock_quantity };
+                if (!d[ing.ingredient_id]) {
+                    d[ing.ingredient_id] = { name: ing.ingredient_name, needed: 0, available: +ing.stock_quantity };
+                }
                 d[ing.ingredient_id].needed += ing.quantity_required * a.quantity;
             });
         });
     }
     return d;
 }
+
 function validateCumulative(rows) {
-    const conflicts = Object.values(buildDemandMap(rows)).filter(i => i.needed > i.available).map(i => ({ name: i.name, required: i.needed, available: i.available }));
+    const conflicts = Object.values(buildDemandMap(rows))
+        .filter(i => i.needed > i.available)
+        .map(i => ({ name: i.name, required: i.needed, available: i.available }));
     return { success: !conflicts.length, missingIngredients: conflicts };
 }
-function checkCanAdd(id, qty, addons)    { return validateCumulative([...cart, { id, quantity: qty, addons: addons || [] }]); }
-function checkCanChangeQty(idx, newQty) { return validateCumulative(cart.map((r, i) => i === idx ? { ...r, quantity: newQty } : r)); }
+
+function checkCanAdd(id, qty, addons, variantId = null) {
+    return validateCumulative([...cart, { id, quantity: qty, variant_id: variantId, addons: addons || [] }]);
+}
+
+function checkCanChangeQty(idx, newQty) {
+    return validateCumulative(cart.map((r, i) => i === idx ? { ...r, quantity: newQty } : r));
+}
 
 // ─────────────────────────────────────────────────────────────────
 // CART MUTATIONS
 // ─────────────────────────────────────────────────────────────────
-function addToCartWithQuantity(item, addons, quantity, note) {
-    const check = checkCanAdd(item.id, quantity, addons);
-    if (!check.success) { showStockErrorModal(`Cannot add "${item.name}" — exceeds stock`, check.missingIngredients); return; }
+function addToCartWithQuantity(item, addons, quantity, note, variantId, variantName) {
     const trimmedNote = (note || '').trim();
+
     if (!trimmedNote) {
-        const ei = cart.findIndex(r => {
-            if (r.id !== item.id || (r.note || '') !== '') return false;
-            if (r.addons.length !== addons.length) return false;
-            return r.addons.map(a=>`${a.id}:${a.quantity}`).sort().join('|') === addons.map(a=>`${a.id}:${a.quantity}`).sort().join('|');
-        });
+        const ei = cart.findIndex(r =>
+            r.id         === item.id &&
+            r.variant_id === (variantId ?? null) &&
+            (r.note || '') === '' &&
+            r.addons.length === addons.length &&
+            r.addons.map(a => `${a.id}:${a.quantity}`).sort().join('|') ===
+              addons.map(a => `${a.id}:${a.quantity}`).sort().join('|')
+        );
         if (ei > -1) {
             const mq = cart[ei].quantity + quantity;
             const mc = checkCanChangeQty(ei, mq);
-            if (!mc.success) { showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients); return; }
-            cart[ei].quantity = mq; cart[ei].hasStockIssue = false;
+            if (!mc.success) {
+                showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients);
+                return;
+            }
+            cart[ei].quantity = mq;
             validateAndRender(); saveCart(); return;
         }
     }
-    cart.push({ id: item.id, name: item.name, price: item.price, quantity, addons: addons.map(a => ({ ...a })), note: trimmedNote, hasStockIssue: false });
+
+    cart.push({
+        id:            item.id,
+        name:          item.name,
+        price:         item.price,
+        quantity,
+        variant_id:    variantId   ?? null,
+        variantName:   variantName ?? null,
+        addons:        addons.map(a => ({ ...a })),
+        note:          trimmedNote,
+        hasStockIssue: false
+    });
     validateAndRender(); saveCart();
 }
+
 function updateQuantity(idx, change) {
     const nq = cart[idx].quantity + change;
     if (nq < 1) { cart.splice(idx, 1); validateAndRender(); saveCart(); return; }
-    if (change > 0) { const c = checkCanChangeQty(idx, nq); if (!c.success) { showStockErrorModal(`Cannot increase "${cart[idx].name}" — exceeds stock`, c.missingIngredients); return; } }
-    cart[idx].quantity = nq; cart[idx].hasStockIssue = false; validateAndRender(); saveCart();
+    if (change > 0) {
+        const c = checkCanChangeQty(idx, nq);
+        if (!c.success) { showStockErrorModal(`Cannot increase "${cart[idx].name}" — exceeds stock`, c.missingIngredients); return; }
+    }
+    cart[idx].quantity = nq;
+    cart[idx].hasStockIssue = false;
+    validateAndRender(); saveCart();
 }
+
 function setQuantity(idx, val) {
     const qty = parseInt(val);
     if (isNaN(qty) || qty < 1) { cart.splice(idx, 1); validateAndRender(); saveCart(); return; }
     const c = checkCanChangeQty(idx, qty);
     if (!c.success) { showStockErrorModal(`Cannot set qty for "${cart[idx].name}" — exceeds stock`, c.missingIngredients); renderCart(); return; }
-    cart[idx].quantity = qty; cart[idx].hasStockIssue = false; validateAndRender(); saveCart();
+    cart[idx].quantity = qty;
+    cart[idx].hasStockIssue = false;
+    validateAndRender(); saveCart();
 }
+
 function removeFromCart(idx) { cart.splice(idx, 1); validateAndRender(); saveCart(); }
 
 // ─────────────────────────────────────────────────────────────────
 // NOTES
-// key = "desk_0" or "mob_0" — unique per container so desktop and
-// mobile copies never interfere with each other.
 // ─────────────────────────────────────────────────────────────────
 function showNoteEditor(key, idx) {
-    // Hide any other open editor in the whole page
     document.querySelectorAll('.cart-item-note-editor').forEach(el => {
-        if (el.getAttribute('data-note-editor') !== key) {
-            el.style.display = 'none';
-        }
+        if (el.getAttribute('data-note-editor') !== key) el.style.display = 'none';
     });
-    document.querySelectorAll('.cart-item-note[data-note-display], .cart-item-note-empty[data-note-display]').forEach(el => {
-        if (el.getAttribute('data-note-display') !== key) {
-            el.style.display = '';
-        }
+    document.querySelectorAll('[data-note-display]').forEach(el => {
+        if (el.getAttribute('data-note-display') !== key) el.style.display = '';
     });
 
-    // Hide the display row for this key and show the editor
     const display = document.querySelector(`[data-note-display="${key}"]`);
     const editor  = document.querySelector(`[data-note-editor="${key}"]`);
     if (display) display.style.display = 'none';
     if (editor) {
         editor.style.display = 'block';
         const ta = editor.querySelector('textarea');
-        if (ta) {
-            ta.value = cart[idx]?.note || '';
-            ta.focus();
-            ta.setSelectionRange(ta.value.length, ta.value.length);
-        }
+        if (ta) { ta.value = cart[idx]?.note || ''; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
     }
 }
 
@@ -1072,62 +1097,52 @@ function handleNoteKeydown(e, key, idx) {
 // ─────────────────────────────────────────────────────────────────
 // RENDER
 // ─────────────────────────────────────────────────────────────────
-function validateAndRender() {
-    const check = validateCumulative(cart);
-    if (!check.success) {
-        const cn = new Set(check.missingIngredients.map(i => i.name));
-        cart.forEach(row => {
-            const names = new Set([
-                ...(stockData[row.id]?.ingredients || []).map(i => i.ingredient_name),
-                ...(row.addons || []).flatMap(a => (addonStockData[a.id]?.ingredients || []).map(i => i.ingredient_name))
-            ]);
-            row.hasStockIssue = [...names].some(n => cn.has(n));
-        });
-        hasStockIssues = true;
-    } else {
-        cart.forEach(r => r.hasStockIssue = false);
-        hasStockIssues = false;
-    }
-    renderCart();
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-
-// Each cart item is rendered into two containers (desktop + mobile).
-// We give each a unique key = containerKey + "_" + idx so data attributes
-// never collide, and note functions target only the correct container.
-
 function buildCartItemHTML(row, idx, containerKey) {
-    const key          = `${containerKey}_${idx}`;
-    const addonsTotal  = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
-    const lineTotal    = (row.price + addonsTotal) * row.quantity;
-    const hasIssue     = row.hasStockIssue === true;
-    const note         = row.note || '';
-    const noteDisplay  = note
+    const key         = `${containerKey}_${idx}`;
+    const addonsTotal = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
+    const lineTotal   = (row.price + addonsTotal) * row.quantity;
+    const hasIssue    = row.hasStockIssue === true;
+    const note        = row.note || '';
+
+    const variantLabel = row.variantName
+        ? `<div class="cart-item-variant"><i class="fas fa-layer-group"></i> ${escHtml(row.variantName)}</div>`
+        : '';
+
+    const noteDisplay = note
         ? `<div class="cart-item-note" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span class="cart-item-note-text">${escHtml(note)}</span></div>`
         : `<div class="cart-item-note-empty" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span>Add note...</span></div>`;
-    const noteEditor   = `<div class="cart-item-note-editor" data-note-editor="${key}" style="display:none">
+
+    const noteEditor = `<div class="cart-item-note-editor" data-note-editor="${key}" style="display:none">
         <textarea rows="2" maxlength="300" placeholder="e.g. No sugar, extra hot..." onkeydown="handleNoteKeydown(event,'${key}',${idx})">${escHtml(note)}</textarea>
         <div class="note-actions">
             <button class="note-cancel-btn" onclick="cancelNoteEdit('${key}')">Cancel</button>
             <button class="note-save-btn" onclick="saveNote('${key}',${idx})"><i class="fas fa-check me-1"></i>Save</button>
         </div>
     </div>`;
+
     return `<div class="cart-item ${hasIssue ? 'insufficient-stock' : ''}">
         <div class="cart-item-top">
             <div class="cart-item-info">
                 <div class="cart-item-name" title="${escHtml(row.name)}">${escHtml(row.name)}</div>
+                ${variantLabel}
                 <div class="cart-item-price">₱${lineTotal.toFixed(2)}</div>
             </div>
             <button class="cart-item-remove" onclick="removeFromCart(${idx})" title="Remove"><i class="fas fa-times-circle"></i></button>
         </div>
-        ${row.addons.length ? `<div class="addon-item">${row.addons.map(a => `+${a.name}${a.quantity>1?` ×${a.quantity}`:''} ₱${(a.price*a.quantity).toFixed(2)}`).join(' · ')}</div>` : ''}
-        ${noteDisplay}${noteEditor}
+        ${row.addons.length ? `<div class="addon-item">${row.addons.map(a => `+${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ''} ₱${(a.price * a.quantity).toFixed(2)}`).join(' · ')}</div>` : ''}
+        ${noteDisplay}
+        ${noteEditor}
         ${hasIssue ? `<div class="stock-warning-danger"><i class="fas fa-exclamation-circle"></i> Exceeds available stock</div>` : ''}
         <div class="cart-item-qty">
-            <button class="qty-btn" onclick="updateQuantity(${idx},-1)" ${row.quantity<=1?'disabled':''}><i class="fas fa-minus"></i></button>
+            <button class="qty-btn" onclick="updateQuantity(${idx},-1)" ${row.quantity <= 1 ? 'disabled' : ''}><i class="fas fa-minus"></i></button>
             <input type="number" class="qty-input" value="${row.quantity}" min="1" onchange="setQuantity(${idx},this.value)">
-            <button class="qty-btn" onclick="updateQuantity(${idx},1)" ${hasIssue?'disabled':''}><i class="fas fa-plus"></i></button>
+            <button class="qty-btn" onclick="updateQuantity(${idx},1)" ${hasIssue ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
         </div>
     </div>`;
 }
@@ -1144,35 +1159,30 @@ function renderCart() {
     containers.forEach(({ id, key }) => {
         const el = document.getElementById(id);
         if (!el) return;
-        if (!cart.length) { el.innerHTML = emptyHTML; return; }
-        el.innerHTML = cart.map((r, i) => buildCartItemHTML(r, i, key)).join('');
+        el.innerHTML = cart.length ? cart.map((r, i) => buildCartItemHTML(r, i, key)).join('') : emptyHTML;
     });
 
     const upd = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
-
-    // Cart count pill + clear button
     const showCart = cart.length > 0;
-    ['cartCountPill','cartCountPillM'].forEach(id => {
+
+    ['cartCountPill', 'cartCountPillM'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.textContent = totalItems > 99 ? '99+' : totalItems;
         el.style.display = showCart ? '' : 'none';
     });
-    ['clearCartBtn','clearCartBtnM'].forEach(id => { upd(id, el => el.classList.toggle('d-none', !showCart)); });
+    ['clearCartBtn', 'clearCartBtnM'].forEach(id => { upd(id, el => el.classList.toggle('d-none', !showCart)); });
 
-    // Desktop footer
-    upd('cartFooter',             el => el.classList.toggle('d-none', !showCart));
-    upd('submitOrderBtn',         el => { el.disabled = hasStockIssues || !showCart; });
-    upd('submitDisabledMessage',  el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
+    upd('cartFooter',            el => el.classList.toggle('d-none', !showCart));
+    upd('submitOrderBtn',        el => { el.disabled = hasStockIssues || !showCart; });
+    upd('submitDisabledMessage', el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
     if (showCart) upd('total', el => el.textContent = `₱${total.toFixed(2)}`);
 
-    // Mobile drawer footer
-    upd('mobileTotalRow',          el => el.classList.toggle('d-none', !showCart));
-    upd('submitOrderBtnM',         el => { el.classList.toggle('d-none', !showCart); el.disabled = hasStockIssues; });
-    upd('submitDisabledMessageM',  el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
+    upd('mobileTotalRow',         el => el.classList.toggle('d-none', !showCart));
+    upd('submitOrderBtnM',        el => { el.classList.toggle('d-none', !showCart); el.disabled = hasStockIssues; });
+    upd('submitDisabledMessageM', el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
     if (showCart) upd('totalM', el => el.textContent = `₱${total.toFixed(2)}`);
 
-    // Mobile bottom bar
     const badge  = document.getElementById('mobileBadge');
     const mCount = document.getElementById('mobileCartCount');
     const mTotal = document.getElementById('mobileCartTotal');
@@ -1193,19 +1203,49 @@ function renderCart() {
     cart.forEach(r => { cartCounts[r.id] = (cartCounts[r.id] || 0) + r.quantity; });
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const id    = card.dataset.itemId;
+        const cnt   = cartCounts[id] || 0;
         const badge = document.getElementById(`cartBadge_${id}`);
-        if (!badge) return;
-        if (cartCounts[id]) {
-            badge.textContent = cartCounts[id];
-            badge.style.display = 'flex';
-            card.classList.add('in-cart');
-        } else {
-            badge.style.display = 'none';
-            card.classList.remove('in-cart');
+        if (badge) {
+            badge.textContent  = cnt > 0 ? cnt : '';
+            badge.style.display = cnt > 0 ? 'flex' : 'none';
         }
+        card.classList.toggle('in-cart', cnt > 0);
     });
 }
 
+function validateAndRender() {
+    const check = validateCumulative(cart);
+    if (!check.success) {
+        const conflictNames = new Set(check.missingIngredients.map(i => i.name));
+        cart.forEach(row => {
+            const itemStock = stockData[row.id];
+
+            // ✅ Get the RIGHT ingredient list for this row's variant
+            let ingredients;
+            if (row.variant_id && itemStock?.variants?.[row.variant_id]?.ingredients?.length) {
+                ingredients = itemStock.variants[row.variant_id].ingredients;
+            } else {
+                ingredients = itemStock?.base?.ingredients || [];
+            }
+
+            const addonIngredients = (row.addons || []).flatMap(a =>
+                (addonStockData[a.id]?.ingredients || []).map(i => i.ingredient_name)
+            );
+
+            const allIngredientNames = new Set([
+                ...ingredients.map(i => i.ingredient_name),
+                ...addonIngredients
+            ]);
+
+            row.hasStockIssue = [...allIngredientNames].some(n => conflictNames.has(n));
+        });
+        hasStockIssues = true;
+    } else {
+        cart.forEach(r => r.hasStockIssue = false);
+        hasStockIssues = false;
+    }
+    renderCart();
+}
 // ─────────────────────────────────────────────────────────────────
 // ORDER TYPE
 // ─────────────────────────────────────────────────────────────────
@@ -1233,7 +1273,7 @@ function setOrderType(type, context) {
 // SEARCH
 // ─────────────────────────────────────────────────────────────────
 function filterMenu() {
-    const query   = document.getElementById('menuSearch').value.trim().toLowerCase();
+    const query    = document.getElementById('menuSearch').value.trim().toLowerCase();
     const clearBtn = document.getElementById('searchClear');
     if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
 
@@ -1270,64 +1310,150 @@ document.querySelectorAll('.category-tab').forEach(tab => {
 });
 
 // ─────────────────────────────────────────────────────────────────
+// VARIANT PICKER
+// ─────────────────────────────────────────────────────────────────
+const _variantPickerData = new Map();
+
+function openVariantModal(item, variants) {
+    document.getElementById('variantModalItemName').textContent = item.name;
+    _variantPickerData.clear();
+
+    let html = '';
+    variants.forEach((v, idx) => {
+        _variantPickerData.set(idx, { item, variant: v });
+
+        const vStock   = stockData[item.id]?.variants?.[v.variant_id];
+        const hasStock = vStock?.has_stock   ?? false;
+        const maxQty   = vStock?.max_quantity ?? 0;
+        const outCls   = hasStock ? '' : 'out-of-stock-variant';
+        const clickAttr = hasStock ? `onclick="selectVariant(${idx})"` : '';
+
+        html += `<div class="variant-option ${outCls}" ${clickAttr}>
+            <div class="variant-info">
+                <span class="variant-name">${escHtml(v.variant_name)}</span>
+                ${!hasStock
+                    ? '<span class="badge bg-danger ms-2">Out of Stock</span>'
+                    : (maxQty < 10 ? `<span class="badge bg-warning text-dark ms-2">Only ${maxQty} left</span>` : '')
+                }
+            </div>
+            <span class="variant-price">₱${parseFloat(v.price).toFixed(2)}</span>
+        </div>`;
+    });
+
+    document.getElementById('variantList').innerHTML = html;
+    showModal('variantModal');
+}
+
+function selectVariant(idx) {
+    const entry = _variantPickerData.get(idx);
+    if (!entry) return;
+    const { item, variant } = entry;
+    hideModal('variantModal');
+    const resolvedItem = { ...item, price: parseFloat(variant.price) };
+    setTimeout(() => openAddonsModal(resolvedItem, variant.variant_id, variant.variant_name), 200);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ADDONS MODAL
+// ─────────────────────────────────────────────────────────────────
+function openAddonsModal(item, variantId, variantName) {
+    currentItem        = item;
+    currentVariantId   = variantId   ?? null;
+    currentVariantName = variantName ?? null;
+
+    const activeAddons = (addonsMap[item.id] || []).filter(a => a.is_active);
+
+    const stockKey = (variantId !== null && variantId !== undefined)
+        ? stockData[item.id]?.variants?.[variantId]
+        : stockData[item.id]?.base;
+    const maxQty = stockKey?.max_quantity ?? 0;
+
+    let html = '';
+
+    if (activeAddons.length > 0) {
+        document.getElementById('addonsModalLabel').innerHTML =
+            `<i class="fas fa-plus-circle" style="color:var(--secondary)"></i> Customize: ${escHtml(item.name)}` +
+            (variantName ? ` <small class="text-muted">(${escHtml(variantName)})</small>` : '');
+
+        html += `<div class="mb-3"><h6 class="fw-bold mb-2 small text-uppercase text-muted">Available Add-ons</h6>`;
+        activeAddons.forEach(addon => {
+            const as     = addonStockData[addon.addon_id] || {};
+            const hasStk = (as.max_quantity ?? 0) > 0;
+            const maxA   = as.max_quantity ?? 0;
+            html += `<div class="addon-checkbox ${!hasStk ? 'opacity-50' : ''}">
+                <input type="checkbox" id="addon_${addon.addon_id}" value="${addon.addon_id}"
+                       data-name="${escHtml(addon.addon_name)}" data-price="${addon.price}"
+                       onchange="toggleAddonQty(${addon.addon_id})" ${!hasStk ? 'disabled' : ''}>
+                <label for="addon_${addon.addon_id}">
+                    <span class="addon-name ${!hasStk ? 'text-muted' : ''}">${escHtml(addon.addon_name)}</span>
+                    <span class="addon-price">+₱${parseFloat(addon.price).toFixed(2)}</span>
+                    <span class="addon-status">
+                        ${!hasStk ? '<span class="badge bg-danger">Out of Stock</span>' : ''}
+                        ${hasStk && maxA < 10 ? `<span class="badge bg-warning text-dark">Only ${maxA} left</span>` : ''}
+                    </span>
+                </label>
+                <div class="addon-qty-control" id="qty_${addon.addon_id}" style="display:none">
+                    <input type="number" min="1" max="${maxA}" value="1"
+                           id="qty_input_${addon.addon_id}" class="form-control form-control-sm"
+                           ${!hasStk ? 'disabled' : ''}>
+                </div>
+            </div>`;
+        });
+        html += `</div>`;
+    } else {
+        document.getElementById('addonsModalLabel').innerHTML =
+            `<i class="fas fa-utensils" style="color:var(--secondary)"></i> ${escHtml(item.name)}` +
+            (variantName ? ` <small class="text-muted">(${escHtml(variantName)})</small>` : '');
+
+        html += `<div class="text-center py-2">
+            <div class="modal-icon primary mb-2"><i class="fas fa-utensils"></i></div>
+            <p class="fw-bold mb-1">${escHtml(item.name)}</p>
+            ${variantName ? `<p class="text-muted small mb-1">${escHtml(variantName)}</p>` : ''}
+            <p class="text-success fw-bold">₱${item.price.toFixed(2)}</p>
+        </div>`;
+    }
+
+    html += `<div class="p-3 bg-light rounded-3 mb-0">
+        <label class="form-label fw-bold small">Quantity</label>
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="decModalQty()">−</button>
+            <input type="number" id="modalItemQty" class="form-control text-center fw-bold"
+                   value="1" min="1" max="${maxQty}" style="width:75px">
+            <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="incModalQty()">+</button>
+        </div>
+        <div class="text-muted mt-1" style="font-size:0.72rem">Max available: ${maxQty}</div>
+    </div>
+    <div class="note-field-wrapper">
+        <div class="note-field-label"><i class="fas fa-pen-to-square"></i> Order Note <span style="font-weight:400;opacity:0.65">(optional)</span></div>
+        <textarea id="modalItemNote" rows="2" maxlength="300" placeholder="e.g. No sugar, less ice, extra hot..."></textarea>
+        <div class="note-field-hint"><i class="fas fa-circle-info me-1"></i> Max 300 characters</div>
+    </div>`;
+
+    document.getElementById('addonsContent').innerHTML = html;
+    showModal('addonsModal');
+}
+
+// ─────────────────────────────────────────────────────────────────
 // MENU ITEM CLICK
 // ─────────────────────────────────────────────────────────────────
 document.querySelectorAll('.menu-item-card').forEach(card => {
     card.addEventListener('click', function () {
         if (this.classList.contains('out-of-stock')) return;
+
         const itemId    = this.dataset.itemId;
         const itemName  = this.dataset.itemName;
-        const itemPrice = parseFloat(this.dataset.itemPrice);
+        const basePrice = parseFloat(this.dataset.itemPrice);
         const catId     = parseInt(this.dataset.categoryId);
-        const soloCheck = checkCanAdd(itemId, 1, []);
-        if (!soloCheck.success) { showStockErrorModal(`Cannot add "${itemName}" — exceeds stock`, soloCheck.missingIngredients); return; }
-        currentItem = { id: itemId, name: itemName, price: itemPrice, categoryId: catId };
-        const activeAddons = (addonsMap[itemId] || []).filter(a => a.is_active);
-        const maxQty       = stockData[itemId]?.max_quantity ?? 0;
-        let html = '';
-        if (activeAddons.length > 0) {
-            document.getElementById('addonsModalLabel').innerHTML = `<i class="fas fa-plus-circle" style="color:var(--secondary)"></i> Customize: ${escHtml(itemName)}`;
-            html += `<div class="mb-3"><h6 class="fw-bold mb-2 small text-uppercase text-muted">Available Add-ons</h6>`;
-            activeAddons.forEach(addon => {
-                const as = addonStockData[addon.addon_id] || {};
-                const hasStk = (as.max_quantity ?? 0) > 0;
-                const maxA   = as.max_quantity ?? 0;
-                html += `<div class="addon-checkbox ${!hasStk ? 'opacity-50' : ''}">
-                    <input type="checkbox" id="addon_${addon.addon_id}" value="${addon.addon_id}" data-name="${escHtml(addon.addon_name)}" data-price="${addon.price}" onchange="toggleAddonQty(${addon.addon_id})" ${!hasStk ? 'disabled' : ''}>
-                    <label for="addon_${addon.addon_id}">
-                        <span class="addon-name ${!hasStk ? 'text-muted' : ''}">${escHtml(addon.addon_name)}</span>
-                        <span class="addon-price">+₱${parseFloat(addon.price).toFixed(2)}</span>
-                        <span class="addon-status">
-                            ${!hasStk ? '<span class="badge bg-danger">Out of Stock</span>' : ''}
-                            ${hasStk && maxA < 10 ? `<span class="badge bg-warning text-dark">Only ${maxA} left</span>` : ''}
-                        </span>
-                    </label>
-                    <div class="addon-qty-control" id="qty_${addon.addon_id}" style="display:none">
-                        <input type="number" min="1" max="${maxA}" value="1" id="qty_input_${addon.addon_id}" class="form-control form-control-sm" ${!hasStk ? 'disabled' : ''}>
-                    </div>
-                </div>`;
-            });
-            html += `</div>`;
+        const variants  = variantsMap[itemId] || [];
+        const item      = { id: itemId, name: itemName, price: basePrice, categoryId: catId };
+
+        if (variants.length > 0) {
+            openVariantModal(item, variants);
         } else {
-            document.getElementById('addonsModalLabel').innerHTML = `<i class="fas fa-utensils" style="color:var(--secondary)"></i> ${escHtml(itemName)}`;
-            html += `<div class="text-center py-2"><div class="modal-icon primary mb-2"><i class="fas fa-utensils"></i></div><p class="fw-bold mb-1">${escHtml(itemName)}</p><p class="text-success fw-bold">₱${itemPrice.toFixed(2)}</p></div>`;
+            currentVariantId   = null;
+            currentVariantName = null;
+            openAddonsModal(item, null, null);
         }
-        html += `<div class="p-3 bg-light rounded-3 mb-0">
-            <label class="form-label fw-bold small">Quantity</label>
-            <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="decModalQty()">−</button>
-                <input type="number" id="modalItemQty" class="form-control text-center fw-bold" value="1" min="1" max="${maxQty}" style="width:75px">
-                <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="incModalQty()">+</button>
-            </div>
-            <div class="text-muted mt-1" style="font-size:0.72rem">Max available: ${maxQty}</div>
-        </div>
-        <div class="note-field-wrapper">
-            <div class="note-field-label"><i class="fas fa-pen-to-square"></i> Order Note <span style="font-weight:400;opacity:0.65">(optional)</span></div>
-            <textarea id="modalItemNote" rows="2" maxlength="300" placeholder="e.g. No sugar, less ice, extra hot..."></textarea>
-            <div class="note-field-hint"><i class="fas fa-circle-info me-1"></i> Max 300 characters</div>
-        </div>`;
-        document.getElementById('addonsContent').innerHTML = html;
-        showModal('addonsModal');
     });
 });
 
@@ -1339,10 +1465,19 @@ document.getElementById('addToCartBtn').addEventListener('click', () => {
     const qty  = Math.max(1, parseInt(document.getElementById('modalItemQty')?.value) || 1);
     const note = (document.getElementById('modalItemNote')?.value || '').trim();
     const adds = Array.from(document.querySelectorAll('#addonsContent input[type="checkbox"]:checked'))
-        .map(cb => ({ id: parseInt(cb.value), name: cb.dataset.name, price: parseFloat(cb.dataset.price), quantity: parseInt(document.getElementById(`qty_input_${cb.value}`)?.value) || 1 }));
-    const c = checkCanAdd(currentItem.id, qty, adds);
-    if (!c.success) { showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients); return; }
-    addToCartWithQuantity(currentItem, adds, qty, note);
+        .map(cb => ({
+            id:       parseInt(cb.value),
+            name:     cb.dataset.name,
+            price:    parseFloat(cb.dataset.price),
+            quantity: parseInt(document.getElementById(`qty_input_${cb.value}`)?.value) || 1
+        }));
+
+    const c = checkCanAdd(currentItem.id, qty, adds, currentVariantId);
+    if (!c.success) {
+        showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients);
+        return;
+    }
+    addToCartWithQuantity(currentItem, adds, qty, note, currentVariantId, currentVariantName);
     hideModal('addonsModal');
     if (isMobile() && cart.length === 1) setTimeout(openCartDrawer, 300);
 });
@@ -1351,28 +1486,39 @@ document.getElementById('addToCartBtn').addEventListener('click', () => {
 // SUBMIT
 // ─────────────────────────────────────────────────────────────────
 function collectOrderData() {
-    const mobile = isMobile();
+    const mobile       = isMobile();
     const orderType    = document.getElementById('order_type').value;
     const customerName = mobile
         ? (document.getElementById('customer_name_m')?.value.trim() || document.getElementById('customer_name')?.value.trim())
         : document.getElementById('customer_name')?.value.trim();
-    const tableIdEl    = mobile ? (document.getElementById('table_id_m') || document.getElementById('table_id')) : document.getElementById('table_id');
+    const tableIdEl    = mobile
+        ? (document.getElementById('table_id_m') || document.getElementById('table_id'))
+        : document.getElementById('table_id');
     return { orderType, customerName, tableId: tableIdEl?.value || '' };
 }
 
 function doSubmitOrder() {
-    if (!cart.length)                              { showErrorModal('Empty Cart', 'Please add items before submitting.'); return; }
+    if (!cart.length)        { showErrorModal('Empty Cart', 'Please add items before submitting.'); return; }
     const fc = validateCumulative(cart);
-    if (!fc.success)                               { showStockErrorModal('Order cannot be submitted — stock exceeded', fc.missingIngredients); return; }
+    if (!fc.success)         { showStockErrorModal('Order cannot be submitted — stock exceeded', fc.missingIngredients); return; }
     const { orderType, customerName, tableId } = collectOrderData();
-    if (!orderType)                                { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
-    if (orderType === 'dine_in' && !tableId)       { showErrorModal('Table Required', 'Please select a table for dine-in orders.'); return; }
+    if (!orderType)          { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
+    if (orderType === 'dine_in' && !tableId) { showErrorModal('Table Required', 'Please select a table for dine-in orders.'); return; }
 
     const form = document.createElement('form');
-    form.method = 'POST'; form.action = 'index.php?page=manage_pos';
-    [['customer_name', customerName], ['table_id', orderType === 'dine_in' ? tableId : ''],
-     ['order_type', orderType], ['submit_order', '1'], ['cart_data', JSON.stringify(cart)]]
-        .forEach(([n, v]) => { const i = document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); });
+    form.method = 'POST';
+    form.action = 'index.php?page=manage_pos';
+    [
+        ['customer_name', customerName],
+        ['table_id',      orderType === 'dine_in' ? tableId : ''],
+        ['order_type',    orderType],
+        ['submit_order',  '1'],
+        ['cart_data',     JSON.stringify(cart)]
+    ].forEach(([n, v]) => {
+        const i = document.createElement('input');
+        i.type = 'hidden'; i.name = n; i.value = v;
+        form.appendChild(i);
+    });
     document.body.appendChild(form);
     form.submit();
     cart = [];
@@ -1388,14 +1534,15 @@ document.getElementById('submitOrderBtnM')?.addEventListener('click', doSubmitOr
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
 function setSidebarOpen(open) {
-    const s = document.getElementById('sidebar'), o = document.getElementById('sidebarOverlay'), b = document.getElementById('mobileBottomBar');
+    const s = document.getElementById('sidebar');
+    const o = document.getElementById('sidebarOverlay');
+    const b = document.getElementById('mobileBottomBar');
     if (open) { s.classList.add('show'); o.classList.add('show'); if (b) b.style.visibility = 'hidden'; closeCartDrawer(); }
-    else      { s.classList.remove('show'); o.classList.remove('show'); if (b) b.style.visibility = ''; }
+    else       { s.classList.remove('show'); o.classList.remove('show'); if (b) b.style.visibility = ''; }
 }
-document.getElementById('menuToggle')?.addEventListener('click',    () => setSidebarOpen(!document.getElementById('sidebar').classList.contains('show')));
+document.getElementById('menuToggle')?.addEventListener('click',     () => setSidebarOpen(!document.getElementById('sidebar').classList.contains('show')));
 document.getElementById('sidebarOverlay')?.addEventListener('click', () => setSidebarOpen(false));
 
-// Customer name → save draft
 document.getElementById('customer_name')?.addEventListener('input',   saveDraftToServer);
 document.getElementById('customer_name_m')?.addEventListener('input', saveDraftToServer);
 
@@ -1408,8 +1555,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cart = DB_DRAFT_CART;
         localStorage.setItem('pos_cart', JSON.stringify(cart));
 
-        // Only show "Cart restored" banner once per login session.
-        // sessionStorage clears when the browser/tab is closed (i.e. on logout/new login).
         const bannerKey = 'draft_banner_shown';
         if (!sessionStorage.getItem(bannerKey)) {
             document.getElementById('draftBanner')?.classList.remove('d-none');
@@ -1422,11 +1567,17 @@ document.addEventListener('DOMContentLoaded', () => {
         setOrderType(ot, 'mobile');
 
         if (DB_DRAFT_META?.customer_name) {
-            ['customer_name','customer_name_m'].forEach(id => { const el = document.getElementById(id); if (el) el.value = DB_DRAFT_META.customer_name; });
+            ['customer_name', 'customer_name_m'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = DB_DRAFT_META.customer_name;
+            });
         }
         if (DB_DRAFT_META?.table_id) {
             const tid = String(DB_DRAFT_META.table_id);
-            ['table_id','table_id_m'].forEach(id => { const s = document.getElementById(id); if (s?.querySelector(`option[value="${tid}"]`)) s.value = tid; });
+            ['table_id', 'table_id_m'].forEach(id => {
+                const s = document.getElementById(id);
+                if (s?.querySelector(`option[value="${tid}"]`)) s.value = tid;
+            });
         }
     } else {
         loadCart();
@@ -1434,16 +1585,33 @@ document.addEventListener('DOMContentLoaded', () => {
         setOrderType('dine_in', 'mobile');
     }
 
-    // Mark out-of-stock
+    // Mark out-of-stock cards using new nested stock structure
     document.querySelectorAll('.menu-item-card').forEach(card => {
-        const id = card.dataset.itemId;
-        if (stockData[id]?.has_stock === false || !stockData[id]) {
-            card.classList.add('out-of-stock');
-            if (!card.querySelector('.out-of-stock-badge')) {
-                const b = document.createElement('div'); b.className = 'out-of-stock-badge'; b.textContent = 'Out of Stock'; card.appendChild(b);
-            }
+    const id       = card.dataset.itemId;
+    const itemData = stockData[id];
+    const variants = variantsMap[id] || [];
+
+    let hasStock;
+    if (variants.length > 0) {
+        // Variant item — available if ANY variant has stock
+        hasStock = variants.some(v => 
+            itemData?.variants?.[v.variant_id]?.has_stock ?? false
+        );
+    } else {
+        hasStock = itemData?.base?.has_stock ?? false;
+    }
+
+    if (!hasStock) {
+        card.classList.add('out-of-stock');
+        card.dataset.hasStock = 'false';
+        if (!card.querySelector('.out-of-stock-badge')) {
+            const b = document.createElement('div');
+            b.className   = 'out-of-stock-badge';
+            b.textContent = 'Out of Stock';
+            card.prepend(b);
         }
-    });
+    }
+});
 
     validateAndRender();
 
@@ -1461,12 +1629,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('resize', () => {
-    const bar = document.getElementById('mobileBottomBar'), drw = document.getElementById('mobileCartDrawer');
-    if (isMobile()) { if (bar) bar.style.display = 'flex'; if (drw) drw.style.display = 'flex'; }
-    else { if (bar) bar.style.display = 'none'; if (drw) { drw.style.display = 'none'; closeCartDrawer(); } }
+    const bar = document.getElementById('mobileBottomBar');
+    const drw = document.getElementById('mobileCartDrawer');
+    if (isMobile()) {
+        if (bar) bar.style.display = 'flex';
+        if (drw) drw.style.display = 'flex';
+    } else {
+        if (bar) bar.style.display = 'none';
+        if (drw) { drw.style.display = 'none'; closeCartDrawer(); }
+    }
 });
 
-setTimeout(() => document.querySelectorAll('.alert').forEach(a => { try { new bootstrap.Alert(a).close(); } catch(e){} }), 5000);
+setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(a => { try { new bootstrap.Alert(a).close(); } catch(e) {} });
+}, 5000);
 </script>
 </body>
 </html>

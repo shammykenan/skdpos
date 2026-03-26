@@ -11,46 +11,24 @@ function getAllItems(PDO $pdo) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function getAllItemsWithIngredients(PDO $pdo): array
+function getAllItemsWithVariants(PDO $pdo): array
 {
-    $sql = "SELECT
-                mi.*,
-                c.category_name,
-                GROUP_CONCAT(
-                    CONCAT(
-                        i.ingredient_name, ':',
-                        IFNULL(r.quantity_required, 0), ':',
-                        IFNULL(u.unit_code, '')
-                    )
-                    ORDER BY i.ingredient_name
-                    SEPARATOR '|'
-                ) AS recipe_details
-            FROM menu_items mi
-            JOIN categories   c  ON mi.category_id    = c.category_id
-            LEFT JOIN recipes  r  ON mi.item_id         = r.item_id
-            LEFT JOIN ingredients i ON r.ingredient_id  = i.ingredient_id
-            LEFT JOIN units    u  ON i.unit_id           = u.unit_id
-            GROUP BY mi.item_id, c.category_name
-            ORDER BY mi.item_name";
-
-    $results = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
-
-    foreach ($results as &$item) {
-        $item['ingredients_list'] = [];
-        if (!empty($item['recipe_details'])) {
-            foreach (explode('|', $item['recipe_details']) as $ing) {
-                $parts = explode(':', $ing);
-                $item['ingredients_list'][] = [
-                    'name'     => $parts[0] ?? '',
-                    'quantity' => isset($parts[1]) ? (float)$parts[1] : 0,
-                    'unit'     => $parts[2] ?? '',  // unit_code e.g. "kg"
-                ];
-            }
-        }
-    }
-    unset($item);
-
-    return $results;
+    $stmt = $pdo->query("
+        SELECT 
+            mi.item_id,
+            mi.item_name,
+            mi.description,
+            mi.base_price,
+            mi.cost_price,
+            mi.image_url,
+            mi.is_available,
+            mi.category_id,
+            c.category_name
+        FROM menu_items mi
+        LEFT JOIN categories c ON mi.category_id = c.category_id
+        ORDER BY mi.item_name
+    ");
+    return $stmt->fetchAll();
 }
 
 function getAllAvailableItems(PDO $pdo) {
@@ -59,10 +37,23 @@ function getAllAvailableItems(PDO $pdo) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 function getMenuItemById(PDO $pdo, $item_id) {
-    $sql = "SELECT * FROM menu_items WHERE item_id = :item_id";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([':item_id' => $item_id]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt = $pdo->prepare("
+        SELECT 
+            mi.item_id,
+            mi.item_name,
+            mi.description,
+            mi.base_price,
+            mi.cost_price,
+            mi.image_url,
+            mi.is_available,
+            mi.category_id,
+            c.category_name
+        FROM menu_items mi
+        LEFT JOIN categories c ON mi.category_id = c.category_id
+        WHERE mi.item_id = ?
+    ");
+    $stmt->execute([$item_id]);
+    return $stmt->fetch();
 }
 function getTotalSalesByItem(PDO $pdo, $item_id) {
     $sql = "SELECT SUM(quantity) as total_sold FROM order_items WHERE item_id = :item_id";
@@ -70,15 +61,19 @@ function getTotalSalesByItem(PDO $pdo, $item_id) {
     $stmt->execute([':item_id' => $item_id]);
     return (int)$stmt->fetchColumn();
 }
-function getOrderItems(PDO $pdo, int $order_id): array {
+// FIX (BUG 8): Add variant_id and variant_name_snapshot to SELECT.
+function getOrderItems(PDO $pdo, int $order_id): array
+{
     $stmt = $pdo->prepare("
         SELECT oi.order_item_id,
                oi.item_id,
+               oi.variant_id,
+               oi.variant_name_snapshot,
                oi.quantity,
                oi.unit_price,
                oi.subtotal,
                oi.status,
-               oi.item_notes,        -- ← ADD THIS
+               oi.item_notes,
                mi.item_name
         FROM order_items oi
         JOIN menu_items mi ON oi.item_id = mi.item_id

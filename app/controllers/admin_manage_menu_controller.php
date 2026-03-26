@@ -1,32 +1,29 @@
 <?php
+// app/controllers/manage_menu_controller.php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/menu_items.php';
 require_once __DIR__ . '/../models/dashboard.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../models/categories.php';
-require_once __DIR__ . '/../models/ingredients.php';
+require_once __DIR__ . '/../models/variants.php';
+
 use Dotenv\Dotenv;
 
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../config');
 $dotenv->load();
 $baseUrl = $_ENV['BASE_URL'];
 
-// Initialize message variables
 $success = $_SESSION['success'] ?? '';
 $error   = $_SESSION['error']   ?? '';
-
-// Clear session messages after reading them
 unset($_SESSION['success'], $_SESSION['error']);
 
-// Check authentication and authorization
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     $_SESSION['error'] = 'Access denied. Please log in as an admin.';
     header('Location: ' . $baseUrl . '/index.php?page=logout');
     exit;
 }
 
-// Initialize database connection
 try {
     $pdo = new PDO(
         "mysql:host={$_ENV['DB_HOST']};dbname={$_ENV['DB_NAME']};charset=utf8mb4",
@@ -108,90 +105,134 @@ if (isset($_POST['delete_category'])) {
 }
 
 // ================================================================
-// MENU ITEM: ADD
+// MENU ITEM: ADD (with optional variants)
+// Rule: if variants provided → base_price = NULL, cost_price = NULL
+//       if no variants → base_price required > 0, cost_price >= 0
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
     $item_name   = trim($_POST['item_name']   ?? '');
     $description = trim($_POST['description'] ?? '');
-    $price       = $_POST['price']            ?? '';
-    $cost_price  = $_POST['cost_price']       ?? '';
-    $category_id = $_POST['category_id']      ?? '';
+    $category_id = (int) ($_POST['category_id'] ?? 0);
 
-    if (empty($item_name) || empty($price) || empty($cost_price) || empty($category_id)) {
-        $_SESSION['error'] = 'Please fill in all required fields.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
+    // Collect variant arrays
+    $variant_names  = array_map('trim', $_POST['variant_names']  ?? []);
+    $variant_prices = $_POST['variant_prices'] ?? [];
+    $variant_costs  = $_POST['variant_costs']  ?? [];
+    $variant_active = $_POST['variant_active'] ?? [];
+
+    // Filter out blank variant rows
+    $clean_variants = [];
+    for ($i = 0; $i < count($variant_names); $i++) {
+        $vname  = $variant_names[$i];
+        $vprice = isset($variant_prices[$i]) ? (float) $variant_prices[$i] : 0;
+        if ($vname === '') continue;
+        $clean_variants[] = [
+            'name'      => $vname,
+            'price'     => $vprice,
+            'cost'      => isset($variant_costs[$i]) ? (float) $variant_costs[$i] : 0,
+            'is_active' => isset($variant_active[$i]) ? 1 : 0,
+        ];
     }
 
-    if (!is_numeric($price) || !is_numeric($cost_price)) {
-        $_SESSION['error'] = 'Price and cost price must be numeric.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
+    $has_variants = !empty($clean_variants);
+
+    // --- Basic validation ---
+    if (empty($item_name)) {
+        $_SESSION['error'] = 'Item name is required.';
+        header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+    }
+    if ($category_id <= 0) {
+        $_SESSION['error'] = 'A valid category is required.';
+        header("Location: $baseUrl/index.php?page=manage_menu"); exit;
     }
 
-    $price       = (float) $price;
-    $cost_price  = (float) $cost_price;
-    $category_id = (int)   $category_id;
+    if ($has_variants) {
+        // VARIANT MODE: validate each variant price > 0
+        foreach ($clean_variants as $idx => $v) {
+            if ($v['price'] <= 0) {
+                $_SESSION['error'] = "Variant '{$v['name']}' must have a price greater than 0.";
+                header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+            }
+            if ($v['cost'] < 0) {
+                $_SESSION['error'] = "Variant '{$v['name']}' cost price cannot be negative.";
+                header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+            }
+        }
+        // Rule: base_price and cost_price must be NULL when variants exist
+        $base_price = null;
+        $cost_price = null;
 
-    if ($cost_price > $price) {
-        $_SESSION['error'] = 'Cost price cannot be higher than selling price.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
+    } else {
+        // BASE PRICE MODE: base_price required and > 0
+        $raw_base = $_POST['base_price'] ?? '';
+        $raw_cost = $_POST['cost_price'] ?? '';
+
+        if ($raw_base === '' || !is_numeric($raw_base) || (float)$raw_base <= 0) {
+            $_SESSION['error'] = 'Base price is required and must be greater than 0 when no variants are added.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+        if ($raw_cost === '' || !is_numeric($raw_cost) || (float)$raw_cost < 0) {
+            $_SESSION['error'] = 'Cost price must be 0 or greater.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+
+        $base_price = (float) $raw_base;
+        $cost_price = (float) $raw_cost;
+
+        if ($cost_price > $base_price) {
+            $_SESSION['error'] = 'Cost price cannot exceed the base price.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
     }
 
+    // --- Image upload ---
     $image_url = null;
     if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir  = __DIR__ . '/../../public/assets/images/menu/';
-        $publicPath = 'assets/images/menu/';
-
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $file_type = mime_content_type($_FILES['image']['tmp_name']);
+        if (!in_array($file_type, $allowed_types)) {
+            $_SESSION['error'] = 'Invalid image type. Allowed: JPG, PNG, GIF, WebP.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
         }
-
-        $fileTmp  = $_FILES['image']['tmp_name'];
-        $fileName = $_FILES['image']['name'];
-        $fileSize = $_FILES['image']['size'];
-        $fileExt  = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        if (!in_array($fileExt, $allowedExt)) {
-            $_SESSION['error'] = 'Invalid image type. Allowed: jpg, jpeg, png, gif, webp.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
+        if ($_FILES['image']['size'] > 2 * 1024 * 1024) {
+            $_SESSION['error'] = 'Image must be under 2MB.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
         }
-
-        if ($fileSize > 2 * 1024 * 1024) {
-            $_SESSION['error'] = 'Image size exceeds 2MB limit.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
-        }
-
-        $newFileName = time() . '_' . uniqid() . '.' . $fileExt;
-        $targetPath  = $uploadDir . $newFileName;
-
-        $check = getimagesize($fileTmp);
-        if ($check === false) {
-            $_SESSION['error'] = 'File is not a valid image.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
-        }
-
-        if (move_uploaded_file($fileTmp, $targetPath)) {
-            $image_url = $publicPath . $newFileName;
-        } else {
-            $_SESSION['error'] = 'Failed to upload image.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
+        $ext       = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+        $filename  = 'item_' . time() . '_' . uniqid() . '.' . $ext;
+        $upload_dir = __DIR__ . '/../../assets/images/menu/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
+            $image_url = 'assets/images/menu/' . $filename;
         }
     }
 
-    $result = addMenuItem($pdo, $item_name, $description, $price, $cost_price, $category_id, $image_url);
+    // --- Persist in transaction ---
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO menu_items (item_name, description, base_price, cost_price, category_id, image_url, is_available)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        ");
+        $stmt->execute([$item_name, $description, $base_price, $cost_price, $category_id, $image_url]);
+        $new_item_id = (int) $pdo->lastInsertId();
 
-    if ($result) {
-        $_SESSION['success'] = 'Menu item added successfully.';
-    } else {
+        if ($has_variants) {
+            $stmt_v = $pdo->prepare("
+                INSERT INTO menu_variants (item_id, variant_name, price, cost_price, is_active)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            foreach ($clean_variants as $v) {
+                $stmt_v->execute([$new_item_id, $v['name'], $v['price'], $v['cost'], $v['is_active']]);
+            }
+        }
+
+        $pdo->commit();
+        $_SESSION['success'] = "Menu item '{$item_name}' added successfully.";
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Failed to add menu item: " . $e->getMessage());
         $_SESSION['error'] = 'Failed to add menu item. Please try again.';
-        error_log('Failed to add menu item: ' . json_encode($pdo->errorInfo()));
     }
 
     header("Location: $baseUrl/index.php?page=manage_menu");
@@ -200,121 +241,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
 
 // ================================================================
 // MENU ITEM: UPDATE
+// Rule: after update, check if this item now has variants →
+//       if yes, NULL out base_price and cost_price in DB.
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) {
-    $item_id      = (int) ($_POST['item_id']     ?? 0);
-    $item_name    = trim($_POST['item_name']      ?? '');
-    $description  = trim($_POST['description']    ?? '');
-    $price        = $_POST['price']               ?? '';
-    $cost_price   = $_POST['cost_price']          ?? '';
-    $category_id  = $_POST['category_id']         ?? '';
+    $item_id      = (int)    ($_POST['item_id']      ?? 0);
+    $item_name    = trim(     $_POST['item_name']     ?? '');
+    $description  = trim(     $_POST['description']   ?? '');
+    $category_id  = (int)    ($_POST['category_id']   ?? 0);
     $is_available = isset($_POST['is_available']) ? 1 : 0;
 
-    if (empty($item_id) || empty($item_name) || empty($price) || empty($cost_price) || empty($category_id)) {
+    if (!$item_id || empty($item_name) || $category_id <= 0) {
         $_SESSION['error'] = 'Please fill in all required fields.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
-    }
-
-    if (!is_numeric($price) || !is_numeric($cost_price)) {
-        $_SESSION['error'] = 'Price and cost price must be numeric.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
-    }
-
-    $price       = (float) $price;
-    $cost_price  = (float) $cost_price;
-    $category_id = (int)   $category_id;
-
-    if ($cost_price > $price) {
-        $_SESSION['error'] = 'Cost price cannot be higher than selling price.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
+        header("Location: $baseUrl/index.php?page=manage_menu"); exit;
     }
 
     $existingItem = getMenuItemById($pdo, $item_id);
     if (!$existingItem) {
         $_SESSION['error'] = 'Menu item not found.';
-        header("Location: $baseUrl/index.php?page=manage_menu");
-        exit;
+        header("Location: $baseUrl/index.php?page=manage_menu"); exit;
     }
 
+    // Check if this item currently has any variants
+    $stmt_vc = $pdo->prepare("SELECT COUNT(*) FROM menu_variants WHERE item_id = ?");
+    $stmt_vc->execute([$item_id]);
+    $variant_count = (int) $stmt_vc->fetchColumn();
+    $item_has_variants = $variant_count > 0;
+
+    if ($item_has_variants) {
+        // Variants exist → enforce NULL base pricing
+        $base_price = null;
+        $cost_price = null;
+    } else {
+        // No variants → validate base_price
+        $raw_base = $_POST['base_price'] ?? '';
+        $raw_cost = $_POST['cost_price'] ?? '';
+
+        if ($raw_base === '' || !is_numeric($raw_base) || (float)$raw_base <= 0) {
+            $_SESSION['error'] = 'Base price is required and must be greater than 0 when no variants exist.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+        if ($raw_cost === '' || !is_numeric($raw_cost) || (float)$raw_cost < 0) {
+            $_SESSION['error'] = 'Cost price must be 0 or greater.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+
+        $base_price = (float) $raw_base;
+        $cost_price = (float) $raw_cost;
+
+        if ($cost_price > $base_price) {
+            $_SESSION['error'] = 'Cost price cannot exceed the base price.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+    }
+
+    // --- Image handling ---
     $image_url = $existingItem['image_url'];
 
-    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir  = __DIR__ . '/../../public/assets/images/menu/';
-        $publicPath = 'assets/images/menu/';
-
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-
-        $fileTmp  = $_FILES['image']['tmp_name'];
-        $fileName = $_FILES['image']['name'];
-        $fileSize = $_FILES['image']['size'];
-        $fileExt  = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        if (!in_array($fileExt, $allowedExt)) {
-            $_SESSION['error'] = 'Invalid image type. Allowed: jpg, jpeg, png, gif, webp.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
-        }
-
-        if ($fileSize > 2 * 1024 * 1024) {
-            $_SESSION['error'] = 'Image size exceeds 2MB limit.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
-        }
-
-        $newFileName = time() . '_' . uniqid() . '.' . $fileExt;
-        $targetPath  = $uploadDir . $newFileName;
-
-        $check = getimagesize($fileTmp);
-        if ($check === false) {
-            $_SESSION['error'] = 'File is not a valid image.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
-        }
-
-        if (move_uploaded_file($fileTmp, $targetPath)) {
-            if (!empty($existingItem['image_url']) &&
-                !str_contains($existingItem['image_url'], 'default') &&
-                file_exists(__DIR__ . '/../../public/' . $existingItem['image_url'])) {
-                unlink(__DIR__ . '/../../public/' . $existingItem['image_url']);
-            }
-            $image_url = $publicPath . $newFileName;
-        } else {
-            $_SESSION['error'] = 'Failed to upload image.';
-            header("Location: $baseUrl/index.php?page=manage_menu");
-            exit;
-        }
-    }
-
     if (isset($_POST['delete_image']) && $_POST['delete_image'] == '1') {
-        if (!empty($existingItem['image_url']) &&
-            !str_contains($existingItem['image_url'], 'default') &&
-            file_exists(__DIR__ . '/../../public/' . $existingItem['image_url'])) {
-            unlink(__DIR__ . '/../../public/' . $existingItem['image_url']);
+        if ($image_url && file_exists(__DIR__ . '/../../' . $image_url)) {
+            unlink(__DIR__ . '/../../' . $image_url);
         }
         $image_url = null;
     }
 
-    $result = updateMenuItem($pdo, $item_id, $item_name, $description, $price, $cost_price, $category_id, $image_url, $is_available);
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $file_type = mime_content_type($_FILES['image']['tmp_name']);
+        if (!in_array($file_type, $allowed_types)) {
+            $_SESSION['error'] = 'Invalid image type.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+        if ($_FILES['image']['size'] > 2 * 1024 * 1024) {
+            $_SESSION['error'] = 'Image must be under 2MB.';
+            header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+        if ($existingItem['image_url'] && file_exists(__DIR__ . '/../../' . $existingItem['image_url'])) {
+            unlink(__DIR__ . '/../../' . $existingItem['image_url']);
+        }
+        $ext      = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+        $filename = 'item_' . time() . '_' . uniqid() . '.' . $ext;
+        $upload_dir = __DIR__ . '/../../assets/images/menu/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
+            $image_url = 'assets/images/menu/' . $filename;
+        }
+    }
 
-    if ($result) {
-        $_SESSION['success'] = 'Menu item updated successfully.';
+    if (updateMenuItem($pdo, $item_id, $item_name, $description, $base_price, $cost_price, $category_id, $image_url, $is_available)) {
+        $_SESSION['success'] = "Menu item '{$item_name}' updated successfully.";
     } else {
         $_SESSION['error'] = 'Failed to update menu item. Please try again.';
-        error_log('Failed to update menu item: ' . json_encode($pdo->errorInfo()));
     }
 
     header("Location: $baseUrl/index.php?page=manage_menu");
     exit;
 }
+
+// ================================================================
+// MENU ITEM: DELETE
+// ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_menu_item'])) {
     $item_id = (int) ($_POST['item_id'] ?? 0);
-
     if ($item_id > 0) {
         if (deleteMenuItem($pdo, $item_id)) {
             $_SESSION['success'] = 'Menu item deleted successfully.';
@@ -324,18 +352,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_menu_item'])) 
     } else {
         $_SESSION['error'] = 'Invalid menu item.';
     }
-
-    header("Location: index.php?page=manage_menu");
+    header("Location: $baseUrl/index.php?page=manage_menu");
     exit;
 }
+
 // ================================================================
-// MENU ITEM: EDIT pre-populate (GET)
+// VARIANT: ADD OR UPDATE
+// Rule: after adding a variant, NULL out the item's base_price/cost_price
+// ================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['variant_action'])) {
+    $action     = $_POST['variant_action'];
+    $item_id    = (int)   ($_POST['item_id']      ?? 0);
+    $variant_id = (int)   ($_POST['variant_id']   ?? 0);
+    $name       = trim(   $_POST['variant_name']  ?? '');
+    $price      = (float) ($_POST['price']        ?? 0);
+    $cost_price = (float) ($_POST['cost_price']   ?? 0);
+    $is_active  = isset($_POST['is_active']) ? 1 : 0;
+
+    if ($action === 'add') {
+        if (!$item_id || $name === '') {
+            $_SESSION['error'] = 'Variant name is required.';
+        } elseif ($price <= 0) {
+            $_SESSION['error'] = 'Variant price must be greater than 0.';
+        } elseif ($cost_price < 0) {
+            $_SESSION['error'] = 'Variant cost price cannot be negative.';
+        } elseif (variantNameExists($pdo, $item_id, $name)) {
+            $_SESSION['error'] = "A variant named '{$name}' already exists for this item.";
+        } else {
+            $new_variant_id = addVariant($pdo, $item_id, $name, $price, $cost_price, $is_active);
+            if ($new_variant_id) {
+                // RULE: now that a variant exists, NULL out base_price and cost_price
+                nullifyItemBasePricing($pdo, $item_id);
+                $_SESSION['success'] = "Variant '{$name}' added. Item now uses variant pricing.";
+            } else {
+                $_SESSION['error'] = 'Failed to add variant.';
+            }
+        }
+
+    } elseif ($action === 'update') {
+        if (!$variant_id || $name === '') {
+            $_SESSION['error'] = 'Variant name is required.';
+        } elseif ($price <= 0) {
+            $_SESSION['error'] = 'Variant price must be greater than 0.';
+        } elseif ($cost_price < 0) {
+            $_SESSION['error'] = 'Variant cost price cannot be negative.';
+        } else {
+            // Duplicate check excluding self
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) FROM menu_variants
+                WHERE item_id = ? AND TRIM(LOWER(variant_name)) = TRIM(LOWER(?)) AND variant_id != ?
+            ");
+            $stmt->execute([$item_id, $name, $variant_id]);
+            if ((int)$stmt->fetchColumn() > 0) {
+                $_SESSION['error'] = "A variant named '{$name}' already exists for this item.";
+            } else {
+                if (updateVariant($pdo, $variant_id, $name, $price, $cost_price, (bool)$is_active)) {
+                    $_SESSION['success'] = "Variant '{$name}' updated successfully.";
+                } else {
+                    $_SESSION['error'] = 'Failed to update variant.';
+                }
+            }
+        }
+    }
+
+    header('Location: ' . $baseUrl . '/index.php?page=manage_menu');
+    exit;
+}
+
+// ================================================================
+// VARIANT: DELETE
+// Rule: after deletion, if no more variants remain → restore base pricing
+//       (set to 0.00 as a placeholder; admin must edit item to set correct price)
+// ================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_variant'])) {
+    $variant_id = (int) ($_POST['variant_id'] ?? 0);
+    if (!$variant_id) {
+        $_SESSION['error'] = 'Invalid variant.';
+        header('Location: ' . $baseUrl . '/index.php?page=manage_menu'); exit;
+    }
+
+    // Find the item_id before deleting
+    $stmt = $pdo->prepare("SELECT item_id FROM menu_variants WHERE variant_id = ?");
+    $stmt->execute([$variant_id]);
+    $row = $stmt->fetch();
+    $affected_item_id = $row ? (int)$row['item_id'] : 0;
+
+    if (deleteVariant($pdo, $variant_id)) {
+        // Check if any variants remain for this item
+        if ($affected_item_id) {
+            $stmt2 = $pdo->prepare("SELECT COUNT(*) FROM menu_variants WHERE item_id = ?");
+            $stmt2->execute([$affected_item_id]);
+            $remaining = (int) $stmt2->fetchColumn();
+
+            if ($remaining === 0) {
+                // No variants left → item switches back to base pricing mode.
+                // We set base_price = 0.00 as a signal that admin must update it.
+                // A value of 0 is intentional here to flag the item as needing attention.
+                $stmt3 = $pdo->prepare("UPDATE menu_items SET base_price = 0.00, cost_price = 0.00 WHERE item_id = ?");
+                $stmt3->execute([$affected_item_id]);
+                $_SESSION['success'] = 'Variant deleted. No variants remain — please update the item\'s base price.';
+            } else {
+                $_SESSION['success'] = 'Variant deleted successfully.';
+            }
+        } else {
+            $_SESSION['success'] = 'Variant deleted successfully.';
+        }
+    } else {
+        $_SESSION['error'] = 'Failed to delete variant.';
+    }
+
+    header('Location: ' . $baseUrl . '/index.php?page=manage_menu');
+    exit;
+}
+
+// ================================================================
+// EDIT ITEM: pre-populate (GET)
 // ================================================================
 $item_to_edit = null;
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['edit'])) {
     $edit_item_id = (int) $_GET['edit'];
     $item_to_edit = getMenuItemById($pdo, $edit_item_id);
-
     if (!$item_to_edit) {
         $_SESSION['error'] = 'Menu item not found.';
         header("Location: $baseUrl/index.php?page=manage_menu");
@@ -344,76 +480,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['edit'])) {
 }
 
 // ================================================================
-// MENU ITEM: DELETE (GET)
-// ================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['delete'])) {
-    $delete_item_id = (int) $_GET['delete'];
-
-    $item_to_delete = getMenuItemById($pdo, $delete_item_id);
-    if ($item_to_delete) {
-        if (!empty($item_to_delete['image_url']) &&
-            !str_contains($item_to_delete['image_url'], 'default') &&
-            file_exists(__DIR__ . '/../../public/' . $item_to_delete['image_url'])) {
-            unlink(__DIR__ . '/../../public/' . $item_to_delete['image_url']);
-        }
-
-        $sql    = "DELETE FROM menu_items WHERE item_id = :item_id";
-        $stmt   = $pdo->prepare($sql);
-        $result = $stmt->execute([':item_id' => $delete_item_id]);
-
-        if ($result) {
-            $_SESSION['success'] = 'Menu item deleted successfully.';
-        } else {
-            $_SESSION['error'] = 'Failed to delete menu item.';
-        }
-    } else {
-        $_SESSION['error'] = 'Menu item not found.';
-    }
-
-    header("Location: $baseUrl/index.php?page=manage_menu");
-    exit;
-}
-
-// ================================================================
 // FETCH DATA FOR VIEW
 // ================================================================
-$menu_items = getAllItemsWithIngredients($pdo) ?? [];
-$categories = getAllCategories($pdo)           ?? [];
+$menu_items = getAllItemsWithVariants($pdo) ?? [];
+$categories = getAllCategories($pdo) ?? [];
 
-$availableItems  = [];
-$totalItems      = 0;
-$totalProfit     = 0;
-$avgProfitMargin = 0;
-
-if (!empty($menu_items)) {
-    $availableItems = array_filter($menu_items, function($item) {
-        return ($item['is_available'] ?? 0) == 1;
-    });
-
-    $totalItems = count($menu_items);
-
-    $totalProfit = array_reduce($menu_items, function($carry, $item) {
-        return $carry + (($item['price'] ?? 0) - ($item['cost_price'] ?? 0));
-    }, 0);
-
-    $totalMargin    = 0;
-    $itemsWithPrice = 0;
-
-    foreach ($menu_items as $item) {
-        $price = $item['price'] ?? 0;
-        if ($price > 0) {
-            $cost   = $item['cost_price'] ?? 0;
-            $profit = $price - $cost;
-            $margin = ($profit / $price) * 100;
-            $totalMargin += $margin;
-            $itemsWithPrice++;
-        }
+// Load all variants grouped by item_id (active + inactive)
+$variants_grouped = [];
+try {
+    $stmt = $pdo->query("SELECT * FROM menu_variants ORDER BY item_id, price ASC");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $variant) {
+        $variants_grouped[(int)$variant['item_id']][] = $variant;
     }
-
-    $avgProfitMargin = $itemsWithPrice > 0 ? ($totalMargin / $itemsWithPrice) : 0;
+} catch (Exception $e) {
+    error_log("Error loading variants: " . $e->getMessage());
 }
 
-// ================================================================
-// LOAD VIEW
-// ================================================================
+// Build prepared items with clear pricing source
+$prepared_items      = [];
+$total_profit_potential = 0;
+$total_margin_sum    = 0;
+$items_with_price_count = 0;
+
+foreach ($menu_items as $item) {
+    $item_id  = (int)($item['item_id'] ?? 0);
+    $variants = $variants_grouped[$item_id] ?? [];
+    $active_variants = array_values(array_filter($variants, fn($v) => $v['is_active']));
+
+    // PRICING RULE: variants present → use variant pricing
+    $has_variants = !empty($variants); // any variant (active OR inactive) means variant mode
+
+    if ($has_variants) {
+        $prices = array_column($active_variants ?: $variants, 'price');
+        $costs  = array_column($active_variants ?: $variants, 'cost_price');
+
+        $prepared_item = [
+            'item_id'        => $item['item_id'],
+            'item_name'      => $item['item_name'],
+            'description'    => $item['description'] ?? '',
+            'image_url'      => $item['image_url'],
+            'is_available'   => $item['is_available'],
+            'category_id'    => $item['category_id'],
+            'category_name'  => $item['category_name'],
+            'has_variants'   => true,
+            'variants'       => $variants,
+            'active_variants'=> $active_variants,
+            'active_count'   => count($active_variants),
+            'total_variants' => count($variants),
+            // Expose NULL base fields to make it clear pricing comes from variants
+            'base_price'     => null,
+            'cost_price'     => null,
+            'price_min'      => !empty($prices) ? min($prices) : 0,
+            'price_max'      => !empty($prices) ? max($prices) : 0,
+        ];
+
+        foreach ($active_variants as $v) {
+            $profit = $v['price'] - $v['cost_price'];
+            $total_profit_potential += $profit;
+            if ($v['price'] > 0) {
+                $total_margin_sum += ($profit / $v['price']) * 100;
+                $items_with_price_count++;
+            }
+        }
+
+    } else {
+        $base  = (float)($item['base_price'] ?? 0);
+        $cost  = (float)($item['cost_price'] ?? 0);
+        $profit = $base - $cost;
+        $total_profit_potential += $profit;
+
+        if ($base > 0) {
+            $total_margin_sum += ($profit / $base) * 100;
+            $items_with_price_count++;
+        }
+
+        $prepared_item = [
+            'item_id'        => $item['item_id'],
+            'item_name'      => $item['item_name'],
+            'description'    => $item['description'] ?? '',
+            'image_url'      => $item['image_url'],
+            'is_available'   => $item['is_available'],
+            'category_id'    => $item['category_id'],
+            'category_name'  => $item['category_name'],
+            'has_variants'   => false,
+            'variants'       => [],
+            'active_variants'=> [],
+            'active_count'   => 0,
+            'total_variants' => 0,
+            'base_price'     => $base,
+            'cost_price'     => $cost,
+            'price_min'      => $base,
+            'price_max'      => $base,
+        ];
+    }
+
+    $prepared_items[] = $prepared_item;
+}
+
+// Warn admin about items that switched back to base pricing mode with price = 0
+$items_needing_price = array_filter($prepared_items, fn($i) => !$i['has_variants'] && ($i['base_price'] ?? 0) <= 0);
+if (!empty($items_needing_price) && empty($error)) {
+    $names = implode(', ', array_map(fn($i) => "'{$i['item_name']}'", $items_needing_price));
+    $error = "⚠️ The following items need a base price set: {$names}";
+}
+
+$avgProfitMargin = $items_with_price_count > 0 ? ($total_margin_sum / $items_with_price_count) : 0;
+$totalItems      = count($prepared_items);
+$availableItems  = array_filter($prepared_items, fn($i) => $i['is_available']);
+$menu_items      = $prepared_items;
+$totalProfit     = $total_profit_potential;
+
 include __DIR__ . '/../views/admin/manage_menu.php';

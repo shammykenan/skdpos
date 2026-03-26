@@ -11,7 +11,7 @@ function createOrder(
     PDO     $pdo,
     int     $cashier_id,
     ?string $customer_name,
-    ?string $table_number,
+    ?string $table_number,   // keep param for compatibility, just don't insert it
     string  $order_type,
     string  $order_source,
     float   $subtotal,
@@ -23,10 +23,10 @@ function createOrder(
 
     $stmt = $pdo->prepare("
         INSERT INTO orders
-            (order_number, cashier_id, customer_name, table_number, table_id,
+            (order_number, cashier_id, customer_name, table_id,
              order_type, order_source, subtotal, discount, total_amount, status)
         VALUES
-            (:order_number, :cashier_id, :customer_name, :table_number, :table_id,
+            (:order_number, :cashier_id, :customer_name, :table_id,
              :order_type, :order_source, :subtotal, :discount, :total_amount, 'pending')
     ");
 
@@ -34,7 +34,6 @@ function createOrder(
         ':order_number'  => $order_number,
         ':cashier_id'    => $cashier_id,
         ':customer_name' => $customer_name,
-        ':table_number'  => $table_number,
         ':table_id'      => $table_id,
         ':order_type'    => $order_type,
         ':order_source'  => $order_source,
@@ -59,28 +58,35 @@ function createOrderItem(
     PDO     $pdo,
     int     $order_id,
     int     $item_id,
+    string  $item_name_snapshot,   // ADD THIS
     int     $quantity,
     float   $unit_price,
-    ?string $item_note = null
+    ?string $item_note    = null,
+    ?int    $variant_id   = null,
+    ?string $variant_name = null
 ): int {
     $subtotal = $unit_price * $quantity;
     $note     = ($item_note !== null && trim($item_note) !== '') ? trim($item_note) : null;
 
     $stmt = $pdo->prepare("
         INSERT INTO order_items
-            (order_id, item_id, quantity, unit_price, subtotal, item_notes, status)
+            (order_id, item_id, variant_id, item_name_snapshot, variant_name_snapshot,
+             quantity, unit_price, subtotal, item_notes, status)
         VALUES
-            (:order_id, :item_id, :quantity, :unit_price, :subtotal, :item_notes, 'pending')
+            (:order_id, :item_id, :variant_id, :item_name_snapshot, :variant_name_snapshot,
+             :quantity, :unit_price, :subtotal, :item_notes, 'pending')
     ");
     $stmt->execute([
-        ':order_id'   => $order_id,
-        ':item_id'    => $item_id,
-        ':quantity'   => $quantity,
-        ':unit_price' => $unit_price,
-        ':subtotal'   => $subtotal,
-        ':item_notes' => $note,
+        ':order_id'               => $order_id,
+        ':item_id'                => $item_id,
+        ':variant_id'             => $variant_id,
+        ':item_name_snapshot'     => $item_name_snapshot,
+        ':variant_name_snapshot'  => $variant_name,
+        ':quantity'               => $quantity,
+        ':unit_price'             => $unit_price,
+        ':subtotal'               => $subtotal,
+        ':item_notes'             => $note,
     ]);
-
     return (int) $pdo->lastInsertId();
 }
 
@@ -146,17 +152,8 @@ function upsertDraftOrder(
     string  $order_type    = 'dine_in',
     ?int    $table_id      = null
 ): int {
-    // Resolve display label
-    $table_number = null;
-    if ($table_id !== null) {
-        $t = $pdo->prepare("SELECT table_name FROM `tables` WHERE table_id = ?");
-        $t->execute([$table_id]);
-        $table_number = $t->fetchColumn() ?: null;
-    }
-
     $cart_json = json_encode($cart_rows, JSON_UNESCAPED_UNICODE);
 
-    // Find existing draft
     $stmt = $pdo->prepare("
         SELECT order_id FROM orders
         WHERE cashier_id = ? AND status = 'draft'
@@ -166,35 +163,31 @@ function upsertDraftOrder(
     $existing = $stmt->fetchColumn();
 
     if ($existing) {
-        // Just update the JSON blob + meta — no child table writes at all
         $pdo->prepare("
             UPDATE orders
             SET customer_name = ?,
                 order_type    = ?,
                 table_id      = ?,
-                table_number  = ?,
                 draft_cart    = ?
             WHERE order_id = ?
-        ")->execute([$customer_name, $order_type, $table_id, $table_number, $cart_json, (int)$existing]);
+        ")->execute([$customer_name, $order_type, $table_id, $cart_json, (int)$existing]);
 
         return (int) $existing;
     }
 
-    // Create a fresh draft row — nothing in order_items
     $order_number = 'DFT-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
     $stmt = $pdo->prepare("
         INSERT INTO orders
-            (order_number, cashier_id, customer_name, table_number, table_id,
+            (order_number, cashier_id, customer_name, table_id,
              order_type, order_source, subtotal, discount, total_amount, status, draft_cart)
         VALUES
-            (:order_number, :cashier_id, :customer_name, :table_number, :table_id,
+            (:order_number, :cashier_id, :customer_name, :table_id,
              :order_type, 'walk_in', 0, 0, 0, 'draft', :draft_cart)
     ");
     $stmt->execute([
         ':order_number'  => $order_number,
         ':cashier_id'    => $cashier_id,
         ':customer_name' => $customer_name,
-        ':table_number'  => $table_number,
         ':table_id'      => $table_id,
         ':order_type'    => $order_type,
         ':draft_cart'    => $cart_json,
