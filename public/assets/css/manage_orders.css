@@ -1485,7 +1485,31 @@ body {
         min-width: 0;
     }
 }
+/* ── Variant name label — shown after item name as "Item · Variant" ── */
 
+/* In table row item chips */
+.item-name-chip .item-variant-label,
+.item-name-chip span[style*="opacity"] {
+    opacity: 0.65;
+    font-weight: 400;
+    font-size: 0.85em;
+}
+
+/* In kitchen modal item cards */
+.item-variant-label {
+    opacity: 0.72;
+    font-weight: 500;
+    font-size: 0.88em;
+    color: inherit;
+}
+
+/* In order details modal */
+.od-variant-label {
+    opacity: 0.68;
+    font-weight: 500;
+    font-size: 0.88em;
+    color: var(--warm-gray);
+}
 /* ── CASHIER VIEW TOGGLE (admin only) ── */
 .cashier-view-toggle {
     display: inline-flex;
@@ -1843,11 +1867,6 @@ body {
 }
 .sidebar-overlay.show { display: block; }
 
-/* ── Large Desktop (1200px+) ── */
-@media (min-width: 1200px) {
-    .main-content  { padding: 2.5rem; }
-    .orders-table  { min-width: 1000px; }
-}
 
 /* ── Desktop (992–1199px) ── */
 @media (min-width: 992px) and (max-width: 1199.98px) {
@@ -2135,4 +2154,37 @@ body {
 
     .od-meta-grid { grid-template-columns: 1fr 1fr; gap: 0.65rem; }
     .od-td        { padding: 0.5rem 0.6rem; }
+}
+
+/* ── VARIANT PRICE COMPARISON STYLES ── */
+.od-price-compare {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.25rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    cursor: help;
+}
+
+.od-price-compare.price-up {
+    color: var(--success);
+    background: rgba(44, 122, 90, 0.1);
+}
+
+.od-price-compare.price-down {
+    color: var(--danger);
+    background: rgba(214, 64, 69, 0.1);
+}
+
+/* ── VARIANT LABEL STYLES ── */
+.od-variant-label {
+    opacity: 0.7;
+    font-weight: 400;
+    font-size: 0.9em;
+}
+
+.item-variant-label {
+    opacity: 0.7;
+    font-weight: 400;
+    font-size: 0.9em;
 }

@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
 
     <style>
         :root {
@@ -551,6 +552,7 @@
 
     </div>
 
+    <script src="<?= $baseUrl ?>/assets/js/common.js?v=<?= time() ?>"></script>
     <script>
         function togglePass() {
             const field = document.getElementById('passwordField');
@@ -561,14 +563,8 @@
             icon.classList.toggle('fa-eye-slash',  isHidden);
         }
 
-        // Auto-dismiss alerts after 5s
-        setTimeout(() => {
-            document.querySelectorAll('.alert').forEach(el => {
-                el.style.transition = 'opacity 0.4s';
-                el.style.opacity = '0';
-                setTimeout(() => el.remove(), 400);
-            });
-        }, 5000);
+        // Use shared alert dismissal utility
+        autoDismissAlerts(5000);
     </script>
 
 </body>

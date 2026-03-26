@@ -62,6 +62,7 @@ function getTotalSalesByItem(PDO $pdo, $item_id) {
     return (int)$stmt->fetchColumn();
 }
 // FIX (BUG 8): Add variant_id and variant_name_snapshot to SELECT.
+// ENHANCEMENT: Join with menu_variants to get current variant details
 function getOrderItems(PDO $pdo, int $order_id): array
 {
     $stmt = $pdo->prepare("
@@ -74,9 +75,13 @@ function getOrderItems(PDO $pdo, int $order_id): array
                oi.subtotal,
                oi.status,
                oi.item_notes,
-               mi.item_name
+               mi.item_name,
+               mv.variant_name as current_variant_name,
+               mv.price as current_variant_price,
+               mv.cost_price as current_variant_cost_price
         FROM order_items oi
         JOIN menu_items mi ON oi.item_id = mi.item_id
+        LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
         WHERE oi.order_id = ?
         ORDER BY oi.order_item_id ASC
     ");

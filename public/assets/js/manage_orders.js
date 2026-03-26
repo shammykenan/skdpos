@@ -28,7 +28,6 @@ let currentOrderTotal  = 0;
 let currentOrdersCache = {};
 let openDetailsOrderId = null;
 
-// Track which order the kitchen modal is showing
 let kitchenModalOrderId = null;
 
 let paymentModal, cancelOrderModal, orderDetailsModal, kitchenItemsModal;
@@ -54,7 +53,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('kitchenItemsModal')?.addEventListener('hidden.bs.modal', function () {
         kitchenModalOrderId = null;
-        // Fix aria-hidden focus warning
         const focused = document.activeElement;
         if (focused && this.contains(focused)) focused.blur();
     });
@@ -73,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ============================================
-// LOAD ADMIN USERS FOR PROCESSED-BY DROPDOWN
+// LOAD ADMIN USERS
 // ============================================
 async function loadAdminUsers() {
     try {
@@ -101,7 +99,6 @@ async function loadAdminUsers() {
 function syncProcessedByVisibility() {
     const wrapper = document.getElementById('processedByWrapper');
     if (!wrapper) return;
-
     if (currentFilter === 'completed' && window.userRole === 'admin') {
         wrapper.style.display = 'flex';
     } else {
@@ -179,7 +176,6 @@ async function refreshOrders() {
             refreshOrderDetailsModal(openDetailsOrderId);
         }
 
-        // Refresh kitchen modal if open — fetch directly from server
         if (kitchenModalOrderId) {
             refreshKitchenModal(kitchenModalOrderId);
         }
@@ -242,7 +238,7 @@ function renderTableRows(orders) {
 }
 
 // ============================================
-// SMART PATCH — only update changed rows
+// SMART PATCH
 // ============================================
 function patchTableRows(orders) {
     const tbody = document.getElementById('ordersTableBody');
@@ -378,7 +374,7 @@ function showError() {
 }
 
 // ============================================
-// ROW HTML BUILDERS
+// ROW HTML — item name chips include variant
 // ============================================
 function createOrderRowHTML(order) {
     const total      = parseFloat(order.total_amount || 0);
@@ -422,6 +418,10 @@ function getOrderStatusBadge(status) {
     return `<span class="status-badge status-${status.toLowerCase()}">${capitalize(status)}</span>`;
 }
 
+/**
+ * Build the item chips in a table row.
+ * Shows "Item Name · Variant" when a variant exists.
+ */
 function getOrderItemsHTML(items, orderStatus, orderId) {
     if (!items || items.length === 0) return '<span class="text-muted fst-italic" style="font-size:0.8rem;">No items</span>';
 
@@ -432,13 +432,27 @@ function getOrderItemsHTML(items, orderStatus, orderId) {
         { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
         { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
     ];
-    const dotsHTML    = dotsCfg.filter(d => tally[d.key] > 0).map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`).join('');
-    const namePreview = items.slice(0, 2).map(i => `<span class="item-name-chip">${escapeHtml(i.item_name)}${parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : ''}</span>`).join('');
-    const moreChip    = items.length > 2 ? `<span class="item-name-chip item-name-more">+${items.length - 2} more</span>` : '';
-    const noteCount   = items.filter(i => i.item_notes && i.item_notes.trim()).length;
-    const hasAddons   = items.some(i => i.addons && i.addons.length > 0);
-    const notesDot    = noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '';
-    const addonsDot   = hasAddons ? `<span class="items-has-addons-dot" title="Has add-ons"><i class="fas fa-plus-circle"></i></span>` : '';
+    const dotsHTML = dotsCfg.filter(d => tally[d.key] > 0)
+        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`)
+        .join('');
+
+    // Name chips: show "ItemName · Variant" when variant exists, prioritize snapshot data for historical accuracy
+    const namePreview = items.slice(0, 2).map(i => {
+        const baseName    = escapeHtml(i.item_name_snapshot || i.item_name || '');
+        // Use snapshot variant name first (historical accuracy), fall back to current variant name
+        const variantName = i.variant_name_snapshot || i.current_variant_name || i.variant_name || null;
+        const qty         = parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : '';
+        const variantBit  = variantName
+            ? `<span style="opacity:0.65;font-weight:400;"> · ${escapeHtml(variantName)}</span>`
+            : '';
+        return `<span class="item-name-chip">${baseName}${variantBit}${qty}</span>`;
+    }).join('');
+
+    const moreChip  = items.length > 2 ? `<span class="item-name-chip item-name-more">+${items.length - 2} more</span>` : '';
+    const noteCount = items.filter(i => i.item_notes && i.item_notes.trim()).length;
+    const hasAddons = items.some(i => i.addons && i.addons.length > 0);
+    const notesDot  = noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '';
+    const addonsDot = hasAddons ? `<span class="items-has-addons-dot" title="Has add-ons"><i class="fas fa-plus-circle"></i></span>` : '';
 
     return `<div class="items-cell" data-order-id="${orderId}">
         <div class="items-summary-row">${dotsHTML}${notesDot}${addonsDot}</div>
@@ -500,13 +514,10 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
         if (!data.success) throw new Error(data.error || 'Update failed');
 
-        // After update, re-fetch fresh item data from server and redraw the modal
-        // This is the only source of truth — no guessing from cache
         if (kitchenModalOrderId) {
             await refreshKitchenModal(kitchenModalOrderId);
         }
 
-        // Update order row status badge + actions in table
         const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
@@ -536,7 +547,6 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
 // ============================================
 // KITCHEN ITEMS MODAL
-// Always fetches fresh data from server — no cache bugs
 // ============================================
 async function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
     const modal = document.getElementById('kitchenItemsModal');
@@ -545,7 +555,6 @@ async function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
     kitchenModalOrderId = String(orderId);
     modal.setAttribute('data-open-order-id', String(orderId));
 
-    // Show loading state immediately
     const bodyEl   = document.getElementById('kitchenModalBody');
     const headerEl = document.getElementById('kitchenModalHeader');
     if (bodyEl) bodyEl.innerHTML = `
@@ -556,15 +565,9 @@ async function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
     if (headerEl) headerEl.innerHTML = '';
 
     kitchenItemsModal.show();
-
-    // Fetch fresh data from dedicated endpoint
     await refreshKitchenModal(orderId);
 }
 
-/**
- * Fetch fresh item statuses from server and redraw kitchen modal.
- * Called on open AND on every background refresh tick.
- */
 async function refreshKitchenModal(orderId) {
     const modal = document.getElementById('kitchenItemsModal');
     if (!modal || !modal.classList.contains('show')) return;
@@ -574,25 +577,18 @@ async function refreshKitchenModal(orderId) {
         const res  = await fetch(`${ORDER_ITEMS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
         const data = await res.json();
         if (!data.success) return;
-
         renderKitchenModal(data.order, data.items);
-
     } catch (err) {
         console.error('❌ Kitchen modal refresh error:', err);
     }
 }
 
-/**
- * Render the kitchen modal with fresh server data.
- * This is the ONLY place the modal HTML is built — no other code rewrites it.
- */
 function renderKitchenModal(order, items) {
     const modal = document.getElementById('kitchenItemsModal');
     if (!modal || !modal.classList.contains('show')) return;
 
     const orderStatus = order.status || 'pending';
 
-    // Header
     const headerEl = document.getElementById('kitchenModalHeader');
     if (headerEl) {
         headerEl.innerHTML = `
@@ -614,7 +610,6 @@ function renderKitchenModal(order, items) {
             </div>`;
     }
 
-    // Items
     const bodyEl = document.getElementById('kitchenModalBody');
     if (bodyEl) {
         bodyEl.innerHTML = items.length
@@ -623,6 +618,10 @@ function renderKitchenModal(order, items) {
     }
 }
 
+/**
+ * Build a kitchen item card.
+ * Shows "ItemName · VariantName" when a variant exists.
+ */
 function buildItemCardHTML(item, orderStatus) {
     const userRole   = window.userRole || '';
     const canUpdate  = userRole === 'kitchen' || userRole === 'admin';
@@ -656,6 +655,14 @@ function buildItemCardHTML(item, orderStatus) {
                      </button>`;
     }
 
+    // Item display name: "Item Name · Variant" if variant exists, prioritize snapshot data
+    const baseName   = escapeHtml(item.item_name || '');
+    // Use snapshot variant name first (historical accuracy), fall back to current variant name
+    const variantName = item.variant_name_snapshot || item.current_variant_name || item.variant_name || null;
+    const variantBit  = variantName
+        ? `<span class="item-variant-label"> · ${escapeHtml(variantName)}</span>`
+        : '';
+
     const addonsHTML = (item.addons && item.addons.length > 0)
         ? `<div class="item-addons"><span class="item-addons-label">Add-ons:</span>
            ${item.addons.map(a => `<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>`).join('')}</div>`
@@ -666,12 +673,10 @@ function buildItemCardHTML(item, orderStatus) {
         : '';
 
     return `<div class="item-card item-card-${itemStatus}"
-                 data-item-id="${item.order_item_id}"
-                 data-item-notes="${escapeHtml(item.item_notes || '')}"
-                 data-item-addons='${escapeHtml(JSON.stringify(item.addons || []))}'>
+                 data-item-id="${item.order_item_id}">
                 <div class="item-card-header">
                     <div class="item-card-name">
-                        <span class="item-name-text">${escapeHtml(item.item_name)}</span>
+                        <span class="item-name-text">${baseName}${variantBit}</span>
                         <span class="item-qty-badge">×${item.quantity || 1}</span>
                     </div>
                     <div class="item-card-right">${badge}${actionBtn}</div>
@@ -681,7 +686,7 @@ function buildItemCardHTML(item, orderStatus) {
 }
 
 // ============================================
-// ORDER DETAILS MODAL — realtime via AJAX
+// ORDER DETAILS MODAL
 // ============================================
 function viewOrderDetails(orderId, orderNumber) {
     if (!orderDetailsModal) return;
@@ -745,6 +750,10 @@ async function refreshOrderDetailsModal(orderId) {
     } catch (err) { /* silent */ }
 }
 
+/**
+ * Populate the Order Details modal.
+ * Each item row shows "Item Name · Variant" when a variant_name exists.
+ */
 function populateOrderDetailsModal(order, items, payment) {
     const set     = (id, val)  => { const el = document.getElementById(id); if (el) el.textContent = val; };
     const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML  = html; };
@@ -778,14 +787,38 @@ function populateOrderDetailsModal(order, items, payment) {
             const itemSubtotal = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)).toFixed(2);
             const notePill     = (item.item_notes && item.item_notes.trim())
                 ? `<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>` : '';
+
+            // Resolve display name — prefer snapshots stored at order time, fall back to current variant name
+            const displayItemName    = item.item_name_snapshot    || item.item_name    || '';
+            const displayVariantName = item.variant_name_snapshot || item.current_variant_name || item.variant_name || null;
+            const variantBit         = displayVariantName
+                ? `<span class="od-variant-label"> · ${escapeHtml(displayVariantName)}</span>`
+                : '';
+
+            // Show variant price info if current variant price differs from order price
+            let priceInfo = `₱${formatPrice(item.unit_price)}`;
+            if (item.current_variant_price && parseFloat(item.current_variant_price) !== parseFloat(item.unit_price)) {
+                const currentPrice = parseFloat(item.current_variant_price);
+                const orderPrice = parseFloat(item.unit_price);
+                const priceDiff = currentPrice - orderPrice;
+                const diffClass = priceDiff > 0 ? 'price-up' : 'price-down';
+                const diffText = priceDiff > 0 ? '+' : '';
+                priceInfo = `₱${formatPrice(item.unit_price)} <small class="od-price-compare ${diffClass}" title="Current variant price: ₱${formatPrice(currentPrice)}">(${diffText}₱${formatPrice(Math.abs(priceDiff))})</small>`;
+            }
+
             const tr = document.createElement('tr');
             tr.className = 'od-item-row';
             tr.innerHTML = `
-                <td class="od-td od-td-item"><span class="od-item-name">${escapeHtml(item.item_name)}</span>${notePill}</td>
+                <td class="od-td od-td-item">
+                    <span class="od-item-name">${escapeHtml(displayItemName)}${variantBit}</span>
+                    ${notePill}
+                </td>
                 <td class="od-td od-td-center">${item.quantity || 1}</td>
-                <td class="od-td od-td-right od-muted">₱${formatPrice(item.unit_price)}</td>
+                <td class="od-td od-td-right od-muted">${priceInfo}</td>
                 <td class="od-td od-td-right od-item-subtotal">₱${itemSubtotal}</td>`;
             itemsBody.appendChild(tr);
+
+            // Add-on rows
             (item.addons || []).forEach(addon => {
                 const addonSubtotal = (parseFloat(addon.unit_price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
                 const addonTr = document.createElement('tr');
@@ -873,22 +906,8 @@ function showCancelOrderModal(orderId, orderNumber) {
 // EVENT LISTENERS
 // ============================================
 function setupEventListeners() {
-    const menuToggle     = document.getElementById('menuToggle');
-    const sidebar        = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    if (menuToggle && sidebar && sidebarOverlay) {
-        menuToggle.addEventListener('click', e => {
-            e.preventDefault();
-            sidebar.classList.toggle('show');
-            sidebarOverlay.classList.toggle('show');
-            document.body.style.overflow = sidebar.classList.contains('show') ? 'hidden' : '';
-        });
-        sidebarOverlay.addEventListener('click', () => {
-            sidebar.classList.remove('show');
-            sidebarOverlay.classList.remove('show');
-            document.body.style.overflow = '';
-        });
-    }
+    // Use shared sidebar utility
+    setupSidebarToggle();
 
     document.querySelectorAll('.cashier-view-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -1043,7 +1062,7 @@ function setupEventListeners() {
     const amountPaid = document.getElementById('amountPaid');
     if (amountPaid) {
         amountPaid.addEventListener('input', function () {
-            const amount     = parseFloat(this.value) || 0;
+            const amount      = parseFloat(this.value) || 0;
             const changeAlert = document.getElementById('changeAlert');
             const insufAlert  = document.getElementById('insufficientAlert');
             const confirmBtn  = document.getElementById('confirmPaymentBtn');
@@ -1067,12 +1086,8 @@ function setupEventListeners() {
         document.hidden ? stopAutoRefresh() : startAutoRefresh();
     });
 
-    document.addEventListener('hidden.bs.modal', () => {
-        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow     = '';
-        document.body.style.paddingRight = '';
-    });
+    // Use shared modal backdrop cleanup utility
+    setupModalBackdropCleanup();
 
     ['successModal', 'errorModal'].forEach(id => {
         const el = document.getElementById(id);
@@ -1087,25 +1102,12 @@ function setupEventListeners() {
 // ============================================
 // UTILITIES
 // ============================================
-function escapeHtml(text) {
-    if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-}
-function formatDate(dateString) {
-    if (!dateString) return '';
-    try { return new Date(dateString).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
-    catch { return ''; }
-}
-function formatPrice(amount) {
-    const n = parseFloat(amount || 0);
-    return isNaN(n) ? '0.00' : n.toFixed(2);
-}
-function capitalize(str) {
+// Utility functions are now loaded from common.js
+
+window.capitalize = function(str) {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
+};
 
 window.refreshOrders    = refreshOrders;
 window.startAutoRefresh = startAutoRefresh;

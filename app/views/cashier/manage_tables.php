@@ -940,10 +940,17 @@ function populateTodModal(order, items, payment) {
             const notePill = (item.item_notes && item.item_notes.trim())
                 ? `<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${esc(item.item_notes)}</div>`
                 : '';
+
+            // Add variant display like in main orders table
+            const variantName = item.variant_name_snapshot || item.current_variant_name || item.variant_name || null;
+            const variantBit = variantName
+                ? `<span style="opacity:0.65;font-weight:400;"> · ${esc(variantName)}</span>`
+                : '';
+
             const tr = document.createElement('tr');
             tr.className = 'od-item-row';
             tr.innerHTML = `
-                <td class="od-td"><span class="od-item-name">${esc(item.item_name)}</span>${notePill}</td>
+                <td class="od-td"><span class="od-item-name">${esc(item.item_name)}${variantBit}</span>${notePill}</td>
                 <td class="od-td od-td-center">${item.quantity || 1}</td>
                 <td class="od-td od-td-right od-muted">₱${fmt(item.unit_price)}</td>
                 <td class="od-td od-td-right od-item-subtotal">₱${itemSub}</td>`;

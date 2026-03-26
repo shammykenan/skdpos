@@ -1,15 +1,7 @@
 <?php
-session_start();
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/init.php';
 
-header('Content-Type: application/json');
-
-// AJAX-safe role check — no redirects
-if (!hasRole('admin')) {
-    echo json_encode(['success' => false, 'error' => 'Access denied.']);
-    exit;
-}
+requireRole(['admin']);
 
 try {
     $stmt = $pdo->query("

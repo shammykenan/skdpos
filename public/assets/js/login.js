@@ -16,12 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.classList.add('active');
     });
 
-    // Auto-dismiss alerts after 3 seconds
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(function(alert) {
-        setTimeout(function() {
-            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-            bsAlert.close();
-        }, 3000);
-    });
+    // Auto-dismiss alerts after 3 seconds using shared utility
+    autoDismissAlerts(3000);
 });

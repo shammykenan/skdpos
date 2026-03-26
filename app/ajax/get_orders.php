@@ -1,10 +1,6 @@
 <?php
-session_start();
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/init.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
-
-header('Content-Type: application/json');
 
 try {
     $currentUserId = (int) ($_SESSION['user_id'] ?? 0);

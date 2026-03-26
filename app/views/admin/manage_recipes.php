@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/manage_recipes.css">
     <style>
         .variant-section { margin-bottom: 1.5rem; }
@@ -529,6 +530,7 @@ window._recipeVariants = <?php
 </script>
 
 <!-- ③ Page JS -->
+<script src="<?= $baseUrl ?>/assets/js/common.js?v=<?= time() ?>"></script>
 <script src="<?= $baseUrl ?>/assets/js/manage_recipes.js"></script>
 </body>
 </html>

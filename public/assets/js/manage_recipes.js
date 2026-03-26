@@ -1,18 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
 
     /* ── MOBILE SIDEBAR ── */
-    const menuToggle     = document.getElementById('menuToggle');
-    const sidebar        = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-    menuToggle?.addEventListener('click', function () {
-        sidebar.classList.toggle('show');
-        sidebarOverlay.classList.toggle('show');
-    });
-    sidebarOverlay?.addEventListener('click', function () {
-        sidebar.classList.remove('show');
-        sidebarOverlay.classList.remove('show');
-    });
+    setupSidebarToggle();
 
     /* ── SEARCH ── */
     document.getElementById('searchInput')?.addEventListener('input', function () {
@@ -23,11 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ── AUTO-DISMISS ALERTS after 5s ── */
-    setTimeout(function () {
-        document.querySelectorAll('.alert').forEach(function (el) {
-            try { bootstrap.Alert.getOrCreateInstance(el).close(); } catch (e) {}
-        });
-    }, 5000);
+    autoDismissAlerts(5000);
 
     /* ── CARD ANIMATION STAGGER ── */
     document.querySelectorAll('#recipesGrid .recipe-card').forEach(function (card, i) {
@@ -35,13 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ── MODAL BACKDROP CLEANUP ── */
-    document.addEventListener('hidden.bs.modal', function () {
-        if (document.querySelector('.modal.show')) return;
-        document.querySelectorAll('.modal-backdrop').forEach(function (el) { el.remove(); });
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow     = '';
-        document.body.style.paddingRight = '';
-    });
+    setupModalBackdropCleanup();
 
     /* ══════════════════════════════════════════
        VARIANT POPULATE HELPER

@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../../config/db.php';
 require_once __DIR__ . '/../../core/posHelper.php';
+require_once __DIR__ . '/../../core/itemsHelper.php';
 require_once __DIR__ . '/../../core/authHelper.php';
 requireRole(['admin', 'cashier', 'kitchen']);
 
@@ -26,6 +27,15 @@ $payment_method = strtoupper($payment['payment_method'] ?? '');
 $amount_paid    = (float) ($payment['amount_paid']   ?? 0);
 $change_amount  = (float) ($payment['change_amount'] ?? 0);
 $paid_at        = $payment['paid_at'] ?? null;
+
+// Processed by logic - only show if different from cashier
+$processed_by_name = '';
+if (!empty($payment['processed_by_name'])) {
+    // Only show processed by if different from cashier
+    if ($payment['processed_by'] != $order['cashier_id']) {
+        $processed_by_name = $payment['processed_by_name'];
+    }
+}
 
 // Order totals — straight from DB, no recalculation
 $order_subtotal = (float) $order['subtotal'];
@@ -291,9 +301,16 @@ body{
 
     <?php foreach ($items as $item):
         $line_total = (float)$item['unit_price'] * (int)$item['quantity'];
+        
+        // Display variant if exists
+        $display_name = $item['item_name'];
+        if (!empty($item['variant_name_snapshot']) || !empty($item['current_variant_name'])) {
+            $variant_name = $item['variant_name_snapshot'] ?? $item['current_variant_name'] ?? '';
+            $display_name .= ' · ' . $variant_name;
+        }
     ?>
         <div class="item-row">
-            <span class="col-name"><?= htmlspecialchars($item['item_name']) ?></span>
+            <span class="col-name"><?= htmlspecialchars($display_name) ?></span>
             <span class="col-qty"><?= (int)$item['quantity'] ?></span>
             <span class="col-price"><?= number_format((float)$item['unit_price'], 2) ?></span>
             <span class="col-total"><?= number_format($line_total, 2) ?></span>
@@ -351,6 +368,12 @@ body{
             <span>Method:</span>
             <span><?= htmlspecialchars($payment_method) ?></span>
         </div>
+        <?php if (!empty($processed_by_name)): ?>
+        <div class="pay-row">
+            <span>Processed by:</span>
+            <span><?= htmlspecialchars($processed_by_name) ?></span>
+        </div>
+        <?php endif; ?>
         <div class="pay-row">
             <span>Cash tendered:</span>
             <span>PHP <?= number_format($amount_paid, 2) ?></span>

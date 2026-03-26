@@ -697,13 +697,6 @@ body {
    RESPONSIVE BREAKPOINTS
 ───────────────────────────────────────── */
 
-/* Tablet & below – hide sidebar */
-@media (max-width: 991.98px) {
-    .sidebar { transform: translateX(-100%); }
-    .sidebar.show { transform: translateX(0); }
-    .main-content { margin-left: 0; padding: 1.8rem; }
-}
-
 /* Mobile – general */
 @media (max-width: 767.98px) {
     .main-content { padding: 1.2rem; }
