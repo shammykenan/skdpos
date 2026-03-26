@@ -200,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
         }
         $ext       = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
         $filename  = 'item_' . time() . '_' . uniqid() . '.' . $ext;
-        $upload_dir = __DIR__ . '/../../assets/images/menu/';
+        $upload_dir = __DIR__ . '/../../public/assets/images/menu/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
         if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
             $image_url = 'assets/images/menu/' . $filename;
@@ -321,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) 
         }
         $ext      = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
         $filename = 'item_' . time() . '_' . uniqid() . '.' . $ext;
-        $upload_dir = __DIR__ . '/../../assets/images/menu/';
+        $upload_dir = __DIR__ . '/../../public/assets/images/menu/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
         if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
             $image_url = 'assets/images/menu/' . $filename;

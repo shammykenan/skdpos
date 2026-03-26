@@ -484,11 +484,11 @@ function getOrderActionsHTML(order) {
                          data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
                      <i class="fas fa-times"></i> Cancel</button>`;
     } else if ((status === 'pending' || status === 'preparing') && isCashier && !isAdmin) {
-        html += `<span class="badge bg-secondary" style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;"><i class="fas fa-hourglass-half me-1"></i> In Kitchen</span>`;
+        html += `<span class="badge bg-success action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;"></i> In Kitchen</span>`;
     } else if (status === 'completed') {
-        html += `<span class="badge bg-success" style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;"><i class="fas fa-check-circle me-1"></i> Paid</span>`;
+        html += `<span class="badge bg-success action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;"></i> Paid</span>`;
     } else if (status === 'cancelled') {
-        html += `<span class="badge bg-secondary" style="padding:0.4rem 0.8rem;border-radius:20px;font-size:0.75rem;"><i class="fas fa-ban me-1"></i> Cancelled</span>`;
+        html += `<span class="badge bg-success action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;"></i> Cancelled</span>`;
     }
 
     html += '</div>';

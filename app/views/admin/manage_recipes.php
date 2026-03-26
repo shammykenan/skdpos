@@ -532,5 +532,18 @@ window._recipeVariants = <?php
 <!-- ③ Page JS -->
 <script src="<?= $baseUrl ?>/assets/js/common.js?v=<?= time() ?>"></script>
 <script src="<?= $baseUrl ?>/assets/js/manage_recipes.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup sidebar toggle
+    if (typeof setupSidebarToggle === 'function') {
+        setupSidebarToggle();
+    }
+    
+    // Auto-dismiss alerts
+    if (typeof autoDismissAlerts === 'function') {
+        autoDismissAlerts();
+    }
+});
+</script>
 </body>
 </html>

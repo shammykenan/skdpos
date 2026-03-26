@@ -1552,7 +1552,60 @@ body {
     .cashier-view-toggle { margin-left: 0; width: 100%; justify-content: stretch; }
     .cashier-view-btn    { flex: 1; justify-content: center; }
 }
+/* ── ACTION COLUMN — vertical alignment fix ── */
+.orders-table thead th:last-child,
+.orders-table tbody td[data-label="Actions"] {
+    text-align: left;
+    vertical-align: middle;
+}
 
+.action-buttons .btn,
+.action-buttons .badge {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* ── VARIANT NAME — highlighted pill style ── */
+.item-name-chip .item-variant-label,
+.item-variant-label {
+    display: inline-block;
+    background: rgba(31, 122, 140, 0.10);
+    color: #0f4c5c;
+    border: 1px solid rgba(31, 122, 140, 0.22);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    font-style: normal;
+    opacity: 1 !important;
+    margin-left: 1px;
+    white-space: nowrap;
+    letter-spacing: 0.1px;
+}
+
+/* Variant in Order Details modal */
+.od-variant-label {
+    display: inline-block;
+    background: rgba(31, 122, 140, 0.09);
+    color: #0a3a47;
+    border: 1px solid rgba(31, 122, 140, 0.2);
+    border-radius: 4px;
+    padding: 0 5px;
+    font-size: 0.82em;
+    font-weight: 500;
+    font-style: normal;
+    opacity: 1 !important;
+    margin-left: 2px;
+    vertical-align: middle;
+}
+
+/* Variant in kitchen modal item cards */
+#kitchenModalBody .item-variant-label {
+    font-size: 0.85em;
+    padding: 1px 5px;
+}
 
 .price { 
     font-weight: 700; 
@@ -1672,8 +1725,9 @@ body {
 .action-buttons { 
     display: flex; 
     flex-direction: column; 
-    gap: 0.6rem;
+    gap: 0.5rem;
     min-width: 160px;
+    align-items: flex-start;
 }
 
 .status-form    { 
