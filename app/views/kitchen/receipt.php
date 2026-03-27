@@ -132,11 +132,11 @@ body{
     padding-bottom:3px;
     margin-bottom:5px;
 }
-.item-row{display:flex;margin-bottom:5px;font-size:11px;}
-.col-name {flex:2.5;word-break:break-word;padding-right:3px;}
-.col-qty  {flex:.5;text-align:center;}
-.col-price{flex:1;text-align:right;}
-.col-total{flex:1;text-align:right;font-weight:bold;}
+.item-row{display:flex;margin-bottom:5px;font-size:11px;align-items:flex-start;}
+.col-name {flex:2.5;word-break:break-word;padding-right:3px;white-space:normal;line-height:1.3;}
+.col-qty  {flex:.5;text-align:center;flex-shrink:0;}
+.col-price{flex:1;text-align:right;flex-shrink:0;}
+.col-total{flex:1;text-align:right;font-weight:bold;flex-shrink:0;}
 
 /* Addons */
 .addon-row{
@@ -153,6 +153,9 @@ body{
     margin:1px 0 4px 10px;
     padding:1px 4px;
     border-left:1px solid #000;
+    word-break:break-word;
+    white-space:normal;
+    line-height:1.3;
 }
 
 /* Totals */
@@ -281,10 +284,10 @@ body{
             <span class="ml">Order type:</span>
             <span class="mv"><?= ucfirst(str_replace('_', ' ', $order['order_type'] ?? '')) ?></span>
         </div>
-        <?php if (!empty($order['table_number'])): ?>
+        <?php if (!empty($order['table_name'])): ?>
         <div class="r-meta-row">
             <span class="ml">Table:</span>
-            <span class="mv">#<?= htmlspecialchars($order['table_number']) ?></span>
+            <span class="mv"><?= htmlspecialchars($order['table_name']) ?></span>
         </div>
         <?php endif; ?>
     </div>

@@ -65,11 +65,12 @@ function getOrderById(PDO $pdo, int $order_id): ?array {
  * Uses getOrderItems() and getOrderItemAddons() from itemsHelper.
  */
 function getOrderDetails(PDO $pdo, int $order_id): ?array {
-    // Main order info + cashier name
+    // Main order info + cashier name + table name
     $stmt = $pdo->prepare("
-        SELECT o.*, u.full_name AS cashier_name
+        SELECT o.*, u.full_name AS cashier_name, t.table_name
         FROM orders o
         JOIN users u ON o.cashier_id = u.user_id
+        LEFT JOIN tables t ON o.table_id = t.table_id
         WHERE o.order_id = ?
         LIMIT 1
     ");

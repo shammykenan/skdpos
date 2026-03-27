@@ -40,7 +40,7 @@ try {
     }
 
     if ($search !== '') {
-        $where[]           = "(o.order_number LIKE :search OR o.customer_name LIKE :search OR o.table_number LIKE :search)";
+        $where[]           = "(o.order_number LIKE :search OR o.customer_name LIKE :search OR t.table_name LIKE :search)";
         $params[':search'] = '%' . $search . '%';
     }
 
@@ -76,9 +76,10 @@ try {
 
     // ── Main query ─────────────────────────────────────────────────────────────
     $sql = "
-        SELECT o.*, u.full_name AS cashier_name
+        SELECT o.*, u.full_name AS cashier_name, t.table_name
         FROM orders o
         LEFT JOIN users u ON o.cashier_id = u.user_id
+        LEFT JOIN tables t ON o.table_id = t.table_id
         $whereSQL
         ORDER BY
             CASE o.status

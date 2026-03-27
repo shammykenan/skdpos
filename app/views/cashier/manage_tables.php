@@ -197,8 +197,29 @@
         .od-addon-row .od-td { border-bottom: 1px dashed #edf2f7; font-size: 0.78rem; color: var(--warm-gray); background: #fafcff; }
         .od-td-addon   { padding-left: 1.7rem !important; }
         .od-addon-icon { margin-right: 0.28rem; font-size: 0.6rem; opacity: 0.55; }
-        .od-note-pill  { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem; padding: 0.16rem 0.48rem; background: rgba(254,228,64,0.18); border: 1px dashed rgba(244,185,66,0.5); border-radius: 20px; font-size: 0.68rem; color: #7a5c00; font-style: italic; }
-        .od-note-pill i { color: #b87a1a; font-size: 0.6rem; }
+        .od-note-pill  { 
+            display: inline-flex; 
+            align-items: flex-start; 
+            gap: 0.25rem; 
+            margin-top: 0.25rem; 
+            padding: 0.16rem 0.48rem; 
+            background: rgba(254,228,64,0.18); 
+            border: 1px dashed rgba(244,185,66,0.5); 
+            border-radius: 20px; 
+            font-size: 0.68rem; 
+            color: #7a5c00; 
+            font-style: italic; 
+            word-break: break-word; 
+            max-width: 100%; 
+            line-height: 1.3; 
+            white-space: normal; 
+        }
+        .od-note-pill i { 
+            color: #b87a1a; 
+            font-size: 0.6rem; 
+            flex-shrink: 0; 
+            margin-top: 2px; 
+        }
 
         .od-footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; padding: 1rem 1.35rem 1.3rem; background: var(--light-bg); border-top: 1px solid var(--border); margin-top: 0.4rem; }
         .od-payment-card { background: white; border: 1px solid rgba(44,122,90,0.2); border-radius: 11px; padding: 0.8rem 0.95rem; }
@@ -905,7 +926,7 @@ function populateTodModal(order, items, payment) {
     set('todOrderNumber', '#' + (order.order_number || ''));
     set('todCustomer',    order.customer_name || 'Walk-in');
     set('todCashier',     order.cashier_name  || 'N/A');
-    set('todTable',       order.table_number  || '—');
+    set('todTable',       order.table_name  || '—');
 
     // Date — 12-hour format
     if (order.created_at) {

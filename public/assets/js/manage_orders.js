@@ -380,7 +380,7 @@ function createOrderRowHTML(order) {
     const total      = parseFloat(order.total_amount || 0);
     const subtotalEx = total / 1.12;
     const vat        = total - subtotalEx;
-    const searchText = [order.order_number || '', order.customer_name || 'walk-in', order.table_number || ''].join(' ').toLowerCase();
+    const searchText = [order.order_number || '', order.customer_name || 'walk-in', order.table_name || ''].join(' ').toLowerCase();
 
     return `
         <tr data-status="${(order.status || 'pending').toLowerCase()}"
@@ -392,7 +392,7 @@ function createOrderRowHTML(order) {
             <td data-label="Customer">
                 <div class="fw-medium" style="color:var(--navy);">${escapeHtml(order.customer_name || 'Walk-in')}</div>
                 <small class="text-muted">${formatDate(order.created_at)}</small>
-                ${order.table_number ? `<div class="table-number-badge"><i class="fas fa-chair"></i>${escapeHtml(order.table_number)}</div>` : ''}
+                ${order.table_name ? `<div class="table-number-badge"><i class="fas fa-chair"></i>${escapeHtml(order.table_name)}</div>` : ''}
             </td>
             <td data-label="Order Type">${getOrderTypeBadge(order.order_type)}</td>
             <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status, order.order_id)}</td>
@@ -773,8 +773,8 @@ function populateOrderDetailsModal(order, items, payment) {
 
     const tableWrap = document.getElementById('detailTableWrap');
     const tableEl   = document.getElementById('detailTable');
-    if (order.table_number) {
-        if (tableEl)   tableEl.innerHTML       = `<span class="table-number-badge"><i class="fas fa-chair"></i> ${escapeHtml(order.table_number)}</span>`;
+    if (order.table_name) {
+        if (tableEl)   tableEl.innerHTML       = `<span class="table-number-badge"><i class="fas fa-chair"></i> ${escapeHtml(order.table_name)}</span>`;
         if (tableWrap) tableWrap.style.display = '';
     } else {
         if (tableWrap) tableWrap.style.display = 'none';
