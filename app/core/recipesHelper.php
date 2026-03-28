@@ -42,39 +42,3 @@ function recipeExists(PDO $pdo, int $item_id, int $ingredient_id, ?int $exclude_
     $stmt->execute($params);
     return $stmt->fetchColumn() > 0;
 }
-/**
- * Returns the effective ingredient recipe for a menu item.
- * Uses the variant's recipe if variant_id is provided and has ingredients,
- * otherwise falls back to the base item recipe.
- */
-// In posHelper.php, after defining getMenuItemIngredientStockForVariant:
-function getEffectiveRecipe(PDO $pdo, int $item_id, ?int $variant_id): array {
-    return getMenuItemIngredientStockForVariant($pdo, $item_id, $variant_id);
-}
-
-/**
- * Check duplicate recipe row, variant-aware.
- * Uses variant_id_key logic at app level to match the DB constraint.
- */
-function recipeExistsForVariant(
-    PDO  $pdo,
-    int  $item_id,
-    int  $ingredient_id,
-    ?int $variant_id        = null,
-    ?int $exclude_recipe_id = null
-): bool {
-    if ($variant_id === null) {
-        $sql    = "SELECT COUNT(*) FROM recipes WHERE item_id = ? AND ingredient_id = ? AND variant_id IS NULL";
-        $params = [$item_id, $ingredient_id];
-    } else {
-        $sql    = "SELECT COUNT(*) FROM recipes WHERE item_id = ? AND ingredient_id = ? AND variant_id = ?";
-        $params = [$item_id, $ingredient_id, $variant_id];
-    }
-    if ($exclude_recipe_id !== null) {
-        $sql     .= " AND recipe_id != ?";
-        $params[] = $exclude_recipe_id;
-    }
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    return (int)$stmt->fetchColumn() > 0;
-}

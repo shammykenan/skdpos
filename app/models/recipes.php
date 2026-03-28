@@ -35,18 +35,3 @@ function deleteRecipe(PDO $pdo, int $recipe_id): bool
     $stmt = $pdo->prepare($sql);
     return $stmt->execute([':recipe_id' => $recipe_id]);
 }
-// Keep existing addRecipe() untouched for backward compatibility.
-// Add this new function:
-function addRecipeForVariant(
-    PDO   $pdo,
-    int   $item_id,
-    int   $ingredient_id,
-    float $quantity_required,
-    ?int  $variant_id = null
-): bool {
-    $stmt = $pdo->prepare("
-        INSERT INTO recipes (item_id, variant_id, ingredient_id, quantity_required)
-        VALUES (?, ?, ?, ?)
-    ");
-    return $stmt->execute([$item_id, $variant_id, $ingredient_id, $quantity_required]);
-}
