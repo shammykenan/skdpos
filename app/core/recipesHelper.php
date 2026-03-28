@@ -1,4 +1,6 @@
 <?php
+// app/core/recipesHelper.php
+
 require_once __DIR__ . '/../../config/db.php';
 
 function getAllRecipes(PDO $pdo): array
@@ -21,16 +23,45 @@ function getAllRecipes(PDO $pdo): array
 
 function getRecipeById(PDO $pdo, int $recipe_id): ?array
 {
-    $sql = "SELECT * FROM recipes WHERE recipe_id = :recipe_id";
+    $sql  = "SELECT * FROM recipes WHERE recipe_id = :recipe_id";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':recipe_id' => $recipe_id]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $result ?: null;
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+/**
+ * Check if a recipe row already exists for a given item + ingredient + variant combo.
+ * variant_id = null  → base recipe
+ * variant_id = N     → variant-specific recipe
+ */
+function recipeExistsForVariant(
+    PDO  $pdo,
+    int  $item_id,
+    int  $ingredient_id,
+    ?int $variant_id = null
+): bool {
+    if ($variant_id === null) {
+        $sql  = "SELECT COUNT(*) FROM recipes
+                 WHERE item_id = ? AND ingredient_id = ? AND variant_id IS NULL";
+        $params = [$item_id, $ingredient_id];
+    } else {
+        $sql  = "SELECT COUNT(*) FROM recipes
+                 WHERE item_id = ? AND ingredient_id = ? AND variant_id = ?";
+        $params = [$item_id, $ingredient_id, $variant_id];
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+/**
+ * Legacy helper — checks only base recipes (no variant_id).
+ * Kept for backward compatibility; prefer recipeExistsForVariant().
+ */
 function recipeExists(PDO $pdo, int $item_id, int $ingredient_id, ?int $exclude_recipe_id = null): bool
 {
-    $sql    = "SELECT COUNT(*) FROM recipes WHERE item_id = ? AND ingredient_id = ?";
+    $sql    = "SELECT COUNT(*) FROM recipes WHERE item_id = ? AND ingredient_id = ? AND variant_id IS NULL";
     $params = [$item_id, $ingredient_id];
 
     if ($exclude_recipe_id !== null) {
@@ -40,5 +71,5 @@ function recipeExists(PDO $pdo, int $item_id, int $ingredient_id, ?int $exclude_
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    return $stmt->fetchColumn() > 0;
+    return (int) $stmt->fetchColumn() > 0;
 }

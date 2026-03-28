@@ -1,9 +1,13 @@
 document.addEventListener('DOMContentLoaded', function () {
 
-    /* ── MOBILE SIDEBAR ── */
+    /* ══════════════════════════════════════════
+       MOBILE SIDEBAR
+    ══════════════════════════════════════════ */
     setupSidebarToggle();
 
-    /* ── SEARCH ── */
+    /* ══════════════════════════════════════════
+       SEARCH  — filter recipe cards by name
+    ══════════════════════════════════════════ */
     document.getElementById('searchInput')?.addEventListener('input', function () {
         const term = this.value.toLowerCase().trim();
         document.querySelectorAll('#recipesGrid .recipe-card').forEach(function (card) {
@@ -11,116 +15,82 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* ── AUTO-DISMISS ALERTS after 5s ── */
+    /* ══════════════════════════════════════════
+       AUTO-DISMISS ALERTS after 5 s
+    ══════════════════════════════════════════ */
     autoDismissAlerts(5000);
 
-    /* ── CARD ANIMATION STAGGER ── */
+    /* ══════════════════════════════════════════
+       CARD ANIMATION STAGGER
+    ══════════════════════════════════════════ */
     document.querySelectorAll('#recipesGrid .recipe-card').forEach(function (card, i) {
         card.style.animationDelay = (i * 0.06) + 's';
     });
 
-    /* ── MODAL BACKDROP CLEANUP ── */
+    /* ══════════════════════════════════════════
+       MODAL BACKDROP CLEANUP
+       Prevents ghost backdrop after modal close
+    ══════════════════════════════════════════ */
     setupModalBackdropCleanup();
 
-    /* ══════════════════════════════════════════
-       VARIANT POPULATE HELPER
-    ══════════════════════════════════════════ */
-    function populateVariants(itemId) {
-    const variantSel = document.getElementById('variant_id_select');
-    const formText   = variantSel?.closest('.mb-3')?.querySelector('.form-text');
-    if (!variantSel) return;
+});
 
-    const variants = (window._recipeVariants || {})[String(itemId)] || [];
 
-    if (variants.length > 0) {
-        // Item HAS variants — only show variant options, no base
-        variantSel.innerHTML = '';
-        variants.forEach(function (v) {
-            const opt = document.createElement('option');
-            opt.value       = v.variant_id;
-            opt.textContent = 'Variant: ' + v.variant_name;
-            variantSel.appendChild(opt);
-        });
-        variantSel.disabled = false;
-        if (formText) formText.textContent = 'This item uses variant pricing — select a variant.';
-    } else {
-        // Item has NO variants — base only, lock it
-        variantSel.innerHTML = '<option value="">Base Recipe (Standard — no variant)</option>';
-        variantSel.disabled = true;
-        if (formText) formText.textContent = 'This item has no variants — ingredients apply to the base recipe.';
+/* ══════════════════════════════════════════
+   UTILITY — setupSidebarToggle
+   (keep here if not already in a global util file)
+══════════════════════════════════════════ */
+function setupSidebarToggle() {
+    const toggle  = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!toggle || !sidebar) return;
+
+    function openSidebar() {
+        sidebar.classList.add('show');
+        if (overlay) overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
     }
+    function closeSidebar() {
+        sidebar.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    toggle.addEventListener('click', function () {
+        sidebar.classList.contains('show') ? closeSidebar() : openSidebar();
+    });
+    overlay?.addEventListener('click', closeSidebar);
 }
 
-    /* ══════════════════════════════════════════
-       OPEN ADD MODAL
-    ══════════════════════════════════════════ */
-    function openAddModal(itemId) {
-        const el = document.getElementById('addRecipeModal');
-        if (!el) return;
 
-        const itemSelect = document.getElementById('add_item_id');
-        const qtyInput   = document.getElementById('add_quantity');
-        const ingSelect  = document.getElementById('add_ingredient_id');
+/* ══════════════════════════════════════════
+   UTILITY — autoDismissAlerts
+══════════════════════════════════════════ */
+function autoDismissAlerts(delay) {
+    setTimeout(function () {
+        document.querySelectorAll('.alert.alert-dismissible').forEach(function (alert) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            if (bsAlert) bsAlert.close();
+        });
+    }, delay);
+}
 
-        if (itemSelect) itemSelect.value = itemId ? String(itemId) : '';
-        populateVariants(itemId || '');
-        if (qtyInput)  qtyInput.value  = '';
-        if (ingSelect) ingSelect.value = '';
 
-        bootstrap.Modal.getOrCreateInstance(el).show();
-    }
-
-    /* ══════════════════════════════════════════
-       RECIPE CARD CLICK → open detail modal
-    ══════════════════════════════════════════ */
-    document.getElementById('recipesGrid')?.addEventListener('click', function (e) {
-        const card = e.target.closest('[data-modal-target]');
-        if (!card) return;
-        const el = document.getElementById(card.dataset.modalTarget);
-        if (el) bootstrap.Modal.getOrCreateInstance(el).show();
-    });
-
-    document.getElementById('recipesGrid')?.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        const card = e.target.closest('[data-modal-target]');
-        if (!card) return;
-        const el = document.getElementById(card.dataset.modalTarget);
-        if (el) bootstrap.Modal.getOrCreateInstance(el).show();
-    });
-
-    /* ══════════════════════════════════════════
-       TOP-LEVEL "Add Recipe" BUTTON
-    ══════════════════════════════════════════ */
-    document.querySelector('[data-open-add-modal]')?.addEventListener('click', function () {
-        openAddModal(null);
-    });
-
-    /* ══════════════════════════════════════════
-       "Add Ingredient" BUTTON INSIDE DETAIL MODAL
-    ══════════════════════════════════════════ */
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('[data-open-add-from-detail]');
-        if (!btn) return;
-
-        const itemId      = btn.dataset.itemId;
-        const parentModal = btn.closest('.modal');
-
-        if (parentModal) {
-            parentModal.addEventListener('hidden.bs.modal', function handler() {
-                parentModal.removeEventListener('hidden.bs.modal', handler);
-                openAddModal(itemId);
-            });
-            bootstrap.Modal.getInstance(parentModal)?.hide();
-        } else {
-            openAddModal(itemId);
+/* ══════════════════════════════════════════
+   UTILITY — setupModalBackdropCleanup
+   Ensures the Bootstrap backdrop is removed
+   when any modal finishes hiding.
+══════════════════════════════════════════ */
+function setupModalBackdropCleanup() {
+    document.addEventListener('hidden.bs.modal', function () {
+        // If no other modals are open, clean up stale backdrops
+        const openModals = document.querySelectorAll('.modal.show');
+        if (openModals.length === 0) {
+            document.querySelectorAll('.modal-backdrop').forEach(function (bd) { bd.remove(); });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
         }
     });
-
-    /* ══════════════════════════════════════════
-       VARIANT DROPDOWN — item change in Add modal
-    ══════════════════════════════════════════ */
-    document.getElementById('add_item_id')?.addEventListener('change', function () {
-        populateVariants(this.value);
-    });
-
-});
+}

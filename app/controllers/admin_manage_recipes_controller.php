@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/recipes.php';
-require_once __DIR__ . '/../models/variants.php';         // for getAllVariantsGrouped()
+require_once __DIR__ . '/../models/variants.php';
 require_once __DIR__ . '/../core/recipesHelper.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
@@ -14,7 +14,51 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 // ================================================================
-// ADD RECIPE (single handler — variant-aware)
+// COPY BASE RECIPE → VARIANT
+// POST: copy_base_to_variant=1, item_id, variant_id
+// ================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['copy_base_to_variant'])) {
+    $item_id    = (int) ($_POST['item_id']    ?? 0);
+    $variant_id = (int) ($_POST['variant_id'] ?? 0);
+
+    if (!$item_id || !$variant_id) {
+        $_SESSION['error'] = 'Invalid item or variant.';
+        header('Location: ' . $baseUrl . '/index.php?page=manage_recipes');
+        exit;
+    }
+
+    // Confirm the variant belongs to this item
+    $stmt = $pdo->prepare("SELECT variant_id FROM menu_variants WHERE variant_id = ? AND item_id = ? LIMIT 1");
+    $stmt->execute([$variant_id, $item_id]);
+    if (!$stmt->fetch()) {
+        $_SESSION['error'] = 'Variant does not belong to this menu item.';
+        header('Location: ' . $baseUrl . '/index.php?page=manage_recipes');
+        exit;
+    }
+
+    try {
+        $result = copyBaseRecipeToVariant($pdo, $item_id, $variant_id);
+
+        if ($result['copied'] === 0 && $result['skipped'] === 0) {
+            $_SESSION['error'] = 'No base ingredients found to copy.';
+        } elseif ($result['copied'] === 0) {
+            $_SESSION['success'] = "All base ingredients are already assigned to this variant ({$result['skipped']} skipped).";
+        } elseif ($result['skipped'] > 0) {
+            $_SESSION['success'] = "{$result['copied']} ingredient(s) copied; {$result['skipped']} already existed and were skipped.";
+        } else {
+            $_SESSION['success'] = "{$result['copied']} ingredient(s) copied to variant successfully.";
+        }
+    } catch (Exception $e) {
+        $_SESSION['error'] = 'Copy failed: ' . $e->getMessage();
+    }
+
+    header('Location: ' . $baseUrl . '/index.php?page=manage_recipes');
+    exit;
+}
+
+// ================================================================
+// ADD RECIPE (variant-aware)
+// Mutual exclusion restriction removed — copy flow handles transition
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_recipe'])) {
     $item_id           = (int)   ($_POST['item_id']           ?? 0);
@@ -23,29 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_recipe'])) {
     $variant_id        = !empty($_POST['variant_id']) ? (int) $_POST['variant_id'] : null;
 
     if ($item_id && $ingredient_id && $quantity_required > 0) {
-
-        // ── MUTUAL EXCLUSION CHECK ──────────────────────────────
-        if ($variant_id === null) {
-            // Trying to add a BASE ingredient — block if any variant recipes exist
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM recipes WHERE item_id = ? AND variant_id IS NOT NULL");
-            $stmt->execute([$item_id]);
-            if ((int)$stmt->fetchColumn() > 0) {
-                $_SESSION['error'] = 'This item uses variant recipes. Remove all variant recipes before adding a base recipe.';
-                header('Location: ' . $baseUrl . '/index.php?page=manage_recipes');
-                exit;
-            }
-        } else {
-            // Trying to add a VARIANT ingredient — block if any base recipes exist
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM recipes WHERE item_id = ? AND variant_id IS NULL");
-            $stmt->execute([$item_id]);
-            if ((int)$stmt->fetchColumn() > 0) {
-                $_SESSION['error'] = 'This item uses a base recipe. Remove all base ingredients before adding variant recipes.';
-                header('Location: ' . $baseUrl . '/index.php?page=manage_recipes');
-                exit;
-            }
-        }
-        // ────────────────────────────────────────────────────────
-
         if (recipeExistsForVariant($pdo, $item_id, $ingredient_id, $variant_id)) {
             $_SESSION['error'] = 'This ingredient is already assigned to that recipe.';
         } else {
@@ -101,16 +122,11 @@ $menu_items  = getAllItems($pdo);
 $ingredients = getAllIngredients($pdo);
 $recipes     = getAllRecipes($pdo);
 
-// Build image lookup: item_id => image_url
 $menu_image_map = [];
 foreach ($menu_items as $mi) {
     $menu_image_map[$mi['item_id']] = $mi['image_url'] ?? '';
 }
 
-// Group recipes by menu item
-// 'rows'     = flat list (card ingredient count)
-// 'base'     = rows where variant_id IS NULL
-// 'variants' = [ variant_name => [rows] ]
 $grouped = [];
 foreach ($recipes as $r) {
     $id = $r['item_id'];
@@ -133,13 +149,21 @@ foreach ($recipes as $r) {
     }
 }
 
-// All variants grouped by item_id — used to populate the variant dropdown
-// in the Add Recipe modal for items that don't have any recipes yet.
-// getAllVariantsGrouped() is in app/models/variants.php
+// All variants per item_id (active only) — for Add Recipe and Copy modals
 try {
     $all_variants_map = getAllVariantsGrouped($pdo);
 } catch (Exception $e) {
     $all_variants_map = [];
+}
+
+// Which items have base recipes AND defined variants?
+// These get the "Copy Base to Variant" button instead of plain "Add Ingredient"
+// Shape: [ item_id => [ {variant_id, variant_name}, ... ] ]
+$item_variants_for_copy = [];
+foreach ($grouped as $gid => $group) {
+    if (!empty($group['base']) && !empty($all_variants_map[$gid])) {
+        $item_variants_for_copy[$gid] = $all_variants_map[$gid];
+    }
 }
 
 require_once __DIR__ . '/../views/admin/manage_recipes.php';
