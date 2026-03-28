@@ -49,7 +49,19 @@ if (
 
     try {
         addRecipeForVariant($pdo, $item_id, $ingredient_id, $quantity_required, $variant_id);
-        echo json_encode(['ok' => true, 'message' => 'Ingredient added to recipe successfully.']);
+        
+        // Store the item ID in session to reopen the modal after refresh
+        $_SESSION['reopen_recipe_modal'] = $item_id;
+        
+        // Debug: log session state
+        error_log("Session stored: reopen_recipe_modal = " . $item_id);
+        
+        $newRecipeId = $pdo->lastInsertId();
+echo json_encode([
+    'ok'        => true,
+    'message'   => 'Ingredient added to recipe successfully.',
+    'recipe_id' => (int) $newRecipeId,
+]);
     } catch (Exception $e) {
         echo json_encode(['ok' => false, 'error' => 'Database error: ' . $e->getMessage()]);
     }

@@ -187,6 +187,15 @@
             border-top: 1px dashed #e8edf5;
             display: flex; justify-content: flex-end;
         }
+
+        /* ── Flash row animation for newly added ingredient ── */
+        @keyframes rowFlash {
+            0%   { background: rgba(255,107,74,0.18); }
+            100% { background: transparent; }
+        }
+        .acc-ing-row.new-row {
+            animation: rowFlash 1.4s ease forwards;
+        }
     </style>
 </head>
 <body>
@@ -436,12 +445,13 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                         <?php endif; ?>
                     </div>
 
-                    <span class="ingredient-count">
+                    <!-- Live ingredient count — updated by JS after AJAX add -->
+                    <span class="ingredient-count" id="cardCount_<?= $item_id ?>">
                         <i class="fas fa-cubes" style="font-size:.72rem;"></i>
-                        <?= $totalCount ?> ingredient<?= $totalCount !== 1 ? 's' : '' ?>
+                        <span class="count-num"><?= $totalCount ?></span> ingredient<?= $totalCount !== 1 ? 's' : '' ?>
                     </span>
 
-                    <div class="pill-row">
+                    <div class="pill-row" id="cardPills_<?= $item_id ?>">
                         <?php foreach ($preview as $p): ?>
                             <span class="pill" title="<?= htmlspecialchars($p['ingredient_name']) ?>"><?= htmlspecialchars($p['ingredient_name']) ?></span>
                         <?php endforeach; ?>
@@ -472,8 +482,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
     $totalIngCount = count($group['rows']);
     $needsCopy     = isset($item_variants_for_copy[$item_id]);
     $copyVariants  = $item_variants_for_copy[$item_id] ?? [];
-    // Base is a locked template when: it has been copied (variant rows exist for this item)
-    // i.e. the item has base rows AND actual variant recipe rows — not just menu_variants defined
     $baseIsLocked  = $hasBase && $hasVars;
 ?>
 <div class="modal fade" id="recipeModal<?= $item_id ?>" tabindex="-1" aria-hidden="true">
@@ -509,13 +517,13 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                 <?php endif; ?>
 
                 <?php if (!$hasBase && !$hasVars): ?>
-                    <div class="no-recipe-yet">
+                    <div class="no-recipe-yet" id="emptyNotice_<?= $item_id ?>">
                         <i class="fas fa-clipboard-list"></i>
                         No ingredients assigned yet. Use "Add Ingredient" to get started.
                     </div>
 
                 <?php else: ?>
-                <div class="accordion-variant-list">
+                <div class="accordion-variant-list" id="accList_<?= $item_id ?>">
 
                     <?php if ($hasBase):
                         $baseCount = count($group['base']);
@@ -533,7 +541,8 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                                         <span class="acc-lock-badge"><i class="fas fa-lock"></i> Template</span>
                                     <?php endif; ?>
                                 </div>
-                                <div class="acc-subtitle"><?= $baseCount ?> ingredient<?= $baseCount !== 1 ? 's' : '' ?></div>
+                                <!-- Live subtitle count -->
+                                <div class="acc-subtitle" id="<?= $accId ?>_subtitle"><?= $baseCount ?> ingredient<?= $baseCount !== 1 ? 's' : '' ?></div>
                             </div>
                             <i class="fas fa-chevron-right acc-chevron"></i>
                         </div>
@@ -544,32 +553,35 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                                 Template — edit quantities on individual variant sections instead.
                             </div>
                             <?php endif; ?>
-                            <?php foreach ($group['base'] as $idx => $r): ?>
-                            <div class="acc-ing-row">
-                                <span class="acc-ing-num"><?= $idx + 1 ?></span>
-                                <span class="acc-ing-dot" style="background:<?= $baseIsLocked ? '#c4930a' : 'var(--primary-light)' ?>;"></span>
-                                <span class="acc-ing-name"><?= htmlspecialchars($r['ingredient_name']) ?></span>
-                                <span class="acc-ing-qty" style="background:<?= $baseIsLocked ? '#c4930a' : 'var(--primary)' ?>;">
-                                    <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
-                                </span>
-                                <div class="acc-ing-actions">
-                                    <?php if ($baseIsLocked): ?>
-                                        <span style="color:#c4930a;font-size:.8rem;opacity:.65;" title="Locked — edit via variant">
-                                            <i class="fas fa-lock"></i>
-                                        </span>
-                                    <?php else: ?>
-                                        <button type="button" class="btn-icon warn" title="Edit"
-                                                data-bs-toggle="modal" data-bs-target="#editModal<?= $r['recipe_id'] ?>">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button type="button" class="btn-icon del" title="Remove"
-                                                data-bs-toggle="modal" data-bs-target="#deleteModal<?= $r['recipe_id'] ?>">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    <?php endif; ?>
+                            <!-- Ingredient rows container — JS appends here -->
+                            <div id="<?= $accId ?>_rows">
+                                <?php foreach ($group['base'] as $idx => $r): ?>
+                                <div class="acc-ing-row">
+                                    <span class="acc-ing-num"><?= $idx + 1 ?></span>
+                                    <span class="acc-ing-dot" style="background:<?= $baseIsLocked ? '#c4930a' : 'var(--primary-light)' ?>;"></span>
+                                    <span class="acc-ing-name"><?= htmlspecialchars($r['ingredient_name']) ?></span>
+                                    <span class="acc-ing-qty" style="background:<?= $baseIsLocked ? '#c4930a' : 'var(--primary)' ?>;">
+                                        <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
+                                    </span>
+                                    <div class="acc-ing-actions">
+                                        <?php if ($baseIsLocked): ?>
+                                            <span style="color:#c4930a;font-size:.8rem;opacity:.65;" title="Locked — edit via variant">
+                                                <i class="fas fa-lock"></i>
+                                            </span>
+                                        <?php else: ?>
+                                            <button type="button" class="btn-icon warn" title="Edit"
+                                                    data-bs-toggle="modal" data-bs-target="#editModal<?= $r['recipe_id'] ?>">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn-icon del" title="Remove"
+                                                    data-bs-toggle="modal" data-bs-target="#deleteModal<?= $r['recipe_id'] ?>">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
+                                <?php endforeach; ?>
                             </div>
-                            <?php endforeach; ?>
                             <?php if (!$baseIsLocked): ?>
                             <div class="acc-add-row">
                                 <button type="button"
@@ -595,37 +607,42 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                             <div class="acc-icon variant"><i class="fas fa-layer-group"></i></div>
                             <div class="acc-meta">
                                 <div class="acc-title"><?= htmlspecialchars($vName) ?></div>
-                                <div class="acc-subtitle"><?= $vCount ?> ingredient<?= $vCount !== 1 ? 's' : '' ?></div>
+                                <!-- Live subtitle count -->
+                                <div class="acc-subtitle" id="<?= $accId ?>_subtitle"><?= $vCount ?> ingredient<?= $vCount !== 1 ? 's' : '' ?></div>
                             </div>
                             <i class="fas fa-chevron-right acc-chevron"></i>
                         </div>
                         <div class="acc-body" id="<?= $accId ?>">
-                            <?php foreach ($vRows as $idx => $r): ?>
-                            <div class="acc-ing-row">
-                                <span class="acc-ing-num"><?= $idx + 1 ?></span>
-                                <span class="acc-ing-dot" style="background:var(--secondary);"></span>
-                                <span class="acc-ing-name"><?= htmlspecialchars($r['ingredient_name']) ?></span>
-                                <span class="acc-ing-qty" style="background:var(--secondary);">
-                                    <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
-                                </span>
-                                <div class="acc-ing-actions">
-                                    <button type="button" class="btn-icon warn" title="Edit"
-                                            data-bs-toggle="modal" data-bs-target="#editModal<?= $r['recipe_id'] ?>">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button type="button" class="btn-icon del" title="Remove"
-                                            data-bs-toggle="modal" data-bs-target="#deleteModal<?= $r['recipe_id'] ?>">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                            <!-- Ingredient rows container — JS appends here -->
+                            <div id="<?= $accId ?>_rows">
+                                <?php foreach ($vRows as $idx => $r): ?>
+                                <div class="acc-ing-row">
+                                    <span class="acc-ing-num"><?= $idx + 1 ?></span>
+                                    <span class="acc-ing-dot" style="background:var(--secondary);"></span>
+                                    <span class="acc-ing-name"><?= htmlspecialchars($r['ingredient_name']) ?></span>
+                                    <span class="acc-ing-qty" style="background:var(--secondary);">
+                                        <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
+                                    </span>
+                                    <div class="acc-ing-actions">
+                                        <button type="button" class="btn-icon warn" title="Edit"
+                                                data-bs-toggle="modal" data-bs-target="#editModal<?= $r['recipe_id'] ?>">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn-icon del" title="Remove"
+                                                data-bs-toggle="modal" data-bs-target="#deleteModal<?= $r['recipe_id'] ?>">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
+                                <?php endforeach; ?>
                             </div>
-                            <?php endforeach; ?>
                             <div class="acc-add-row">
                                 <button type="button"
                                         class="btn-add"
                                         style="border-radius:10px;padding:.4rem 1rem;font-size:.8rem;"
                                         data-open-add-from-detail
-                                        data-item-id="<?= $item_id ?>">
+                                        data-item-id="<?= $item_id ?>"
+                                        data-variant-id="<?= $vId ?>">
                                     <i class="fas fa-plus"></i> Add Ingredient
                                 </button>
                             </div>
@@ -642,7 +659,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
 
                 <?php if ($needsCopy): ?>
-                    <!-- Base exists, variants defined but not yet populated: show copy CTA + add -->
                     <button type="button"
                             class="btn-add"
                             style="border-radius:12px;padding:.6rem 1.2rem;font-size:.85rem;background:var(--primary);"
@@ -660,7 +676,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                     </button>
 
                 <?php elseif ($baseIsLocked): ?>
-                    <!-- Base is now a locked template — add ingredients to variants only -->
                     <span style="font-size:.8rem;color:#7a6030;display:flex;align-items:center;gap:.4rem;">
                         <i class="fas fa-lock"></i>
                         Add ingredients to individual variants below.
@@ -674,7 +689,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                     </button>
 
                 <?php else: ?>
-                    <!-- Normal base-only item -->
                     <button type="button"
                             class="btn-add"
                             style="border-radius:12px;padding:.6rem 1.4rem;"
@@ -732,8 +746,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
 </div>
 
 
-
-
 <!-- ═══════════════════════════════════════════════════════════
      ADD INGREDIENT MODAL
 ═══════════════════════════════════════════════════════════════ -->
@@ -752,10 +764,8 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                     <input type="hidden" name="add_recipe" value="1">
                     <input type="hidden" name="ajax"       value="1">
 
-                    <!-- Inline feedback — hidden until a submit attempt -->
                     <div id="addRecipeFeedback" style="display:none;margin-bottom:1rem;"></div>
 
-                    <!-- Top row: Menu Item | Scope -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label for="add_item_id" class="form-label">
@@ -788,7 +798,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                         </div>
                     </div>
 
-                    <!-- Bottom row: Ingredient | Quantity + Unit -->
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="add_ingredient_id" class="form-label">
@@ -841,7 +850,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
 
 <!-- ═══════════════════════════════════════════════════════════
      EDIT & DELETE MODALS  (one pair per recipe row)
-     IMPORTANT: each modal is a SIBLING — no nesting.
 ═══════════════════════════════════════════════════════════════ -->
 <?php foreach ($recipes as $r): ?>
 
@@ -957,11 +965,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
 <script>
 /* ─────────────────────────────────────────────────────
    VARIANT DATA  (PHP → JS)
-   Shape: { "item_id": [{variant_id, variant_name}, ...] }
-
-   Rules encoded here:
-     • If an item has variants in the map → it is a VARIANT item
-     • If it has no entry (or empty array) → it is a BASE-only item
 ───────────────────────────────────────────────────── */
 window._recipeVariants = <?php
     $map = [];
@@ -995,7 +998,6 @@ window._ingredientUnits = <?php
 ───────────────────────────────────────────────────── */
 window.recipePage = (function () {
 
-    /* ── helpers ── */
     function getEl(id) { return document.getElementById(id); }
 
     function escHtml(str) {
@@ -1013,16 +1015,9 @@ window.recipePage = (function () {
     }
 
     /* ─────────────────────────────────────────
-       populateVariants
-       Fills the "Applied To" dropdown in the
-       Add Ingredient modal based on the selected item.
-
-       Logic:
-         • Item HAS variants → show ONLY variant options (no base)
-         • Item has NO variants → show "Base Recipe" (locked)
-         • No item selected → placeholder + disabled
+       populateVariants — fills "Applied To" dropdown
     ───────────────────────────────────────── */
-    function populateVariants(itemId) {
+    function populateVariants(itemId, preselectVariantId) {
         const sel      = getEl('variant_id_select');
         const helpText = getEl('variantHelpText');
         if (!sel) return;
@@ -1037,37 +1032,40 @@ window.recipePage = (function () {
         const variants = (window._recipeVariants[String(itemId)] || []);
 
         if (variants.length > 0) {
-            // Variant item — only show variant options, never base
             sel.innerHTML = '';
             variants.forEach(function (v) {
                 const opt = document.createElement('option');
                 opt.value       = v.variant_id;
                 opt.textContent = v.variant_name;
+                if (preselectVariantId && String(v.variant_id) === String(preselectVariantId)) {
+                    opt.selected = true;
+                }
                 sel.appendChild(opt);
             });
             sel.disabled = false;
             if (helpText) helpText.textContent = 'This item uses variants — select which variant this ingredient applies to.';
         } else {
-            // Base-only item — lock to base
             sel.innerHTML = '<option value="">Base Recipe (Standard)</option>';
             sel.disabled  = true;
             if (helpText) helpText.textContent = 'This item has no variants — the ingredient applies to the base recipe.';
         }
     }
 
-    /* ── Open Add modal (optionally pre-select item) ── */
-    function openAddModal(itemId) {
+    /* ── Open Add modal (optionally pre-select item + variant) ── */
+    function openAddModal(itemId, variantId) {
         const el = getEl('addRecipeModal');
         if (!el) return;
 
         const itemSel = getEl('add_item_id');
         const qtySel  = getEl('add_quantity');
         const ingSel  = getEl('add_ingredient_id');
+        const fb      = getEl('addRecipeFeedback');
 
         if (itemSel) itemSel.value = itemId ? String(itemId) : '';
-        populateVariants(itemId || null);
-        if (qtySel) qtySel.value  = '';
-        if (ingSel) ingSel.value  = '';
+        populateVariants(itemId || null, variantId || null);
+        if (qtySel) qtySel.value = '';
+        if (ingSel) ingSel.value = '';
+        if (fb)     { fb.style.display = 'none'; fb.innerHTML = ''; }
         updateIngredientUnit(null);
 
         getModal(el).show();
@@ -1075,10 +1073,11 @@ window.recipePage = (function () {
 
     /* ── "Add Ingredient" inside a detail modal ── */
     function openAddFromDetail(btn) {
-        const itemId      = btn.dataset.itemId;
+        const itemId    = btn.dataset.itemId;
+        const variantId = btn.dataset.variantId || null;
         const parentModal = btn.closest('.modal');
 
-        function doOpen() { openAddModal(itemId); }
+        function doOpen() { openAddModal(itemId, variantId); }
 
         if (parentModal) {
             const inst = bootstrap.Modal.getInstance(parentModal);
@@ -1102,17 +1101,14 @@ window.recipePage = (function () {
         const variants    = JSON.parse(btn.dataset.variants || '[]');
         const parentModal = btn.closest('.modal');
 
-        // Populate hidden fields
-        const copyItemIdEl = getEl('copyItemId');
-        if (copyItemIdEl) copyItemIdEl.value = itemId;
-
+        const copyItemIdEl    = getEl('copyItemId');
         const copyVariantIdEl = getEl('copyVariantId');
+        const submitBtn       = getEl('copySubmitBtn');
+
+        if (copyItemIdEl)    copyItemIdEl.value    = itemId;
         if (copyVariantIdEl) copyVariantIdEl.value = '';
+        if (submitBtn)       submitBtn.disabled    = true;
 
-        const submitBtn = getEl('copySubmitBtn');
-        if (submitBtn) submitBtn.disabled = true;
-
-        // Build variant radio options
         const optContainer = getEl('copyVariantOptions');
         if (optContainer) {
             if (!variants.length) {
@@ -1142,7 +1138,6 @@ window.recipePage = (function () {
             }
         }
 
-        // Close detail modal → open copy modal
         function showCopy() {
             const copyEl = getEl('copyBaseModal');
             if (copyEl) getModal(copyEl).show();
@@ -1173,20 +1168,235 @@ window.recipePage = (function () {
         unitDisplay.textContent = (u && (u.unit_code || u.unit_label)) ? (u.unit_code || u.unit_label) : '—';
     }
 
+    /* ─────────────────────────────────────────────────────
+       injectRecipeModals
+       Dynamically creates an edit + delete modal pair for a
+       newly added row so the buttons work immediately without
+       a page reload.
+    ───────────────────────────────────────────────────── */
+    function injectRecipeModals(recipeId, ingName, qty, variantId) {
+        if (getEl('editModal' + recipeId)) return; // already in DOM
+
+        const scopeLabel = (variantId && variantId !== '' && variantId !== '0')
+            ? ('Variant #' + variantId)
+            : 'Base Recipe (Standard)';
+
+        const formAction = document.getElementById('addRecipeForm')?.action || '';
+        const baseUrl    = formAction.includes('/index.php') ? formAction.split('/index.php')[0] : '';
+        const actionUrl  = baseUrl + '/index.php?page=manage_recipes';
+
+        // ── Edit modal ──
+        const editWrap = document.createElement('div');
+        editWrap.innerHTML = `
+        <div class="modal fade" id="editModal${recipeId}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-edit" style="color:var(--warning);"></i> Edit Quantity
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="${actionUrl}">
+                        <div class="modal-body">
+                            <input type="hidden" name="edit_recipe" value="1">
+                            <input type="hidden" name="recipe_id"   value="${recipeId}">
+                            <div class="mb-3">
+                                <label class="form-label">Applied To</label>
+                                <input type="text" class="form-control" value="${escHtml(scopeLabel)}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Ingredient</label>
+                                <input type="text" class="form-control" value="${escHtml(ingName)}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Quantity Required <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0.01"
+                                       name="quantity_required"
+                                       id="edit_qty_${recipeId}"
+                                       value="${escHtml(String(qty))}"
+                                       class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn-warning-custom">
+                                <i class="fas fa-save me-2"></i> Update Recipe
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>`;
+        document.body.appendChild(editWrap.firstElementChild);
+
+        // ── Delete modal ──
+        const delWrap = document.createElement('div');
+        delWrap.innerHTML = `
+        <div class="modal fade" id="deleteModal${recipeId}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle" style="color:var(--warning);"></i> Confirm Remove
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center" style="padding:2rem 1.6rem;">
+                        <div style="width:64px;height:64px;border-radius:50%;
+                                    background:rgba(214,64,69,.1);
+                                    display:inline-flex;align-items:center;justify-content:center;
+                                    margin-bottom:1.2rem;">
+                            <i class="fas fa-trash-alt fa-xl" style="color:var(--danger);"></i>
+                        </div>
+                        <h6 style="color:var(--navy);font-weight:700;margin-bottom:.5rem;">Remove this ingredient?</h6>
+                        <p class="text-muted mb-0" style="font-size:.85rem;">
+                            Ingredient: <strong>${escHtml(ingName)}</strong>
+                        </p>
+                        <p class="mt-2" style="font-size:.8rem;color:var(--danger);opacity:.8;">
+                            This action cannot be undone.
+                        </p>
+                    </div>
+                    <div class="modal-footer justify-content-center gap-3">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form method="POST" action="${actionUrl}" style="display:inline;">
+                            <input type="hidden" name="delete_recipe" value="1">
+                            <input type="hidden" name="recipe_id"     value="${recipeId}">
+                            <button type="submit" class="btn-danger-custom">
+                                <i class="fas fa-trash me-2"></i> Remove
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.appendChild(delWrap.firstElementChild);
+    }
+
+    /* ─────────────────────────────────────────────────────
+       injectIngredientRow
+       Appends a new ingredient row directly into the correct
+       accordion section inside the still-open detail modal.
+
+       Parameters:
+         itemId    — menu item ID (string or int)
+         variantId — variant ID or null/'' for base
+         ingName   — ingredient display name
+         qty       — quantity_required value
+         unit      — unit code string
+         recipeId  — new recipe_id returned by the server
+    ───────────────────────────────────────────────────── */
+    function injectIngredientRow(itemId, variantId, ingName, qty, unit, recipeId) {
+        const isBase = !variantId || variantId === '' || variantId === '0';
+
+        const rowsContainerId = isBase
+            ? 'acc_base_' + itemId + '_rows'
+            : 'acc_v_' + itemId + '_' + variantId + '_rows';
+
+        const rowsContainer = getEl(rowsContainerId);
+        if (!rowsContainer) return;
+
+        const newIdx   = rowsContainer.querySelectorAll('.acc-ing-row').length + 1;
+        const dotColor = isBase ? 'var(--primary-light)' : 'var(--secondary)';
+        const qtyColor = isBase ? 'var(--primary)'       : 'var(--secondary)';
+
+        // Inject the modals first so the buttons below can target them
+        if (recipeId) injectRecipeModals(recipeId, ingName, qty, variantId);
+
+        const actionsHtml = recipeId
+            ? `<button type="button" class="btn-icon warn" title="Edit"
+                       data-bs-toggle="modal" data-bs-target="#editModal${recipeId}">
+                   <i class="fas fa-edit"></i>
+               </button>
+               <button type="button" class="btn-icon del" title="Remove"
+                       data-bs-toggle="modal" data-bs-target="#deleteModal${recipeId}">
+                   <i class="fas fa-trash"></i>
+               </button>`
+            : '';
+
+        const row = document.createElement('div');
+        row.className = 'acc-ing-row new-row';
+        row.innerHTML = `
+            <span class="acc-ing-num">${newIdx}</span>
+            <span class="acc-ing-dot" style="background:${dotColor};"></span>
+            <span class="acc-ing-name">${escHtml(ingName)}</span>
+            <span class="acc-ing-qty" style="background:${qtyColor};">${escHtml(qty + ' ' + unit)}</span>
+            <div class="acc-ing-actions">${actionsHtml}</div>`;
+
+        rowsContainer.appendChild(row);
+
+        // Update the subtitle count (e.g. "3 ingredients")
+        const accId      = isBase
+            ? 'acc_base_' + itemId
+            : 'acc_v_' + itemId + '_' + variantId;
+        const subtitle   = getEl(accId + '_subtitle');
+        if (subtitle) {
+            const count = rowsContainer.querySelectorAll('.acc-ing-row').length;
+            subtitle.textContent = count + ' ingredient' + (count !== 1 ? 's' : '');
+        }
+
+        // Make the accordion open so the new row is visible
+        const wrap = getEl(accId + '_wrap');
+        if (wrap && !wrap.classList.contains('is-open')) {
+            // Close any other open ones first
+            const list = wrap.closest('.accordion-variant-list');
+            if (list) list.querySelectorAll('.acc-section.is-open').forEach(s => s.classList.remove('is-open'));
+            wrap.classList.add('is-open');
+        }
+
+        // Update the recipe card's ingredient count on the grid (behind the modal)
+        const cardCountEl = getEl('cardCount_' + itemId);
+        if (cardCountEl) {
+            const numEl = cardCountEl.querySelector('.count-num');
+            if (numEl) {
+                const newCount = parseInt(numEl.textContent, 10) + 1;
+                numEl.textContent = newCount;
+                // Fix plural
+                cardCountEl.lastChild.textContent = ' ingredient' + (newCount !== 1 ? 's' : '');
+            }
+        }
+
+        // Add pill to card pill row if still under 3
+        const pillRow = getEl('cardPills_' + itemId);
+        if (pillRow) {
+            const pills    = pillRow.querySelectorAll('.pill');
+            const moreSpan = pillRow.querySelector('.pill-more');
+            if (pills.length < 3) {
+                const pill = document.createElement('span');
+                pill.className = 'pill';
+                pill.title = ingName;
+                pill.textContent = ingName;
+                if (moreSpan) pillRow.insertBefore(pill, moreSpan);
+                else          pillRow.appendChild(pill);
+            } else if (moreSpan) {
+                const moreNum = parseInt(moreSpan.textContent.replace('+', ''), 10) || 0;
+                moreSpan.textContent = '+' + (moreNum + 1) + ' more';
+            } else {
+                const pill = document.createElement('span');
+                pill.className = 'pill-more';
+                pill.textContent = '+1 more';
+                pillRow.appendChild(pill);
+            }
+        }
+
+        // Also hide the "no recipe yet" empty notice if it was showing
+        const emptyNotice = getEl('emptyNotice_' + itemId);
+        if (emptyNotice) emptyNotice.style.display = 'none';
+    }
+
     return {
         openDetailModal, openAddModal, openAddFromDetail, openCopyModal,
-        populateVariants, updateIngredientUnit
+        populateVariants, updateIngredientUnit, injectIngredientRow, injectRecipeModals
     };
 
 }());
 
-/* ── Accordion toggle — global so onclick="" in PHP-rendered HTML can reach it ── */
+/* ── Accordion toggle ── */
 function toggleAcc(id) {
     const body = document.getElementById(id);
     const wrap = document.getElementById(id + '_wrap');
     if (!body || !wrap) return;
     const isOpen = wrap.classList.contains('is-open');
-    // Close all siblings first
     const list = wrap.closest('.accordion-variant-list');
     if (list) {
         list.querySelectorAll('.acc-section.is-open').forEach(function (s) {
@@ -1195,128 +1405,179 @@ function toggleAcc(id) {
     }
     if (!isOpen) wrap.classList.add('is-open');
 }
-</script>
 
-<!-- Page JS (sidebar, search, alerts, stagger) -->
-<script src="<?= $baseUrl ?>/assets/js/manage_recipes.js"></script>
-
-<script>
 /* ─────────────────────────────────────────────────────
-   All wiring done here — recipePage and manage_recipes.js
-   are both loaded by this point.
+   DOMContentLoaded — wire up all events
 ───────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function () {
 
-    /* item-dropdown change → repopulate variant picker */
-    document.getElementById('add_item_id')?.addEventListener('change', function () {
-        recipePage.populateVariants(this.value || null);
+    /* ── Global "Add Ingredient" button in page header ── */
+    document.querySelectorAll('[data-open-add-modal]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            recipePage.openAddModal(null, null);
+        });
     });
 
-    /* ingredient-dropdown change → update unit badge */
+    /* ── "Add Ingredient" buttons inside detail modals ── */
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-open-add-from-detail]');
+        if (btn) recipePage.openAddFromDetail(btn);
+    });
+
+    /* ── "Copy Base → Variant" buttons inside detail modals ── */
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-open-copy-modal]');
+        if (btn) recipePage.openCopyModal(btn);
+    });
+
+    /* ── Ingredient dropdown → auto-fill unit ── */
     document.getElementById('add_ingredient_id')?.addEventListener('change', function () {
         recipePage.updateIngredientUnit(this.value || null);
     });
 
-    /* Top "Add Ingredient" button */
-    document.querySelector('[data-open-add-modal]')?.addEventListener('click', function () {
-        recipePage.openAddModal(null);
+    /* ── Item dropdown → repopulate variant picker ── */
+    document.getElementById('add_item_id')?.addEventListener('change', function () {
+        recipePage.populateVariants(this.value || null, null);
     });
 
-    /* Delegated: buttons inside detail modals */
-    document.addEventListener('click', function (e) {
-        const addBtn  = e.target.closest('[data-open-add-from-detail]');
-        if (addBtn)  { e.preventDefault(); recipePage.openAddFromDetail(addBtn);  return; }
-
-        const copyBtn = e.target.closest('[data-open-copy-modal]');
-        if (copyBtn) { e.preventDefault(); recipePage.openCopyModal(copyBtn); return; }
+    /* ── Search filter ── */
+    document.getElementById('searchInput')?.addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        document.querySelectorAll('.recipe-card').forEach(function (card) {
+            card.style.display = (!q || card.dataset.name.includes(q)) ? '' : 'none';
+        });
     });
 
-    /* ── AJAX submit for Add Recipe form ── */
-    document.getElementById('addRecipeForm')?.addEventListener('submit', async function (e) {
-        e.preventDefault();
+    /* ══════════════════════════════════════════════════
+       AJAX SUBMIT — Add Ingredient Form
+       Sends form data, gets JSON back, injects the new
+       row live into the correct accordion section, and
+       reopens the detail modal — ZERO page reload.
+    ══════════════════════════════════════════════════ */
+    const addForm     = document.getElementById('addRecipeForm');
+    const feedback    = document.getElementById('addRecipeFeedback');
+    const submitBtn   = document.getElementById('addRecipeSubmitBtn');
 
-        const form       = this;
-        const submitBtn  = document.getElementById('addRecipeSubmitBtn');
-        const feedback   = document.getElementById('addRecipeFeedback');
+    if (addForm) {
+        addForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
 
-        // Clear previous feedback
-        feedback.style.display = 'none';
-        feedback.innerHTML     = '';
+            // Snapshot form values before anything changes
+            const itemId    = document.getElementById('add_item_id')?.value;
+            const variantEl = document.getElementById('variant_id_select');
+            const variantId = (variantEl && !variantEl.disabled) ? variantEl.value : '';
+            const ingEl     = document.getElementById('add_ingredient_id');
+            const ingId     = ingEl?.value;
+            const ingName   = ingEl?.options[ingEl.selectedIndex]?.text || '';
+            const qty       = document.getElementById('add_quantity')?.value;
+            const unitEl    = document.getElementById('ingredient_unit_display');
+            const unit      = (unitEl && unitEl.textContent !== '—') ? unitEl.textContent.trim() : '';
 
-        // Disable button + show spinner
-        submitBtn.disabled    = true;
-        submitBtn.innerHTML   = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Saving…';
+            // Disable submit while in-flight
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving…'; }
+            if (feedback)  { feedback.style.display = 'none'; feedback.innerHTML = ''; }
 
-        try {
-            const resp = await fetch(form.action, {
-                method:  'POST',
-                body:    new FormData(form),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            });
+            let data;
+            try {
+                const resp = await fetch(addForm.action, {
+                    method: 'POST',
+                    body:   new FormData(addForm),
+                    // No Content-Type header — browser sets it automatically with boundary for FormData
+                    // No X-Requested-With needed — hidden input ajax=1 is already in FormData
+                });
 
-            const data = await resp.json();
-
-            if (data.ok) {
-                // ── Success ──────────────────────────────────────────
-                feedback.style.display = 'block';
-                feedback.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
-                                background:rgba(44,122,90,.1);border-left:4px solid var(--success);
-                                border-radius:10px;font-size:.875rem;color:#1e4a3b;">
-                        <i class="fas fa-check-circle" style="color:var(--success);font-size:1rem;flex-shrink:0;"></i>
-                        <span>${escHtml(data.message)}</span>
-                    </div>`;
-
-                // Reset only ingredient + quantity — keep menu item + scope so
-                // the user can quickly add another ingredient to the same item
-                const ingSel = document.getElementById('add_ingredient_id');
-                const qtyIn  = document.getElementById('add_quantity');
-                const unitDp = document.getElementById('ingredient_unit_display');
-                if (ingSel) ingSel.value   = '';
-                if (qtyIn)  qtyIn.value    = '';
-                if (unitDp) unitDp.textContent = '—';
-
-                // Auto-dismiss the success message after 3 s
-                setTimeout(function () {
-                    feedback.style.display = 'none';
-                    feedback.innerHTML     = '';
-                }, 3000);
-
-            } else {
-                // ── Error ────────────────────────────────────────────
-                feedback.style.display = 'block';
-                feedback.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
-                                background:rgba(214,64,69,.07);border-left:4px solid var(--danger);
-                                border-radius:10px;font-size:.875rem;color:#9e3a34;">
-                        <i class="fas fa-exclamation-circle" style="color:var(--danger);font-size:1rem;flex-shrink:0;"></i>
-                        <span>${escHtml(data.error || 'Something went wrong.')}</span>
-                    </div>`;
+                // Guard: if server returned non-200, surface the real error
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    console.error('[Recipe AJAX] HTTP', resp.status, text);
+                    data = { ok: false, error: 'Server error (' + resp.status + '). Check console for details.' };
+                } else {
+                    const text = await resp.text();
+                    try {
+                        // Slice off any PHP notices/warnings printed before the JSON object
+                        const jsonStart = text.indexOf('{');
+                        const clean     = jsonStart !== -1 ? text.slice(jsonStart) : text;
+                        data = JSON.parse(clean);
+                    } catch (parseErr) {
+                        console.error('[Recipe AJAX] Non-JSON response:', text);
+                        data = { ok: false, error: 'Unexpected server response. Check console for details.' };
+                    }
+                }
+            } catch (err) {
+                console.error('[Recipe AJAX] Fetch failed:', err);
+                data = { ok: false, error: 'Could not reach the server. Check your connection.' };
             }
 
-        } catch (err) {
-            feedback.style.display = 'block';
-            feedback.innerHTML = `
-                <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
-                            background:rgba(214,64,69,.07);border-left:4px solid var(--danger);
-                            border-radius:10px;font-size:.875rem;color:#9e3a34;">
-                    <i class="fas fa-exclamation-circle" style="color:var(--danger);font-size:1rem;flex-shrink:0;"></i>
-                    <span>Network error. Please try again.</span>
-                </div>`;
-        } finally {
-            // Restore button
-            submitBtn.disabled  = false;
-            submitBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add to Recipe';
-        }
-    });
+            // Re-enable submit button
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add to Recipe'; }
 
+            if (data.ok) {
+                /* ── Success ── */
+                if (feedback) {
+                    feedback.style.display = 'block';
+                    feedback.innerHTML = `
+                        <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
+                                    background:rgba(44,122,90,.1);border-left:4px solid var(--success);
+                                    border-radius:10px;font-size:.875rem;color:#1e4a3b;">
+                            <i class="fas fa-check-circle" style="color:var(--success);font-size:1rem;flex-shrink:0;"></i>
+                            <span>${escHtml(data.message || 'Ingredient added successfully.')}</span>
+                        </div>`;
+                }
+
+                // Reset ingredient + qty only; keep item + scope for quick multi-add
+                if (ingEl)  ingEl.value  = '';
+                const qtyIn = document.getElementById('add_quantity');
+                if (qtyIn)  qtyIn.value  = '';
+                if (unitEl) unitEl.textContent = '—';
+
+                // Inject the new row live into the correct modal section
+                if (itemId && ingName) {
+                    recipePage.injectIngredientRow(itemId, variantId, ingName, qty, unit, data.recipe_id || null);
+                }
+
+                // Auto-dismiss feedback after 1.6s, then re-open the detail modal
+                setTimeout(function () {
+                    if (feedback) { feedback.style.display = 'none'; feedback.innerHTML = ''; }
+
+                    const addModalEl = document.getElementById('addRecipeModal');
+                    const addModalInst = addModalEl ? bootstrap.Modal.getInstance(addModalEl) : null;
+
+                    if (itemId && addModalInst) {
+                        // Close add modal, then open detail modal
+                        addModalEl.addEventListener('hidden.bs.modal', function h() {
+                            addModalEl.removeEventListener('hidden.bs.modal', h);
+                            recipePage.openDetailModal(itemId);
+                        });
+                        addModalInst.hide();
+                    } else if (addModalInst) {
+                        addModalInst.hide();
+                    }
+                }, 1600);
+
+            } else {
+                /* ── Error ── */
+                if (feedback) {
+                    feedback.style.display = 'block';
+                    feedback.innerHTML = `
+                        <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
+                                    background:rgba(214,64,69,.07);border-left:4px solid var(--danger);
+                                    border-radius:10px;font-size:.875rem;color:#9e3a34;">
+                            <i class="fas fa-exclamation-circle" style="color:var(--danger);font-size:1rem;flex-shrink:0;"></i>
+                            <span>${escHtml(data.error || 'Something went wrong.')}</span>
+                        </div>`;
+                }
+            }
+        });
+    }
+
+    /* ── escHtml available inside DOMContentLoaded scope ── */
     function escHtml(str) {
         const d = document.createElement('div');
         d.textContent = String(str ?? '');
         return d.innerHTML;
     }
+
 });
 </script>
-
 </body>
 </html>
