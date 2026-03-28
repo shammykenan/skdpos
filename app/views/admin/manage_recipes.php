@@ -94,10 +94,99 @@
 
         /* ── Empty variant notice ── */
         .no-recipe-yet {
-            text-align: center; padding: 2rem 1rem;
+            text-align: center; padding: 2.5rem 1rem;
             color: var(--warm-gray); font-size: 0.88rem;
         }
         .no-recipe-yet i { display: block; font-size: 2rem; opacity: 0.25; margin-bottom: 0.6rem; }
+
+        /* ── Accordion variant sections ── */
+        .accordion-variant-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+        .acc-section { border: 1.5px solid #e2e8f0; border-radius: 14px; overflow: hidden; transition: border-color 0.18s; }
+        .acc-section.is-open { border-color: var(--primary); }
+        .acc-section.is-open.is-variant-section { border-color: var(--secondary); }
+        .acc-section.is-template { border-color: rgba(244,185,66,0.55); }
+        .acc-section.is-template.is-open { border-color: #c4930a; }
+
+        .acc-header {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.8rem 1rem; cursor: pointer; user-select: none;
+            background: white; transition: background 0.15s;
+        }
+        .acc-header:hover { background: #f8faff; }
+        .acc-section.is-open .acc-header { background: #f4f8fb; }
+        .acc-section.is-variant-section.is-open .acc-header { background: rgba(255,107,74,0.04); }
+        .acc-section.is-template .acc-header { background: rgba(244,185,66,0.04); }
+        .acc-section.is-template.is-open .acc-header { background: rgba(244,185,66,0.08); }
+
+        .acc-icon {
+            width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; color: white;
+        }
+        .acc-icon.base    { background: var(--primary); }
+        .acc-icon.variant { background: var(--secondary); }
+        .acc-icon.tmpl    { background: #c4930a; }
+
+        .acc-meta { flex: 1; min-width: 0; }
+        .acc-title {
+            font-weight: 700; font-size: 0.9rem; color: var(--navy);
+            display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+        }
+        .acc-subtitle { font-size: 0.72rem; color: var(--warm-gray); margin-top: 0.1rem; }
+        .acc-lock-badge {
+            font-size: 0.65rem; font-weight: 700; color: #7a5500;
+            background: rgba(244,185,66,0.22); border-radius: 20px;
+            padding: 0.1rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;
+        }
+        .acc-chevron {
+            color: #c0c8d8; font-size: 0.72rem; flex-shrink: 0;
+            transition: transform 0.22s, color 0.15s;
+        }
+        .acc-section.is-open .acc-chevron { transform: rotate(90deg); color: var(--primary); }
+        .acc-section.is-variant-section.is-open .acc-chevron { color: var(--secondary); }
+        .acc-section.is-template.is-open .acc-chevron { color: #c4930a; }
+
+        .acc-body {
+            display: none; border-top: 1px solid #edf2f7;
+            animation: accOpen 0.18s ease;
+        }
+        .acc-section.is-open .acc-body { display: block; }
+
+        @keyframes accOpen {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* locked template notice inside acc-body */
+        .acc-lock-notice {
+            display: flex; align-items: center; gap: 0.45rem;
+            padding: 0.5rem 1rem; font-size: 0.76rem; color: #7a6030;
+            background: rgba(244,185,66,0.07); border-bottom: 1px dashed rgba(244,185,66,0.3);
+        }
+        .acc-lock-notice i { color: #c4930a; flex-shrink: 0; }
+
+        /* ingredient rows inside accordion */
+        .acc-ing-row {
+            display: flex; align-items: center; gap: 0.65rem;
+            padding: 0.7rem 1rem; border-bottom: 1px solid #f0f4f8;
+        }
+        .acc-ing-row:last-child { border-bottom: none; }
+        .acc-ing-num  { width: 20px; font-size: 0.7rem; color: #b0bec8; text-align: center; flex-shrink: 0; }
+        .acc-ing-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .acc-ing-name { flex: 1; font-weight: 600; font-size: 0.875rem; color: var(--navy); }
+        .acc-ing-qty  {
+            font-size: 0.76rem; font-weight: 700; color: white;
+            border-radius: 20px; padding: 0.2rem 0.7rem;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .acc-ing-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
+
+        .acc-add-row {
+            padding: 0.6rem 1rem;
+            border-top: 1px dashed #e8edf5;
+            display: flex; justify-content: flex-end;
+        }
     </style>
 </head>
 <body>
@@ -406,9 +495,9 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body">
+            <div class="modal-body" style="padding:1.2rem 1.4rem;max-height:70vh;overflow-y:auto;">
 
-                <!-- Copy-base notice — only when base exists AND menu_variants exist but are not yet set up -->
+                <!-- Copy-base notice -->
                 <?php if ($needsCopy): ?>
                 <div class="copy-base-banner">
                     <i class="fas fa-circle-info"></i>
@@ -419,31 +508,132 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                 </div>
                 <?php endif; ?>
 
-                <!-- Meta row -->
-                <div class="recipe-meta">
-                    <i class="fas fa-cubes"></i>
-                    <strong><?= $totalIngCount ?></strong> ingredient<?= $totalIngCount !== 1 ? 's' : '' ?> total
-                    <?php if ($hasVars): ?>
-                        &mdash; <i class="fas fa-layer-group"></i> grouped by variant below
-                    <?php endif; ?>
-                </div>
-
-                <!-- Base section -->
-                <?php if ($hasBase): ?>
-                    <?php renderIngredientSection($group['base'], 'Base Recipe (Template)', true, $baseIsLocked); ?>
-                <?php endif; ?>
-
-                <!-- Variant sections -->
-                <?php foreach ($group['variants'] as $vName => $vRows): ?>
-                    <?php renderIngredientSection($vRows, 'Variant: ' . $vName, false, false); ?>
-                <?php endforeach; ?>
-
-                <!-- Truly empty -->
                 <?php if (!$hasBase && !$hasVars): ?>
                     <div class="no-recipe-yet">
                         <i class="fas fa-clipboard-list"></i>
                         No ingredients assigned yet. Use "Add Ingredient" to get started.
                     </div>
+
+                <?php else: ?>
+                <div class="accordion-variant-list">
+
+                    <?php if ($hasBase):
+                        $baseCount = count($group['base']);
+                        $accId     = 'acc_base_' . $item_id;
+                    ?>
+                    <div class="acc-section <?= $baseIsLocked ? 'is-template' : '' ?>" id="<?= $accId ?>_wrap">
+                        <div class="acc-header" onclick="toggleAcc('<?= $accId ?>')">
+                            <div class="acc-icon <?= $baseIsLocked ? 'tmpl' : 'base' ?>">
+                                <i class="fas <?= $baseIsLocked ? 'fa-lock' : 'fa-tag' ?>"></i>
+                            </div>
+                            <div class="acc-meta">
+                                <div class="acc-title">
+                                    Base Recipe
+                                    <?php if ($baseIsLocked): ?>
+                                        <span class="acc-lock-badge"><i class="fas fa-lock"></i> Template</span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="acc-subtitle"><?= $baseCount ?> ingredient<?= $baseCount !== 1 ? 's' : '' ?></div>
+                            </div>
+                            <i class="fas fa-chevron-right acc-chevron"></i>
+                        </div>
+                        <div class="acc-body" id="<?= $accId ?>">
+                            <?php if ($baseIsLocked): ?>
+                            <div class="acc-lock-notice">
+                                <i class="fas fa-circle-info"></i>
+                                Template — edit quantities on individual variant sections instead.
+                            </div>
+                            <?php endif; ?>
+                            <?php foreach ($group['base'] as $idx => $r): ?>
+                            <div class="acc-ing-row">
+                                <span class="acc-ing-num"><?= $idx + 1 ?></span>
+                                <span class="acc-ing-dot" style="background:<?= $baseIsLocked ? '#c4930a' : 'var(--primary-light)' ?>;"></span>
+                                <span class="acc-ing-name"><?= htmlspecialchars($r['ingredient_name']) ?></span>
+                                <span class="acc-ing-qty" style="background:<?= $baseIsLocked ? '#c4930a' : 'var(--primary)' ?>;">
+                                    <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
+                                </span>
+                                <div class="acc-ing-actions">
+                                    <?php if ($baseIsLocked): ?>
+                                        <span style="color:#c4930a;font-size:.8rem;opacity:.65;" title="Locked — edit via variant">
+                                            <i class="fas fa-lock"></i>
+                                        </span>
+                                    <?php else: ?>
+                                        <button type="button" class="btn-icon warn" title="Edit"
+                                                data-bs-toggle="modal" data-bs-target="#editModal<?= $r['recipe_id'] ?>">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn-icon del" title="Remove"
+                                                data-bs-toggle="modal" data-bs-target="#deleteModal<?= $r['recipe_id'] ?>">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                            <?php if (!$baseIsLocked): ?>
+                            <div class="acc-add-row">
+                                <button type="button"
+                                        class="btn-add"
+                                        style="border-radius:10px;padding:.4rem 1rem;font-size:.8rem;"
+                                        data-open-add-from-detail
+                                        data-item-id="<?= $item_id ?>">
+                                    <i class="fas fa-plus"></i> Add Ingredient
+                                </button>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php foreach ($group['variants'] as $vName => $vRows):
+                        $vCount = count($vRows);
+                        $vId    = $vRows[0]['variant_id'] ?? null;
+                        $accId  = 'acc_v_' . $item_id . '_' . ($vId ?? 0);
+                    ?>
+                    <div class="acc-section is-variant-section" id="<?= $accId ?>_wrap">
+                        <div class="acc-header" onclick="toggleAcc('<?= $accId ?>')">
+                            <div class="acc-icon variant"><i class="fas fa-layer-group"></i></div>
+                            <div class="acc-meta">
+                                <div class="acc-title"><?= htmlspecialchars($vName) ?></div>
+                                <div class="acc-subtitle"><?= $vCount ?> ingredient<?= $vCount !== 1 ? 's' : '' ?></div>
+                            </div>
+                            <i class="fas fa-chevron-right acc-chevron"></i>
+                        </div>
+                        <div class="acc-body" id="<?= $accId ?>">
+                            <?php foreach ($vRows as $idx => $r): ?>
+                            <div class="acc-ing-row">
+                                <span class="acc-ing-num"><?= $idx + 1 ?></span>
+                                <span class="acc-ing-dot" style="background:var(--secondary);"></span>
+                                <span class="acc-ing-name"><?= htmlspecialchars($r['ingredient_name']) ?></span>
+                                <span class="acc-ing-qty" style="background:var(--secondary);">
+                                    <?= htmlspecialchars($r['quantity_required'] . ' ' . $r['unit_code']) ?>
+                                </span>
+                                <div class="acc-ing-actions">
+                                    <button type="button" class="btn-icon warn" title="Edit"
+                                            data-bs-toggle="modal" data-bs-target="#editModal<?= $r['recipe_id'] ?>">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn-icon del" title="Remove"
+                                            data-bs-toggle="modal" data-bs-target="#deleteModal<?= $r['recipe_id'] ?>">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                            <div class="acc-add-row">
+                                <button type="button"
+                                        class="btn-add"
+                                        style="border-radius:10px;padding:.4rem 1rem;font-size:.8rem;"
+                                        data-open-add-from-detail
+                                        data-item-id="<?= $item_id ?>">
+                                    <i class="fas fa-plus"></i> Add Ingredient
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+
+                </div>
                 <?php endif; ?>
 
             </div><!-- /.modal-body -->
@@ -542,6 +732,8 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
 </div>
 
 
+
+
 <!-- ═══════════════════════════════════════════════════════════
      ADD INGREDIENT MODAL
 ═══════════════════════════════════════════════════════════════ -->
@@ -555,70 +747,91 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_recipes">
+            <form id="addRecipeForm" method="POST" action="<?= $baseUrl ?>/index.php?page=manage_recipes">
                 <div class="modal-body">
                     <input type="hidden" name="add_recipe" value="1">
+                    <input type="hidden" name="ajax"       value="1">
 
-                    <!-- Menu Item -->
-                    <div class="mb-3">
-                        <label for="add_item_id" class="form-label">Menu Item <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-utensils"></i></span>
-                            <select class="form-select" id="add_item_id" name="item_id" required>
-                                <option value="">— Select Menu Item —</option>
-                                <?php foreach ($menu_items as $item): ?>
-                                    <option value="<?= $item['item_id'] ?>"><?= htmlspecialchars($item['item_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                    <!-- Inline feedback — hidden until a submit attempt -->
+                    <div id="addRecipeFeedback" style="display:none;margin-bottom:1rem;"></div>
+
+                    <!-- Top row: Menu Item | Scope -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="add_item_id" class="form-label">
+                                Menu Item <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-utensils"></i></span>
+                                <select class="form-select" id="add_item_id" name="item_id" required>
+                                    <option value="">— Select a menu item —</option>
+                                    <?php foreach ($menu_items as $item): ?>
+                                        <option value="<?= $item['item_id'] ?>"><?= htmlspecialchars($item['item_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="variant_id_select" class="form-label">
+                                Scope
+                                <span class="text-muted fw-normal" style="font-size:.78rem;">(variant or base)</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-layer-group"></i></span>
+                                <select name="variant_id" id="variant_id_select" class="form-select" disabled>
+                                    <option value="">— Pick a menu item first —</option>
+                                </select>
+                            </div>
+                            <div class="form-text" id="variantHelpText" style="font-size:.75rem;">
+                                Select a menu item to see available scopes.
+                            </div>
                         </div>
                     </div>
 
-                    <!--
-                        "Applied To" — variant dropdown.
-                        JS controls what appears here:
-                          • Item has NO variants  → shows "Base Recipe (Standard)" + disabled
-                          • Item HAS variants     → shows only variant options (no base)
-                    -->
-                    <div class="mb-3" id="variantPickerWrap">
-                        <label for="variant_id_select" class="form-label fw-semibold">
-                            Applied To <span class="text-muted fw-normal">(Scope)</span>
-                        </label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-layer-group"></i></span>
-                            <select name="variant_id" id="variant_id_select" class="form-select" disabled>
-                                <option value="">— Select a menu item first —</option>
-                            </select>
+                    <!-- Bottom row: Ingredient | Quantity + Unit -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="add_ingredient_id" class="form-label">
+                                Ingredient <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-box"></i></span>
+                                <select class="form-select" id="add_ingredient_id" name="ingredient_id" required>
+                                    <option value="">— Select an ingredient —</option>
+                                    <?php foreach ($ingredients as $ing): ?>
+                                        <option value="<?= $ing['ingredient_id'] ?>"><?= htmlspecialchars($ing['ingredient_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-text" id="variantHelpText">Choose a menu item to see available scopes.</div>
+                        <div class="col-md-6">
+                            <label for="add_quantity" class="form-label">
+                                Quantity Required <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-balance-scale"></i></span>
+                                <input type="number" class="form-control" id="add_quantity"
+                                       name="quantity_required" step="0.01" min="0.01"
+                                       placeholder="e.g. 0.25" required>
+                                <span class="input-group-text" id="ingredient_unit_display"
+                                      style="min-width:58px;justify-content:center;font-weight:700;
+                                             color:var(--primary);background:#edf6f9;font-size:.9rem;
+                                             letter-spacing:.3px;">
+                                    —
+                                </span>
+                            </div>
+                            <div class="form-text" style="font-size:.75rem;">
+                                Unit auto-fills when you pick an ingredient.
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Ingredient -->
-                    <div class="mb-3">
-                        <label for="add_ingredient_id" class="form-label">Ingredient <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-box"></i></span>
-                            <select class="form-select" id="add_ingredient_id" name="ingredient_id" required>
-                                <option value="">— Select Ingredient —</option>
-                                <?php foreach ($ingredients as $ing): ?>
-                                    <option value="<?= $ing['ingredient_id'] ?>"><?= htmlspecialchars($ing['ingredient_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Quantity -->
-                    <div class="mb-3">
-                        <label for="add_quantity" class="form-label">Quantity Required <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-balance-scale"></i></span>
-                            <input type="number" class="form-control" id="add_quantity"
-                                   name="quantity_required" step="0.01" min="0.01" placeholder="0.00" required>
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-2"></i> Add to Recipe</button>
+                    <button type="submit" class="btn btn-primary" id="addRecipeSubmitBtn">
+                        <i class="fas fa-plus me-2"></i> Add to Recipe
+                    </button>
                 </div>
             </form>
         </div>
@@ -752,8 +965,6 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
 ───────────────────────────────────────────────────── */
 window._recipeVariants = <?php
     $map = [];
-
-    // Start from all_variants_map (all menu_variants rows, active only)
     foreach ($all_variants_map as $iid => $variants) {
         $key = (string) $iid;
         if (!isset($map[$key])) $map[$key] = [];
@@ -764,8 +975,19 @@ window._recipeVariants = <?php
             ];
         }
     }
-
     echo json_encode($map, JSON_HEX_TAG | JSON_HEX_APOS);
+?>;
+
+/* Ingredient unit map: ingredient_id → {unit_code, unit_label} */
+window._ingredientUnits = <?php
+    $umap = [];
+    foreach ($ingredients as $ing) {
+        $umap[(string)$ing['ingredient_id']] = [
+            'unit_code'  => $ing['unit_code']  ?? '',
+            'unit_label' => $ing['unit_label'] ?? '',
+        ];
+    }
+    echo json_encode($umap, JSON_HEX_TAG | JSON_HEX_APOS);
 ?>;
 
 /* ─────────────────────────────────────────────────────
@@ -846,6 +1068,7 @@ window.recipePage = (function () {
         populateVariants(itemId || null);
         if (qtySel) qtySel.value  = '';
         if (ingSel) ingSel.value  = '';
+        updateIngredientUnit(null);
 
         getModal(el).show();
     }
@@ -941,9 +1164,37 @@ window.recipePage = (function () {
         }
     }
 
-    return { openDetailModal, openAddModal, openAddFromDetail, openCopyModal, populateVariants };
+    /* ── Update unit display when ingredient changes ── */
+    function updateIngredientUnit(ingredientId) {
+        const unitDisplay = getEl('ingredient_unit_display');
+        if (!unitDisplay) return;
+        if (!ingredientId) { unitDisplay.textContent = '—'; return; }
+        const u = (window._ingredientUnits || {})[String(ingredientId)];
+        unitDisplay.textContent = (u && (u.unit_code || u.unit_label)) ? (u.unit_code || u.unit_label) : '—';
+    }
+
+    return {
+        openDetailModal, openAddModal, openAddFromDetail, openCopyModal,
+        populateVariants, updateIngredientUnit
+    };
 
 }());
+
+/* ── Accordion toggle — global so onclick="" in PHP-rendered HTML can reach it ── */
+function toggleAcc(id) {
+    const body = document.getElementById(id);
+    const wrap = document.getElementById(id + '_wrap');
+    if (!body || !wrap) return;
+    const isOpen = wrap.classList.contains('is-open');
+    // Close all siblings first
+    const list = wrap.closest('.accordion-variant-list');
+    if (list) {
+        list.querySelectorAll('.acc-section.is-open').forEach(function (s) {
+            s.classList.remove('is-open');
+        });
+    }
+    if (!isOpen) wrap.classList.add('is-open');
+}
 </script>
 
 <!-- Page JS (sidebar, search, alerts, stagger) -->
@@ -961,6 +1212,11 @@ document.addEventListener('DOMContentLoaded', function () {
         recipePage.populateVariants(this.value || null);
     });
 
+    /* ingredient-dropdown change → update unit badge */
+    document.getElementById('add_ingredient_id')?.addEventListener('change', function () {
+        recipePage.updateIngredientUnit(this.value || null);
+    });
+
     /* Top "Add Ingredient" button */
     document.querySelector('[data-open-add-modal]')?.addEventListener('click', function () {
         recipePage.openAddModal(null);
@@ -974,6 +1230,91 @@ document.addEventListener('DOMContentLoaded', function () {
         const copyBtn = e.target.closest('[data-open-copy-modal]');
         if (copyBtn) { e.preventDefault(); recipePage.openCopyModal(copyBtn); return; }
     });
+
+    /* ── AJAX submit for Add Recipe form ── */
+    document.getElementById('addRecipeForm')?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const form       = this;
+        const submitBtn  = document.getElementById('addRecipeSubmitBtn');
+        const feedback   = document.getElementById('addRecipeFeedback');
+
+        // Clear previous feedback
+        feedback.style.display = 'none';
+        feedback.innerHTML     = '';
+
+        // Disable button + show spinner
+        submitBtn.disabled    = true;
+        submitBtn.innerHTML   = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Saving…';
+
+        try {
+            const resp = await fetch(form.action, {
+                method:  'POST',
+                body:    new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            const data = await resp.json();
+
+            if (data.ok) {
+                // ── Success ──────────────────────────────────────────
+                feedback.style.display = 'block';
+                feedback.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
+                                background:rgba(44,122,90,.1);border-left:4px solid var(--success);
+                                border-radius:10px;font-size:.875rem;color:#1e4a3b;">
+                        <i class="fas fa-check-circle" style="color:var(--success);font-size:1rem;flex-shrink:0;"></i>
+                        <span>${escHtml(data.message)}</span>
+                    </div>`;
+
+                // Reset only ingredient + quantity — keep menu item + scope so
+                // the user can quickly add another ingredient to the same item
+                const ingSel = document.getElementById('add_ingredient_id');
+                const qtyIn  = document.getElementById('add_quantity');
+                const unitDp = document.getElementById('ingredient_unit_display');
+                if (ingSel) ingSel.value   = '';
+                if (qtyIn)  qtyIn.value    = '';
+                if (unitDp) unitDp.textContent = '—';
+
+                // Auto-dismiss the success message after 3 s
+                setTimeout(function () {
+                    feedback.style.display = 'none';
+                    feedback.innerHTML     = '';
+                }, 3000);
+
+            } else {
+                // ── Error ────────────────────────────────────────────
+                feedback.style.display = 'block';
+                feedback.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
+                                background:rgba(214,64,69,.07);border-left:4px solid var(--danger);
+                                border-radius:10px;font-size:.875rem;color:#9e3a34;">
+                        <i class="fas fa-exclamation-circle" style="color:var(--danger);font-size:1rem;flex-shrink:0;"></i>
+                        <span>${escHtml(data.error || 'Something went wrong.')}</span>
+                    </div>`;
+            }
+
+        } catch (err) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = `
+                <div style="display:flex;align-items:center;gap:.55rem;padding:.75rem 1rem;
+                            background:rgba(214,64,69,.07);border-left:4px solid var(--danger);
+                            border-radius:10px;font-size:.875rem;color:#9e3a34;">
+                    <i class="fas fa-exclamation-circle" style="color:var(--danger);font-size:1rem;flex-shrink:0;"></i>
+                    <span>Network error. Please try again.</span>
+                </div>`;
+        } finally {
+            // Restore button
+            submitBtn.disabled  = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add to Recipe';
+        }
+    });
+
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = String(str ?? '');
+        return d.innerHTML;
+    }
 });
 </script>
 

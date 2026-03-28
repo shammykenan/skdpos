@@ -8,8 +8,51 @@ require_once __DIR__ . '/../core/ingredientsHelper.php';
 $baseUrl = $_ENV['BASE_URL'] ?? '';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+    // If this is an AJAX request, return JSON instead of redirecting
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || !empty($_POST['ajax'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        exit;
+    }
     $_SESSION['error'] = 'Access denied. Please log in as an admin.';
     header("Location: index.php?page=logout");
+    exit;
+}
+
+// ================================================================
+// AJAX: ADD RECIPE
+// POST: ajax=1, add_recipe=1, item_id, ingredient_id,
+//       quantity_required, [variant_id]
+// Returns JSON {ok, message} — modal stays open, no page reload
+// ================================================================
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['add_recipe']) &&
+    !empty($_POST['ajax'])
+) {
+    header('Content-Type: application/json');
+
+    $item_id           = (int)   ($_POST['item_id']           ?? 0);
+    $ingredient_id     = (int)   ($_POST['ingredient_id']     ?? 0);
+    $quantity_required = (float) ($_POST['quantity_required'] ?? 0);
+    $variant_id        = !empty($_POST['variant_id']) ? (int) $_POST['variant_id'] : null;
+
+    if (!$item_id || !$ingredient_id || $quantity_required <= 0) {
+        echo json_encode(['ok' => false, 'error' => 'All fields are required and quantity must be greater than 0.']);
+        exit;
+    }
+
+    if (recipeExistsForVariant($pdo, $item_id, $ingredient_id, $variant_id)) {
+        echo json_encode(['ok' => false, 'error' => 'This ingredient is already assigned to that recipe.']);
+        exit;
+    }
+
+    try {
+        addRecipeForVariant($pdo, $item_id, $ingredient_id, $quantity_required, $variant_id);
+        echo json_encode(['ok' => true, 'message' => 'Ingredient added to recipe successfully.']);
+    } catch (Exception $e) {
+        echo json_encode(['ok' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    }
     exit;
 }
 
@@ -27,7 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['copy_base_to_variant'
         exit;
     }
 
-    // Confirm the variant belongs to this item
     $stmt = $pdo->prepare("SELECT variant_id FROM menu_variants WHERE variant_id = ? AND item_id = ? LIMIT 1");
     $stmt->execute([$variant_id, $item_id]);
     if (!$stmt->fetch()) {
@@ -57,8 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['copy_base_to_variant'
 }
 
 // ================================================================
-// ADD RECIPE (variant-aware)
-// Mutual exclusion restriction removed — copy flow handles transition
+// ADD RECIPE (non-AJAX fallback — kept for safety)
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_recipe'])) {
     $item_id           = (int)   ($_POST['item_id']           ?? 0);
@@ -103,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_recipe'])) {
 // DELETE RECIPE
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_recipe'])) {
-    $recipe_id = (int) ($_POST['recipe_id'] ?? 0);
+    $recipe_id = (int) ($_POST['delete_recipe'] ?? $_POST['recipe_id'] ?? 0);
     if ($recipe_id) {
         deleteRecipe($pdo, $recipe_id);
         $_SESSION['success'] = 'Recipe deleted.';
@@ -149,16 +190,12 @@ foreach ($recipes as $r) {
     }
 }
 
-// All variants per item_id (active only) — for Add Recipe and Copy modals
 try {
     $all_variants_map = getAllVariantsGrouped($pdo);
 } catch (Exception $e) {
     $all_variants_map = [];
 }
 
-// Which items have base recipes AND defined variants?
-// These get the "Copy Base to Variant" button instead of plain "Add Ingredient"
-// Shape: [ item_id => [ {variant_id, variant_name}, ... ] ]
 $item_variants_for_copy = [];
 foreach ($grouped as $gid => $group) {
     if (!empty($group['base']) && !empty($all_variants_map[$gid])) {
