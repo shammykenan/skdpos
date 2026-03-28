@@ -465,10 +465,15 @@
                          data-item-price="<?= $item['base_price'] ?>"
                          data-category-id="<?= $item['category_id'] ?>"
                          data-search-text="<?= htmlspecialchars(strtolower($item['item_name'])) ?>"
-                         data-has-stock="<?= $hasStock ? 'true' : 'false' ?>">
-                        <?php if (!$hasStock): ?>
-                            <div class="out-of-stock-badge">Out of Stock</div>
-                        <?php endif; ?>
+                         data-has-stock="<?= $hasStock ? 'true' : 'false' ?>"
+                         data-no-price="<?= ($item['no_price'] ?? false) ? 'true' : 'false' ?>">
+                        <?php
+                            $noPrice = $item['no_price'] ?? false;
+                            if ($noPrice): ?>
+                                <div class="out-of-stock-badge" style="background:var(--warm-gray);">Unavailable</div>
+                            <?php elseif (!$hasStock): ?>
+                                <div class="out-of-stock-badge">Out of Stock</div>
+                            <?php endif; ?>
                         <div class="in-cart-badge" id="cartBadge_<?= $item['item_id'] ?>" style="display:none"></div>
                         <?php if (!empty($item['image_url'])): ?>
                             <img src="<?= $baseUrl.'/'.htmlspecialchars($item['image_url']) ?>" alt="<?= htmlspecialchars($item['item_name']) ?>" class="menu-item-image" loading="lazy">
@@ -1317,29 +1322,40 @@ const _variantPickerData = new Map();
 function openVariantModal(item, variants) {
     document.getElementById('variantModalItemName').textContent = item.name;
     _variantPickerData.clear();
-
+ 
     let html = '';
     variants.forEach((v, idx) => {
         _variantPickerData.set(idx, { item, variant: v });
-
-        const vStock   = stockData[item.id]?.variants?.[v.variant_id];
-        const hasStock = vStock?.has_stock   ?? false;
-        const maxQty   = vStock?.max_quantity ?? 0;
-        const outCls   = hasStock ? '' : 'out-of-stock-variant';
-        const clickAttr = hasStock ? `onclick="selectVariant(${idx})"` : '';
-
+ 
+        const vStock    = stockData[item.id]?.variants?.[v.variant_id];
+        const hasStock  = vStock?.has_stock   ?? false;
+        const noRecipe  = vStock?.no_recipe   ?? false;   // NEW — recipe not configured
+        const maxQty    = vStock?.max_quantity ?? 0;
+ 
+        // A variant is clickable only if it has stock AND has a recipe
+        const isAvailable = hasStock && !noRecipe;
+        const outCls      = isAvailable ? '' : 'out-of-stock-variant';
+        const clickAttr   = isAvailable ? `onclick="selectVariant(${idx})"` : '';
+ 
+        // Choose the right badge
+        let badge = '';
+        if (noRecipe) {
+            badge = '<span class="badge bg-secondary ms-2">Unavailable</span>';
+        } else if (!hasStock) {
+            badge = '<span class="badge bg-danger ms-2">Out of Stock</span>';
+        } else if (maxQty < 10) {
+            badge = `<span class="badge bg-warning text-dark ms-2">Only ${maxQty} left</span>`;
+        }
+ 
         html += `<div class="variant-option ${outCls}" ${clickAttr}>
             <div class="variant-info">
                 <span class="variant-name">${escHtml(v.variant_name)}</span>
-                ${!hasStock
-                    ? '<span class="badge bg-danger ms-2">Out of Stock</span>'
-                    : (maxQty < 10 ? `<span class="badge bg-warning text-dark ms-2">Only ${maxQty} left</span>` : '')
-                }
+                ${badge}
             </div>
             <span class="variant-price">₱${parseFloat(v.price).toFixed(2)}</span>
         </div>`;
     });
-
+ 
     document.getElementById('variantList').innerHTML = html;
     showModal('variantModal');
 }
@@ -1590,15 +1606,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const id       = card.dataset.itemId;
     const itemData = stockData[id];
     const variants = variantsMap[id] || [];
+    const noPrice  = card.dataset.noPrice === 'true';
 
     let hasStock;
     if (variants.length > 0) {
-        // Variant item — available if ANY variant has stock
-        hasStock = variants.some(v => 
+        hasStock = variants.some(v =>
             itemData?.variants?.[v.variant_id]?.has_stock ?? false
         );
     } else {
-        hasStock = itemData?.base?.has_stock ?? false;
+        hasStock = !noPrice && (itemData?.base?.has_stock ?? false);
     }
 
     if (!hasStock) {
@@ -1607,7 +1623,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!card.querySelector('.out-of-stock-badge')) {
             const b = document.createElement('div');
             b.className   = 'out-of-stock-badge';
-            b.textContent = 'Out of Stock';
+            b.textContent = noPrice ? 'Unavailable' : 'Out of Stock';
+            // Grey badge for no-price, red for out-of-stock
+            if (noPrice) b.style.background = 'var(--warm-gray)';
             card.prepend(b);
         }
     }

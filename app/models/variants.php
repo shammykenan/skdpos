@@ -108,7 +108,7 @@ function variantNameExists(PDO $pdo, int $item_id, string $name, ?int $exclude_i
     $params = [$item_id, $name];
 
     if ($exclude_id !== null) {
-        $sql   .= " AND variant_id != ?";
+        $sql     .= " AND variant_id != ?";
         $params[] = $exclude_id;
     }
 
@@ -166,23 +166,102 @@ function getVariantStatsForDashboard($pdo)
     }
 }
 
+/**
+ * Build stock data for one item+variant combination.
+ *
+ * STRICT mode — no cross-mode fallback:
+ *   • Variant item ($variant_id !== null):
+ *       - If no recipe exists for this variant → has_stock = false, no_recipe = true.
+ *       - If recipe exists → compute max_quantity from variant-specific ingredients only.
+ *   • Base item ($variant_id === null):
+ *       - If no base recipe exists → has_stock = false, no_recipe = true.
+ *       - If recipe exists → compute max_quantity from base ingredients only.
+ *
+ * The `no_recipe` flag lets the POS distinguish "out of stock" from
+ * "misconfigured" so the UI can show the right label.
+ */
 function buildStockDataForVariant(PDO $pdo, int $item_id, ?int $variant_id): array
 {
-    $ingredients = getMenuItemIngredientStockForVariant($pdo, $item_id, $variant_id);
-    $max_qty     = PHP_INT_MAX;
+    // ── Check recipe existence first ──────────────────────────────────────────
+    if ($variant_id !== null) {
+        $hasRecipe = variantHasRecipe($pdo, $item_id, $variant_id);
+    } else {
+        $hasRecipe = baseItemHasRecipe($pdo, $item_id);
+    }
+
+    if (!$hasRecipe) {
+        return [
+            'has_stock'    => false,
+            'max_quantity' => 0,
+            'ingredients'  => [],
+            'no_recipe'    => true,   // distinguishes misconfigured from genuinely out-of-stock
+        ];
+    }
+
+    // ── Fetch ingredients strictly (no fallback) ──────────────────────────────
+    $ingredients = getStrictIngredientStockForVariant($pdo, $item_id, $variant_id);
+
+    $max_qty = PHP_INT_MAX;
     foreach ($ingredients as $ing) {
         if ($ing['quantity_required'] <= 0) continue;
         $possible = (int) floor($ing['stock_quantity'] / $ing['quantity_required']);
         if ($possible < $max_qty) $max_qty = $possible;
     }
     $max_qty = ($max_qty === PHP_INT_MAX || $max_qty < 0) ? 0 : $max_qty;
+
     return [
         'has_stock'    => $max_qty > 0,
         'max_quantity' => $max_qty,
         'ingredients'  => $ingredients,
+        'no_recipe'    => false,
     ];
 }
-function collect_any_variant_has_stock(array $variants): bool {
+
+/**
+ * Fetch ingredient stock rows strictly — no fallback between variant and base.
+ * Only used internally by buildStockDataForVariant().
+ *
+ * For variant items  → WHERE variant_id = $variant_id
+ * For base items     → WHERE variant_id IS NULL
+ */
+function getStrictIngredientStockForVariant(PDO $pdo, int $item_id, ?int $variant_id): array
+{
+    if ($variant_id !== null) {
+        $stmt = $pdo->prepare("
+            SELECT
+                r.ingredient_id,
+                i.ingredient_name,
+                r.quantity_required,
+                i.stock_quantity
+            FROM recipes r
+            JOIN ingredients i ON i.ingredient_id = r.ingredient_id
+            WHERE r.item_id    = :item_id
+              AND r.variant_id = :variant_id
+        ");
+        $stmt->execute([
+            ':item_id'    => $item_id,
+            ':variant_id' => $variant_id,
+        ]);
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT
+                r.ingredient_id,
+                i.ingredient_name,
+                r.quantity_required,
+                i.stock_quantity
+            FROM recipes r
+            JOIN ingredients i ON i.ingredient_id = r.ingredient_id
+            WHERE r.item_id    = :item_id
+              AND r.variant_id IS NULL
+        ");
+        $stmt->execute([':item_id' => $item_id]);
+    }
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function collect_any_variant_has_stock(array $variants): bool
+{
     foreach ($variants as $v) {
         if ($v['has_stock'] ?? false) return true;
     }

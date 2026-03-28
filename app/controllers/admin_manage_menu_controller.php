@@ -106,7 +106,7 @@ if (isset($_POST['delete_category'])) {
 
 // ================================================================
 // MENU ITEM: ADD (with optional variants)
-// Rule: if variants provided → base_price = NULL, cost_price = NULL
+// Rule: if variants provided → base_price = 0, cost_price = 0
 //       if no variants → base_price required > 0, cost_price >= 0
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
 
     if ($has_variants) {
         // VARIANT MODE: validate each variant price > 0
-        foreach ($clean_variants as $idx => $v) {
+        foreach ($clean_variants as $v) {
             if ($v['price'] <= 0) {
                 $_SESSION['error'] = "Variant '{$v['name']}' must have a price greater than 0.";
                 header("Location: $baseUrl/index.php?page=manage_menu"); exit;
@@ -158,9 +158,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
                 header("Location: $baseUrl/index.php?page=manage_menu"); exit;
             }
         }
-        // Rule: base_price and cost_price must be NULL when variants exist
-        $base_price = null;
-        $cost_price = null;
+        // Variant mode: store 0.00 for base fields (NOT NULL constraint satisfied)
+        $base_price = 0.00;
+        $cost_price = 0.00;
 
     } else {
         // BASE PRICE MODE: base_price required and > 0
@@ -198,8 +198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
             $_SESSION['error'] = 'Image must be under 2MB.';
             header("Location: $baseUrl/index.php?page=manage_menu"); exit;
         }
-        $ext       = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-        $filename  = 'item_' . time() . '_' . uniqid() . '.' . $ext;
+        $ext        = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+        $filename   = 'item_' . time() . '_' . uniqid() . '.' . $ext;
         $upload_dir = __DIR__ . '/../../public/assets/images/menu/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
         if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
@@ -241,14 +241,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_menu_item'])) {
 
 // ================================================================
 // MENU ITEM: UPDATE
-// Rule: after update, check if this item now has variants →
-//       if yes, NULL out base_price and cost_price in DB.
+// Rule: after update, if item has variants → keep base_price = 0.
+//       if no variants and base_price = 0 → mark unavailable.
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) {
-    $item_id      = (int)    ($_POST['item_id']      ?? 0);
-    $item_name    = trim(     $_POST['item_name']     ?? '');
-    $description  = trim(     $_POST['description']   ?? '');
-    $category_id  = (int)    ($_POST['category_id']   ?? 0);
+    $item_id      = (int)   ($_POST['item_id']      ?? 0);
+    $item_name    = trim(    $_POST['item_name']     ?? '');
+    $description  = trim(    $_POST['description']   ?? '');
+    $category_id  = (int)   ($_POST['category_id']   ?? 0);
     $is_available = isset($_POST['is_available']) ? 1 : 0;
 
     if (!$item_id || empty($item_name) || $category_id <= 0) {
@@ -265,15 +265,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) 
     // Check if this item currently has any variants
     $stmt_vc = $pdo->prepare("SELECT COUNT(*) FROM menu_variants WHERE item_id = ?");
     $stmt_vc->execute([$item_id]);
-    $variant_count = (int) $stmt_vc->fetchColumn();
+    $variant_count     = (int) $stmt_vc->fetchColumn();
     $item_has_variants = $variant_count > 0;
 
     if ($item_has_variants) {
-        // Variants exist → enforce NULL base pricing
-        $base_price = null;
-        $cost_price = null;
+        // Variants exist → base fields must stay 0.00 (pricing comes from variants)
+        $base_price   = 0.00;
+        $cost_price   = 0.00;
+        // Don't force unavailable — variant pricing is valid
     } else {
-        // No variants → validate base_price
+        // No variants → validate base_price > 0
         $raw_base = $_POST['base_price'] ?? '';
         $raw_cost = $_POST['cost_price'] ?? '';
 
@@ -292,6 +293,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) 
         if ($cost_price > $base_price) {
             $_SESSION['error'] = 'Cost price cannot exceed the base price.';
             header("Location: $baseUrl/index.php?page=manage_menu"); exit;
+        }
+
+        // ── GUARD: if somehow base_price is still 0 here, force unavailable ──
+        if ($base_price <= 0) {
+            $is_available = 0;
         }
     }
 
@@ -319,8 +325,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_menu_item'])) 
         if ($existingItem['image_url'] && file_exists(__DIR__ . '/../../' . $existingItem['image_url'])) {
             unlink(__DIR__ . '/../../' . $existingItem['image_url']);
         }
-        $ext      = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-        $filename = 'item_' . time() . '_' . uniqid() . '.' . $ext;
+        $ext        = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+        $filename   = 'item_' . time() . '_' . uniqid() . '.' . $ext;
         $upload_dir = __DIR__ . '/../../public/assets/images/menu/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
         if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
@@ -358,7 +364,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_menu_item'])) 
 
 // ================================================================
 // VARIANT: ADD OR UPDATE
-// Rule: after adding a variant, NULL out the item's base_price/cost_price
+// Rule: after adding a variant → base_price stays 0.00 (variant mode)
+//       item remains available (variant pricing is valid)
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['variant_action'])) {
     $action     = $_POST['variant_action'];
@@ -381,8 +388,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['variant_action'])) {
         } else {
             $new_variant_id = addVariant($pdo, $item_id, $name, $price, $cost_price, $is_active);
             if ($new_variant_id) {
-                // RULE: now that a variant exists, NULL out base_price and cost_price
-                nullifyItemBasePricing($pdo, $item_id);
+                // Variant mode: set base_price = 0.00 (NOT NULL satisfied, pricing via variants)
+                // Keep is_available as-is — variant pricing is valid
+                $pdo->prepare("
+                    UPDATE menu_items
+                    SET base_price = 0.00, cost_price = 0.00
+                    WHERE item_id = ?
+                ")->execute([$item_id]);
                 $_SESSION['success'] = "Variant '{$name}' added. Item now uses variant pricing.";
             } else {
                 $_SESSION['error'] = 'Failed to add variant.';
@@ -397,7 +409,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['variant_action'])) {
         } elseif ($cost_price < 0) {
             $_SESSION['error'] = 'Variant cost price cannot be negative.';
         } else {
-            // Duplicate check excluding self
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) FROM menu_variants
                 WHERE item_id = ? AND TRIM(LOWER(variant_name)) = TRIM(LOWER(?)) AND variant_id != ?
@@ -421,8 +432,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['variant_action'])) {
 
 // ================================================================
 // VARIANT: DELETE
-// Rule: after deletion, if no more variants remain → restore base pricing
-//       (set to 0.00 as a placeholder; admin must edit item to set correct price)
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_variant'])) {
     $variant_id = (int) ($_POST['variant_id'] ?? 0);
@@ -434,23 +443,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_variant'])) {
     // Find the item_id before deleting
     $stmt = $pdo->prepare("SELECT item_id FROM menu_variants WHERE variant_id = ?");
     $stmt->execute([$variant_id]);
-    $row = $stmt->fetch();
+    $row              = $stmt->fetch();
     $affected_item_id = $row ? (int)$row['item_id'] : 0;
 
     if (deleteVariant($pdo, $variant_id)) {
-        // Check if any variants remain for this item
         if ($affected_item_id) {
             $stmt2 = $pdo->prepare("SELECT COUNT(*) FROM menu_variants WHERE item_id = ?");
             $stmt2->execute([$affected_item_id]);
             $remaining = (int) $stmt2->fetchColumn();
 
             if ($remaining === 0) {
-                // No variants left → item switches back to base pricing mode.
-                // We set base_price = 0.00 as a signal that admin must update it.
-                // A value of 0 is intentional here to flag the item as needing attention.
-                $stmt3 = $pdo->prepare("UPDATE menu_items SET base_price = 0.00, cost_price = 0.00 WHERE item_id = ?");
-                $stmt3->execute([$affected_item_id]);
-                $_SESSION['success'] = 'Variant deleted. No variants remain — please update the item\'s base price.';
+                // ── CRITICAL: No variants left → item switches back to base pricing mode.
+                // Set base_price = 0.00 AND mark UNAVAILABLE so it cannot be ordered
+                // at ₱0.00. Admin MUST edit the item and set a valid base price before
+                // it can be made available again.
+                $pdo->prepare("
+                    UPDATE menu_items
+                    SET base_price = 0.00,
+                        cost_price = 0.00,
+                        is_available = 0
+                    WHERE item_id = ?
+                ")->execute([$affected_item_id]);
+
+                $_SESSION['success'] = "Variant deleted. The item has been marked unavailable — please set a base price before making it available again.";
             } else {
                 $_SESSION['success'] = 'Variant deleted successfully.';
             }
@@ -497,18 +512,16 @@ try {
 }
 
 // Build prepared items with clear pricing source
-$prepared_items      = [];
+$prepared_items         = [];
 $total_profit_potential = 0;
-$total_margin_sum    = 0;
+$total_margin_sum       = 0;
 $items_with_price_count = 0;
 
 foreach ($menu_items as $item) {
-    $item_id  = (int)($item['item_id'] ?? 0);
-    $variants = $variants_grouped[$item_id] ?? [];
+    $item_id         = (int)($item['item_id'] ?? 0);
+    $variants        = $variants_grouped[$item_id] ?? [];
     $active_variants = array_values(array_filter($variants, fn($v) => $v['is_active']));
-
-    // PRICING RULE: variants present → use variant pricing
-    $has_variants = !empty($variants); // any variant (active OR inactive) means variant mode
+    $has_variants    = !empty($variants);
 
     if ($has_variants) {
         $prices = array_column($active_variants ?: $variants, 'price');
@@ -527,9 +540,8 @@ foreach ($menu_items as $item) {
             'active_variants'=> $active_variants,
             'active_count'   => count($active_variants),
             'total_variants' => count($variants),
-            // Expose NULL base fields to make it clear pricing comes from variants
-            'base_price'     => null,
-            'cost_price'     => null,
+            'base_price'     => 0,   // variant mode — base price is irrelevant
+            'cost_price'     => 0,
             'price_min'      => !empty($prices) ? min($prices) : 0,
             'price_max'      => !empty($prices) ? max($prices) : 0,
         ];
@@ -544,8 +556,8 @@ foreach ($menu_items as $item) {
         }
 
     } else {
-        $base  = (float)($item['base_price'] ?? 0);
-        $cost  = (float)($item['cost_price'] ?? 0);
+        $base   = (float)($item['base_price'] ?? 0);
+        $cost   = (float)($item['cost_price'] ?? 0);
         $profit = $base - $cost;
         $total_profit_potential += $profit;
 
@@ -569,6 +581,8 @@ foreach ($menu_items as $item) {
             'total_variants' => 0,
             'base_price'     => $base,
             'cost_price'     => $cost,
+            // ── ZERO PRICE FLAG: used by view to show warning ──────────────
+            'needs_price'    => $base <= 0,
             'price_min'      => $base,
             'price_max'      => $base,
         ];
@@ -577,11 +591,11 @@ foreach ($menu_items as $item) {
     $prepared_items[] = $prepared_item;
 }
 
-// Warn admin about items that switched back to base pricing mode with price = 0
+// ── Warn admin about base-only items with no price ────────────────────────────
 $items_needing_price = array_filter($prepared_items, fn($i) => !$i['has_variants'] && ($i['base_price'] ?? 0) <= 0);
 if (!empty($items_needing_price) && empty($error)) {
-    $names = implode(', ', array_map(fn($i) => "'{$i['item_name']}'", $items_needing_price));
-    $error = "⚠️ The following items need a base price set: {$names}";
+    $names = implode(', ', array_map(fn($i) => "\"{$i['item_name']}\"", $items_needing_price));
+    $error = "⚠️ The following items need a base price — they are hidden from the POS until fixed: {$names}";
 }
 
 $avgProfitMargin = $items_with_price_count > 0 ? ($total_margin_sum / $items_with_price_count) : 0;
