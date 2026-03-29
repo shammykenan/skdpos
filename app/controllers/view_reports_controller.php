@@ -1,6 +1,6 @@
 <?php
 /**
- * reports_controller.php – v4 (improved)
+ * reports_controller.php – v5 (variant-aware)
  *
  * RBAC:
  *   admin   → daily, monthly, yearly, products, staff, audit, consumption
@@ -20,7 +20,7 @@ if (!in_array($role, ['admin', 'cashier'])) {
 }
 
 $is_admin    = ($role === 'admin');
-$session_uid = (int) ($_SESSION['user_id'] ?? 0);
+$session_uid = (int)($_SESSION['user_id'] ?? 0);
 
 // ── 2. Allowed tabs per role ──────────────────────────────────────────────────
 $allowed_tabs = $is_admin
@@ -31,29 +31,26 @@ $default_tab = $is_admin ? 'daily' : 'myshift';
 
 // ── 3. Resolve tab ────────────────────────────────────────────────────────────
 $tab = $_GET['tab'] ?? $default_tab;
-if (!in_array($tab, $allowed_tabs)) {
-    $tab = $default_tab;
-}
+if (!in_array($tab, $allowed_tabs)) $tab = $default_tab;
 
 // ── 4. Date params ────────────────────────────────────────────────────────────
 date_default_timezone_set('Asia/Manila');
 
 $today         = date('Y-m-d');
-$current_year  = (int) date('Y');
-$current_month = (int) date('m');
+$current_year  = (int)date('Y');
+$current_month = (int)date('m');
 
 $filter_date  = $_GET['date']  ?? $today;
-$filter_year  = (int) ($_GET['year']  ?? $current_year);
-$filter_month = (int) ($_GET['month'] ?? $current_month);
+$filter_year  = (int)($_GET['year']  ?? $current_year);
+$filter_month = (int)($_GET['month'] ?? $current_month);
 $range_start  = $_GET['start'] ?? date('Y-m-01');
 $range_end    = $_GET['end']   ?? $today;
 
 $filter_month = max(1, min(12, $filter_month));
 
 // ── 5. Period comparison helper ───────────────────────────────────────────────
-// Calculates previous period dates relative to current range
 function get_previous_period(string $start, string $end): array {
-    $days = (int) ((strtotime($end) - strtotime($start)) / 86400) + 1;
+    $days       = (int)((strtotime($end) - strtotime($start)) / 86400) + 1;
     $prev_end   = date('Y-m-d', strtotime($start) - 86400);
     $prev_start = date('Y-m-d', strtotime($prev_end) - ($days - 1) * 86400);
     return ['start' => $prev_start, 'end' => $prev_end];
@@ -69,12 +66,9 @@ switch ($tab) {
         $data['summary']    = rpt_daily_summary($pdo, $filter_date, $session_uid);
         $data['top_items']  = rpt_top_items($pdo, $filter_date, $filter_date, 5);
         $data['peak_hours'] = rpt_peak_hours($pdo, $filter_date, $filter_date);
-        // Compare today vs yesterday for cashier
         $prev = get_previous_period($filter_date, $filter_date);
         $data['comparison'] = rpt_period_comparison(
-            $pdo,
-            $filter_date, $filter_date,
-            $prev['start'], $prev['end']
+            $pdo, $filter_date, $filter_date, $prev['start'], $prev['end']
         );
         break;
 
@@ -95,12 +89,9 @@ switch ($tab) {
         $data['peak_hours']  = rpt_peak_hours($pdo, $filter_date, $filter_date);
         $data['order_types'] = rpt_order_type_breakdown($pdo, $filter_date, $filter_date);
         $data['cashiers']    = rpt_cashier_performance($pdo, $filter_date, $filter_date);
-        // Compare to yesterday
         $prev = get_previous_period($filter_date, $filter_date);
         $data['comparison']  = rpt_period_comparison(
-            $pdo,
-            $filter_date, $filter_date,
-            $prev['start'], $prev['end']
+            $pdo, $filter_date, $filter_date, $prev['start'], $prev['end']
         );
         break;
 
@@ -110,7 +101,6 @@ switch ($tab) {
         $m_start = date('Y-m-01', $m_ts);
         $m_end   = date('Y-m-t',  $m_ts);
 
-        // Previous month for comparison
         $prev_ts    = mktime(0, 0, 0, $filter_month - 1, 1, $filter_year);
         $prev_start = date('Y-m-01', $prev_ts);
         $prev_end   = date('Y-m-t',  $prev_ts);
@@ -129,7 +119,6 @@ switch ($tab) {
         $data['categories']      = rpt_sales_by_category($pdo, "$filter_year-01-01", "$filter_year-12-31");
         $data['top_items']       = rpt_top_items($pdo, "$filter_year-01-01", "$filter_year-12-31", 10);
         $data['available_years'] = rpt_available_years($pdo);
-        // Compare to previous year
         $data['comparison']      = rpt_period_comparison(
             $pdo,
             "$filter_year-01-01", "$filter_year-12-31",
@@ -157,7 +146,7 @@ switch ($tab) {
         $data['payments']  = rpt_payment_reconciliation($pdo, $range_start, $range_end);
         break;
 
-    // ── ADMIN: Ingredient Consumption (new) ───────────────────────────────────
+    // ── ADMIN: Ingredient Consumption ─────────────────────────────────────────
     case 'consumption':
         $data['consumption'] = rpt_ingredient_consumption($pdo, $range_start, $range_end);
         $data['low_stock']   = rpt_low_stock($pdo);
