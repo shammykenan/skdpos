@@ -110,19 +110,25 @@ function getRecentOrders($pdo, $limit = 10) {
 }
 
 function getTopSellingItems($pdo, $limit = 5) {
-    $sql = "SELECT mi.item_name,
-                   SUM(oi.quantity) as total_sold,
-                   SUM(oi.subtotal) as total_revenue
+    $sql = "SELECT 
+                mi.item_name,
+                mv.variant_name AS variant_name,
+                mv.price AS variant_price,
+                SUM(oi.quantity) AS total_sold,
+                SUM(oi.subtotal) AS total_revenue
             FROM order_items oi
             JOIN menu_items mi ON oi.item_id = mi.item_id
-            JOIN orders o      ON oi.order_id = o.order_id
+            LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
+            JOIN orders o ON oi.order_id = o.order_id
             WHERE o.status = 'completed'
-            GROUP BY mi.item_id, mi.item_name
+            GROUP BY mi.item_id, mv.variant_id
             ORDER BY total_sold DESC
             LIMIT :limit";
+    
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
+    
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

@@ -21,6 +21,8 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.5; }
+
+        /* TOPBAR */
         .topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-height); background: white; border-bottom: 1px solid var(--border); z-index: 1040; padding: 0 2rem; box-shadow: 0 4px 12px rgba(15,76,92,0.04); }
         .topbar .logo { font-size: 1.6rem; font-weight: 700; color: var(--primary-dark); text-decoration: none; display: flex; align-items: center; gap: 0.65rem; }
         .topbar .logo i { font-size: 1.9rem; color: var(--secondary); transition: transform 0.2s; }
@@ -31,6 +33,24 @@
         .notification-btn { position: relative; background: white; border: 1px solid var(--border); font-size: 1.25rem; color: var(--primary); cursor: pointer; padding: 0.6rem 1rem; border-radius: 12px; transition: all 0.2s; }
         .notification-btn:hover { background: var(--lavender); border-color: var(--primary-light); color: var(--primary-dark); }
         .notification-badge { position: absolute; top: -6px; right: -6px; background: var(--secondary); color: white; border-radius: 50px; width: 20px; height: 20px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid white; }
+
+        /* User button — always visible, shrinks gracefully */
+        .user-btn {
+            color: var(--navy) !important;
+            font-weight: 600;
+            display: flex !important;
+            align-items: center;
+            max-width: 180px;
+            overflow: hidden;
+        }
+        .user-btn .user-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.9rem;
+        }
+
+        /* SIDEBAR */
         .sidebar { position: fixed; top: var(--topbar-height); left: 0; width: var(--sidebar-width); height: calc(100vh - var(--topbar-height)); background: white; border-right: 1px solid var(--border); overflow-y: auto; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1030; box-shadow: 2px 0 12px rgba(0,0,0,0.02); }
         .sidebar::-webkit-scrollbar { width: 5px; }
         .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
@@ -41,6 +61,8 @@
         .nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
         .nav-link.active { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(15,76,92,0.2); }
         .nav-link i { width: 24px; margin-right: 0.85rem; font-size: 1.2rem; text-align: center; }
+
+        /* MAIN */
         .main-content { margin-left: var(--sidebar-width); margin-top: var(--topbar-height); padding: 2.2rem; min-height: calc(100vh - var(--topbar-height)); transition: margin-left 0.2s; }
         .page-header { margin-bottom: 2.2rem; }
         .page-header h1 { font-size: 2.1rem; font-weight: 700; color: var(--navy); margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.7rem; }
@@ -49,6 +71,8 @@
         .breadcrumb-item a { color: var(--warm-gray); text-decoration: none; font-weight: 500; }
         .breadcrumb-item a:hover { color: var(--primary); }
         .breadcrumb-item.active { color: var(--primary-dark); font-weight: 600; }
+
+        /* STAT CARDS */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 1.8rem; margin-bottom: 2.5rem; }
         .stat-card { background: white; border-radius: 24px; padding: 1.6rem 1.5rem; border: 1px solid rgba(203,213,224,0.5); transition: all 0.25s; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(15,76,92,0.04); }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary), var(--secondary)); opacity: 0.9; }
@@ -60,16 +84,22 @@
         .stat-card .label { font-size: 0.8rem; color: var(--warm-gray); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
         .stat-card .value { font-size: 2.3rem; font-weight: 700; color: var(--navy); line-height: 1.1; margin-bottom: 0.5rem; }
         .stat-card .footer { font-size: 0.85rem; color: var(--warm-gray); border-top: 1px solid rgba(203,213,224,0.5); padding-top: 0.7rem; margin-top: 0.3rem; }
+
+        /* CARDS */
         .card { background: white; border-radius: 24px; border: 1px solid rgba(203,213,224,0.5); box-shadow: 0 8px 20px rgba(15,76,92,0.02); margin-bottom: 1.8rem; transition: box-shadow 0.2s; }
         .card:hover { box-shadow: 0 14px 26px rgba(15,76,92,0.06); }
         .card-header { background: white; border-bottom: 1px solid rgba(203,213,224,0.5); padding: 1.35rem 1.8rem; border-radius: 24px 24px 0 0; }
         .card-body { padding: 1.6rem 1.8rem; }
         .card-title { font-size: 1.18rem; font-weight: 650; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
+
+        /* TABLE */
         .table-container { overflow-x: auto; margin: 0; }
         .table { margin: 0; border-collapse: separate; border-spacing: 0; }
         .table thead th { background: #f2f6fc; border-bottom: 2px solid var(--primary-light); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--primary-dark); padding: 1.1rem 1.2rem; white-space: nowrap; }
         .table tbody td { padding: 1.2rem 1.2rem; vertical-align: middle; border-bottom: 1px solid #edf2f7; color: var(--dark); background: white; }
         .table tbody tr:hover td { background-color: #fafcff; }
+
+        /* BADGES / STATUS */
         .badge { padding: 0.45rem 1rem; border-radius: 30px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.3px; }
         .order-status { padding: 0.45rem 1rem; border-radius: 30px; font-size: 0.75rem; font-weight: 600; display: inline-block; min-width: 100px; text-align: center; }
         .status-pending   { background: #fff3cd; color: #856404; border-left: 3px solid #ffc107; }
@@ -77,18 +107,29 @@
         .status-ready     { background: #d4f4e2; color: #1a5c3a; border-left: 3px solid #2c7a5a; }
         .status-completed { background: #d4edda; color: #155724; border-left: 3px solid #28a745; }
         .status-cancelled { background: #f8d7da; color: #721c24; border-left: 3px solid #dc3545; }
+
+        /* STOCK */
         .low-stock-item { border-left: 6px solid var(--accent); background: #fffef7; border-radius: 16px; margin-bottom: 8px; border: 1px solid rgba(254,228,64,0.3); }
         .critical-stock { border-left: 6px solid var(--danger); background: #fff5f3; border: 1px solid rgba(214,64,69,0.2); }
         .progress { height: 8px; border-radius: 12px; background: #e2e8f0; }
         .progress-bar { border-radius: 12px; }
+
+        /* BUTTONS */
         .btn { padding: 0.6rem 1.5rem; border-radius: 40px; font-weight: 600; font-size: 0.85rem; transition: all 0.18s; letter-spacing: 0.3px; }
         .btn-primary { background: var(--primary); border: none; color: white; }
         .btn-primary:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 10px 18px rgba(15,76,92,0.25); }
+
+        /* DROPDOWN */
         .dropdown-menu { border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,0.04); padding: 0.6rem; }
         .dropdown-item { border-radius: 14px; padding: 0.6rem 1.2rem; font-size: 0.9rem; }
         .dropdown-item:hover { background: var(--lavender); color: var(--primary-dark); }
+
+        /* FOOTER */
         .main-footer { background: white; border-top: 1px solid var(--border); padding: 1.5rem 2.2rem; margin-left: var(--sidebar-width); color: var(--warm-gray); }
+
         canvas { max-height: 280px; width: 100% !important; }
+
+        /* RESPONSIVE */
         @media (max-width: 1199.98px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
@@ -98,8 +139,25 @@
             .sidebar-overlay { position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0; background: rgba(15,76,92,0.2); backdrop-filter: blur(3px); z-index: 1025; display: none; }
             .sidebar-overlay.show { display: block; }
         }
-        @media (max-width: 767.98px) { .main-content { padding: 1.2rem; } .stats-grid { grid-template-columns: 1fr; } .page-header h1 { font-size: 1.8rem; } .stat-card .value { font-size: 2rem; } }
-        @media (max-width: 480px) { .topbar .logo span { display: none; } .topbar { padding: 0 1rem; } .main-content { padding: 1rem; } }
+        @media (max-width: 767.98px) {
+            .main-content { padding: 1.2rem; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .page-header h1 { font-size: 1.8rem; }
+            .stat-card .value { font-size: 2rem; }
+            .topbar { padding: 0 1rem; }
+            .user-btn { max-width: 130px; }
+            .user-btn .user-name { font-size: 0.82rem; }
+            .notification-btn { padding: 0.5rem 0.7rem; font-size: 1.1rem; }
+        }
+        @media (max-width: 480px) {
+            .topbar { padding: 0 0.6rem; }
+            .topbar-right { gap: 0.35rem !important; }
+            .user-btn { max-width: 95px; }
+            .user-btn .user-name { font-size: 0.76rem; }
+            .notification-btn { padding: 0.45rem 0.6rem; }
+            /* hide logo text, show icon only */
+            .topbar .logo span { display: none; }
+        }
         .fade-in { animation: modernFade 0.4s ease forwards; }
         @keyframes modernFade { from { opacity: 0.6; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -108,16 +166,15 @@
 
 <!-- TOPBAR -->
 <div class="topbar d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-2">
         <button class="mobile-menu-btn d-lg-none" id="menuToggle"><i class="fas fa-bars"></i></button>
-        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-none d-sm-flex">
-            <i class="fas fa-utensils"></i><span>Dine with Din - Cafeteria</span>
-        </a>
-        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-sm-none">
+        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo">
             <i class="fas fa-utensils"></i>
+            <span>Dine with Din - Cafeteria</span>
         </a>
     </div>
-    <div class="d-flex align-items-center gap-3">
+
+    <div class="d-flex align-items-center topbar-right" style="gap:0.6rem;">
 
         <!-- Notifications -->
         <div class="dropdown">
@@ -178,12 +235,12 @@
             </ul>
         </div>
 
-        <!-- User -->
+        <!-- User — full name always visible -->
         <div class="dropdown">
-            <button class="btn btn-link text-decoration-none dropdown-toggle d-flex align-items-center"
-                    type="button" data-bs-toggle="dropdown" style="color:var(--navy);font-weight:600;">
-                <i class="far fa-user-circle fa-xl me-2" style="font-size:1.6rem;color:var(--secondary);"></i>
-                <span class="d-none d-md-inline"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin') ?></span>
+            <button class="btn btn-link text-decoration-none dropdown-toggle user-btn"
+                    type="button" data-bs-toggle="dropdown">
+                <i class="far fa-user-circle flex-shrink-0 me-1 me-sm-2" style="font-size:1.5rem;color:var(--secondary);"></i>
+                <span class="user-name"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin') ?></span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><hr class="dropdown-divider"></li>
@@ -283,11 +340,9 @@
     <div class="row g-4">
         <div class="col-lg-7">
             <div class="card fade-in">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0"><i class="fas fa-history me-2" style="color:var(--primary);"></i>Recent Orders</h5>
-                        <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="btn btn-sm btn-primary">View All</a>
-                    </div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="fas fa-history me-2" style="color:var(--primary);"></i>Recent Orders</h5>
+                    <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="btn btn-sm btn-primary">View All</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-container">
@@ -314,6 +369,7 @@
         </div>
 
         <div class="col-lg-5">
+            <!-- TOP SELLING ITEMS -->
             <div class="card fade-in">
                 <div class="card-header">
                     <h5 class="card-title mb-0"><i class="fas fa-star me-2" style="color:var(--accent);"></i>Top Selling Items</h5>
@@ -324,7 +380,12 @@
                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-1"><?= $index + 1 ?>. <?= htmlspecialchars($item['item_name']) ?></h6>
-                                    <small class="text-muted">₱<?= number_format($item['price'], 2) ?> each</small>
+                                    <?php if (!empty($item['variant_name'])): ?>
+                                        <small style="color:var(--success);font-weight:600;"><?= htmlspecialchars($item['variant_name']) ?> Variant</small>
+                                        <small class="text-muted"> &mdash; ₱<?= number_format($item['variant_price'], 2) ?> each</small>
+                                    <?php else: ?>
+                                        <small class="text-muted">₱<?= number_format($item['variant_price'], 2) ?> each</small>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="text-end">
                                     <span class="badge" style="background:var(--primary);color:white;"><?= $item['total_sold'] ?> sold</span><br>
@@ -336,8 +397,9 @@
                 </div>
             </div>
 
+            <!-- LOW STOCK -->
             <div class="card mt-4 fade-in">
-                <div class="card-header" style="background:linear-gradient(145deg,white,#fafcff);border-bottom:1px solid var(--border);">
+                <div class="card-header" style="background:linear-gradient(145deg,white,#fafcff);">
                     <h5 class="card-title mb-0" style="color:var(--navy);">
                         <i class="fas fa-exclamation-triangle me-2" style="color:var(--secondary);"></i>
                         Low Stock Alert
@@ -357,7 +419,7 @@
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <div>
                                             <h6 class="mb-1"><?= htmlspecialchars($ingredient['ingredient_name']) ?></h6>
-                                            <small class="text-muted">Current: <?= $ingredient['stock_quantity'] ?> <?= $ingredient['unit'] ?></small>
+                                            <small class="text-muted">Current: <?= $ingredient['stock_quantity'] ?> <?= htmlspecialchars($ingredient['unit'] ?? '') ?></small>
                                         </div>
                                         <span class="badge <?= $isCritical ? 'bg-danger' : 'bg-warning' ?>">
                                             <i class="fas <?= $isCritical ? 'fa-exclamation-circle' : 'fa-exclamation-triangle' ?>"></i>
@@ -368,10 +430,10 @@
                                         <?php $percent = min(100, ($ingredient['stock_quantity'] / $ingredient['low_stock_alert']) * 100); ?>
                                         <div class="progress-bar <?= $isCritical ? 'bg-danger' : 'bg-warning' ?>" style="width:<?= $percent ?>%;"></div>
                                     </div>
-                                    <small class="text-muted">Alert level: <?= $ingredient['low_stock_alert'] ?> <?= $ingredient['unit'] ?></small>
+                                    <small class="text-muted">Alert level: <?= $ingredient['low_stock_alert'] ?> <?= htmlspecialchars($ingredient['unit'] ?? '') ?></small>
                                 </div>
                             <?php endforeach; ?>
-                            <div class="footer mt-2">
+                            <div class="mt-2">
                                 <a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="text-decoration-none" style="color:var(--primary);font-weight:600;">View all</a>
                             </div>
                         </div>
@@ -383,7 +445,7 @@
 </div>
 
 <footer class="main-footer">
-    <div class="d-flex justify-content-between align-items-center flex-wrap">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div><strong>Copyright &copy; <?= date('Y') ?> DinewithDin - Cafeteria.</strong> All rights reserved.</div>
         <div class="text-muted"><b>Version</b> 1.0.0</div>
     </div>
@@ -392,6 +454,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function () {
+
     // ── Sidebar ───────────────────────────────────────────────────────
     const menuToggle     = document.getElementById('menuToggle');
     const sidebar        = document.getElementById('sidebar');
@@ -399,28 +462,44 @@
     menuToggle?.addEventListener('click', () => { sidebar.classList.toggle('show'); sidebarOverlay.classList.toggle('show'); });
     sidebarOverlay?.addEventListener('click', () => { sidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
 
-    // ── PHP data passed to JS ─────────────────────────────────────────
-    const palette = ['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'];
+    // ── Config ────────────────────────────────────────────────────────
+    // Build the AJAX URL dynamically from the same base as this page
+    // so it works regardless of where the app is hosted.
+    const BASE = '<?= $baseUrl ?>';
+    const COUNTS_URL = BASE.replace('/public', '') + '/app/ajax/get_dashboard_counts.php';
+    const POLL_MS    = 3000;
 
+    const pollDot = document.getElementById('poll-status');
+
+    // ── Initial chart data from PHP ───────────────────────────────────
     const initSalesLabels = [<?php
         $l = []; $d = [];
-        foreach ($dailySales as $s) { $l[] = "'" . date('M d', strtotime($s['date'])) . "'"; $d[] = (float)$s['total_sales']; }
+        foreach ($dailySales as $s) {
+            $l[] = "'" . date('M d', strtotime($s['date'])) . "'";
+            $d[] = (float)$s['total_sales'];
+        }
         echo implode(',', $l);
     ?>];
     const initSalesData = [<?= implode(',', $d ?? []) ?>];
 
     const initCatLabels = [<?php
         $cl = []; $cd = [];
-        foreach ($salesByCategory as $i => $c) { $cl[] = "'" . htmlspecialchars($c['category_name']) . "'"; $cd[] = (float)$c['total_sales']; }
+        foreach ($salesByCategory as $c) {
+            $cl[] = "'" . addslashes(htmlspecialchars_decode($c['category_name'])) . "'";
+            $cd[] = (float)$c['total_sales'];
+        }
         echo implode(',', $cl);
     ?>];
     const initCatData   = [<?= implode(',', $cd ?? []) ?>];
+    const PALETTE = ['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'];
     const initCatColors = [<?php
         $p = ['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'];
-        for ($i = 0; $i < count($salesByCategory); $i++) { echo "'" . $p[$i % count($p)] . "',"; }
+        $out = [];
+        for ($i = 0; $i < count($salesByCategory); $i++) { $out[] = "'" . $p[$i % count($p)] . "'"; }
+        echo implode(',', $out);
     ?>];
 
-    // ── Init Charts ───────────────────────────────────────────────────
+    // ── Charts ────────────────────────────────────────────────────────
     const salesChart = new Chart(document.getElementById('salesChart').getContext('2d'), {
         type: 'line',
         data: {
@@ -457,35 +536,57 @@
             responsive: true, maintainAspectRatio: false, cutout: '65%',
             plugins: {
                 legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, usePointStyle: true } },
-                tooltip: { backgroundColor: '#1e2f4e', padding: 12, borderRadius: 12, callbacks: { label: ctx => `${ctx.label}: ₱${ctx.raw.toLocaleString()}` } },
+                tooltip: {
+                    backgroundColor: '#1e2f4e', padding: 12, borderRadius: 12,
+                    callbacks: { label: ctx => `${ctx.label}: ₱${ctx.raw.toLocaleString()}` },
+                },
             },
         },
     });
 
-    // ════════════════════════════════════════════════════════════════
-    // REALTIME POLLING
-    // ════════════════════════════════════════════════════════════════
+    // ── Helpers ───────────────────────────────────────────────────────
+    function fmt(n) {
+        return parseFloat(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function esc(s) {
+        const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
+    }
+    function fmtDate(s) {
+        try { return new Date(s).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+        catch { return s; }
+    }
 
-    // ★ HARDCODED path — matches your other AJAX files
-    const COUNTS_URL    = '/coffee_shop/app/ajax/get_dashboard_counts.php';
-    const POLL_INTERVAL = 2000; // 2 seconds
-
-    const BASE = '<?= $baseUrl ?>';
-
-    function fmt(n) { return parseFloat(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-    function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
-    function fmtDate(s) { try { return new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return s; } }
-
+    // ── DOM updaters ──────────────────────────────────────────────────
     function updateStatCards(data) {
-        const set = (sel, val) => { const el = document.querySelector(sel); if (el) el.textContent = val; };
-        const setHtml = (sel, val) => { const el = document.querySelector(sel); if (el) el.innerHTML = val; };
-        set('.stat-card.primary .value',   '₱' + fmt(data.today_revenue));
-        set('.stat-card.primary .footer',  'Monthly: ₱' + fmt(data.monthly_revenue));
-        set('.stat-card.secondary .value', data.today_orders);
+        console.log('updateStatCards called with:', data);
+        
+        if (!document.readyState === 'complete') {
+            console.log('DOM not ready, skipping updateStatCards');
+            return;
+        }
+        
+        const set     = (sel, val) => { 
+            const el = document.querySelector(sel); 
+            console.log(`Setting ${sel} to ${val}, element found:`, !!el);
+            if (el) el.textContent = val; 
+            else console.error('Element not found:', sel);
+        };
+        const setHtml = (sel, val) => { 
+            const el = document.querySelector(sel); 
+            console.log(`Setting HTML ${sel} to ${val}, element found:`, !!el);
+            if (el) el.innerHTML  = val; 
+            else console.error('Element not found:', sel);
+        };
+        
+        console.log('Updating revenue:', data.today_revenue);
+        set('.stat-card.primary .value',    '₱' + fmt(data.today_revenue));
+        set('.stat-card.primary .footer',   'Monthly: ₱' + fmt(data.monthly_revenue));
+        set('.stat-card.secondary .value',  data.today_orders);
         set('.stat-card.secondary .footer', data.today_customers + ' customers today');
-        set('.stat-card.info .value', data.total_active);
-        setHtml('.stat-card.info .footer', `${data.ready_count} ready for payment &nbsp;·&nbsp;
-            <a href="${BASE}/index.php?page=manage_orders" class="text-decoration-none" style="color:var(--primary);font-weight:600;">View all</a>`);
+        set('.stat-card.info .value',       data.total_active);
+        setHtml('.stat-card.info .footer',
+            `${data.ready_count} ready for payment &nbsp;·&nbsp;
+             <a href="${BASE}/index.php?page=manage_orders" class="text-decoration-none" style="color:var(--primary);font-weight:600;">View all</a>`);
         set('.stat-card.success .value', data.low_stock);
     }
 
@@ -493,18 +594,24 @@
         const total = data.total_active + data.low_stock;
         let badge   = document.querySelector('.notification-badge');
         if (total > 0) {
-            if (!badge) { badge = document.createElement('span'); badge.className = 'notification-badge'; document.querySelector('#notificationDropdown').appendChild(badge); }
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                document.getElementById('notificationDropdown').appendChild(badge);
+            }
             badge.textContent = total;
-        } else { if (badge) badge.remove(); }
+        } else {
+            if (badge) badge.remove();
+        }
 
         const dd = document.querySelector('#notificationDropdown + .dropdown-menu');
         if (!dd) return;
         dd.innerHTML = '<li><h6 class="dropdown-header">Notifications</h6></li>';
 
         [
-            { count: data.pending_count,   icon: 'fa-hourglass-half',     color: 'var(--warning)',       s: 'order waiting',           p: 'orders waiting',           href: `${BASE}/index.php?page=manage_orders` },
-            { count: data.preparing_count, icon: 'fa-bowl-food',           color: 'var(--primary-light)', s: 'order being prepared',    p: 'orders being prepared',    href: `${BASE}/index.php?page=manage_orders` },
-            { count: data.ready_count,     icon: 'fa-circle-check',        color: 'var(--success)',        s: 'order ready for payment', p: 'orders ready for payment', href: `${BASE}/index.php?page=manage_orders` },
+            { count: data.pending_count,   icon: 'fa-hourglass-half',      color: 'var(--warning)',       s: 'order waiting',           p: 'orders waiting',           href: `${BASE}/index.php?page=manage_orders` },
+            { count: data.preparing_count, icon: 'fa-bowl-food',            color: 'var(--primary-light)', s: 'order being prepared',    p: 'orders being prepared',    href: `${BASE}/index.php?page=manage_orders` },
+            { count: data.ready_count,     icon: 'fa-circle-check',         color: 'var(--success)',       s: 'order ready for payment', p: 'orders ready for payment', href: `${BASE}/index.php?page=manage_orders` },
             { count: data.low_stock,       icon: 'fa-exclamation-triangle', color: 'var(--secondary)',     s: 'low stock item',          p: 'low stock items',          href: `${BASE}/index.php?page=manage_ingredients` },
         ].forEach(item => {
             if (item.count <= 0) return;
@@ -526,10 +633,11 @@
         if (!tbody || !orders) return;
         tbody.innerHTML = orders.map(o => `
             <tr>
-                <td><strong>${esc(o.order_number)}</strong><br><small class="text-muted">by ${esc(o.cashier_name)}</small></td>
+                <td><strong>${esc(o.order_number)}</strong><br>
+                    <small class="text-muted">by ${esc(o.cashier_name)}</small></td>
                 <td>${o.customer_name ? esc(o.customer_name) : '<span class="text-muted">Walk-in</span>'}</td>
                 <td>₱${fmt(o.total_amount)}</td>
-                <td><span class="order-status status-${esc(o.status)}">${esc(o.status.charAt(0).toUpperCase()+o.status.slice(1))}</span></td>
+                <td><span class="order-status status-${esc(o.status)}">${esc(o.status.charAt(0).toUpperCase() + o.status.slice(1))}</span></td>
                 <td>${fmtDate(o.created_at)}</td>
             </tr>`).join('');
     }
@@ -537,17 +645,25 @@
     function updateTopItems(items) {
         const list = document.querySelector('.top-items-list');
         if (!list || !items) return;
-        list.innerHTML = items.map((item, i) => `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
+        list.innerHTML = items.map((item, i) => {
+            // Always show price. Show variant label only when variant_name is non-empty.
+            const priceStr = '₱' + fmt(item.price) + ' each';
+            const subHtml  = item.variant_name
+                ? `<small style="color:var(--success);font-weight:600;">${esc(item.variant_name)} Variant</small>
+                   <small class="text-muted"> &mdash; ${priceStr}</small>`
+                : `<small class="text-muted">${priceStr}</small>`;
+
+            return `<div class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="mb-1">${i+1}. ${esc(item.item_name)}</h6>
-                    <small class="text-muted">₱${fmt(item.price)} each</small>
+                    <h6 class="mb-1">${i + 1}. ${esc(item.item_name)}</h6>
+                    ${subHtml}
                 </div>
                 <div class="text-end">
                     <span class="badge" style="background:var(--primary);color:white;">${item.total_sold} sold</span><br>
                     <small style="color:var(--success);font-weight:600;">₱${fmt(item.total_revenue)}</small>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
 
     function updateLowStockCard(items, count) {
@@ -583,29 +699,49 @@
                     <small class="text-muted">Alert level: ${ing.low_stock_alert} ${esc(ing.unit)}</small>
                 </div>`;
             }).join('') +
-            `<div class="footer mt-2">
+            `<div class="mt-2">
                 <a href="${BASE}/index.php?page=manage_ingredients" class="text-decoration-none" style="color:var(--primary);font-weight:600;">View all</a>
             </div></div>`;
     }
 
     function updateCharts(daily, byCategory) {
-        if (salesChart && daily) {
-            salesChart.data.labels = daily.map(s => { const d = new Date(s.date); return d.toLocaleString('en-US',{month:'short',day:'numeric'}); });
-            salesChart.data.datasets[0].data = daily.map(s => parseFloat(s.total_sales));
+        if (daily) {
+            salesChart.data.labels = daily.map(s => {
+                const d = new Date(s.date + 'T00:00:00');
+                return d.toLocaleString('en-US', { month: 'short', day: 'numeric' });
+            });
+            salesChart.data.datasets[0].data = daily.map(s => parseFloat(s.total_sales) || 0);
             salesChart.update('none');
         }
-        if (categoryChart && byCategory) {
+        if (byCategory) {
             categoryChart.data.labels = byCategory.map(c => c.category_name);
-            categoryChart.data.datasets[0].data = byCategory.map(c => parseFloat(c.total_sales));
+            categoryChart.data.datasets[0].data            = byCategory.map(c => parseFloat(c.total_sales) || 0);
+            categoryChart.data.datasets[0].backgroundColor = byCategory.map((_, i) => PALETTE[i % PALETTE.length]);
             categoryChart.update('none');
         }
     }
 
+    // ── Polling ───────────────────────────────────────────────────────
     async function pollDashboard() {
         try {
-            const res  = await fetch(COUNTS_URL, { headers: { 'Cache-Control': 'no-cache' } });
+            console.log('Fetching dashboard data from:', COUNTS_URL);
+            const res = await fetch(COUNTS_URL, { cache: 'no-store' });
+            console.log('Response status:', res.status);
+            
+            if (!res.ok) { 
+                console.error('Response not OK:', res.status, res.statusText);
+                return; 
+            }
+
             const data = await res.json();
-            if (!data.success) return;
+            console.log('Dashboard data received:', data);
+            
+            if (!data.success) { 
+                console.error('Dashboard error:', data.error); 
+                return; 
+            }
+
+            console.log('Updating dashboard with data:', data);
             updateStatCards(data);
             updateNotifications(data);
             updateRecentOrders(data.recent_orders);
@@ -613,12 +749,13 @@
             updateLowStockCard(data.low_stock_items, data.low_stock);
             updateCharts(data.daily_sales, data.sales_by_category);
         } catch (err) {
-            console.warn('Dashboard poll failed:', err);
+            console.error('Dashboard poll failed:', err);
         }
     }
 
+    // Fire immediately, then every POLL_MS, then on tab focus
     pollDashboard();
-    setInterval(pollDashboard, POLL_INTERVAL);
+    setInterval(pollDashboard, POLL_MS);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pollDashboard(); });
 
 })();

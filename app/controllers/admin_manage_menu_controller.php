@@ -590,7 +590,7 @@ foreach ($menu_items as $item) {
 
     $prepared_items[] = $prepared_item;
 }
-
+$stats = getDashboardStats($pdo);
 // ── Warn admin about base-only items with no price ────────────────────────────
 $items_needing_price = array_filter($prepared_items, fn($i) => !$i['has_variants'] && ($i['base_price'] ?? 0) <= 0);
 if (!empty($items_needing_price) && empty($error)) {
