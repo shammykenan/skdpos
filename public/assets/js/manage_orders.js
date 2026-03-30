@@ -24,7 +24,9 @@ const ADMIN_USERS_URL     = '/coffee_shop/app/ajax/get_admin_users.php';
 
 const ORDER_ITEMS_URL     = '/coffee_shop/app/ajax/get_order_items.php';
 
+const CANCEL_VOID_ITEM_URL = '/coffee_shop/app/ajax/cancel_items.php';
 
+const VOID_ORDER_URL = '/coffee_shop/app/ajax/void_order.php';
 
 let currentFilter      = 'all';
 
@@ -953,13 +955,15 @@ function getOrderActionsHTML(order) {
 
 
     if (status === 'ready' && (isAdmin || isCashier)) {
-
         html += `<button type="button" class="btn btn-success btn-sm collect-payment-btn"
-
                          data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}" data-order-total="${order.total_amount || 0}">
-
                      <i class="fas fa-cash-register"></i> Collect Payment</button>`;
-
+        if (isAdmin) {
+            html += `<button type="button" class="btn btn-sm void-order-btn"
+                             style="background:#f5f3ff;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:8px;font-size:0.78rem;font-weight:600;"
+                             data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
+                         <i class="fas fa-ban"></i> Void Order</button>`;
+        }
     } else if (status === 'pending' && (isAdmin || isCashier)) {
 
         html += `<button type="button" class="btn btn-danger btn-sm cancel-order-btn"
@@ -1089,8 +1093,133 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
     }
 
 }
-
-
+async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
+     const actionLabel = action === 'cancel_item' ? 'Cancel' : 'Void';
+    const confirmed   = window.confirm(
+        `${actionLabel} "${itemName}"?\n\n` +
+        (action === 'cancel_item'
+            ? 'This item has not been prepared yet. It will be removed from the order.'
+            : 'This item was already prepared. Ingredients will NOT be restored — cost is written off as waste.')
+    );
+    if (!confirmed) return;
+ 
+    if (btn) {
+        btn.disabled  = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Processing…</span>';
+    }
+ 
+    try {
+        const formData = new FormData();
+        formData.append('order_item_id', orderItemId);
+        formData.append('action', action);
+ 
+        const res  = await fetch(CANCEL_VOID_ITEM_URL, { method: 'POST', body: formData });
+        const data = await res.json();
+ 
+        if (!data.success) throw new Error(data.error || 'Operation failed');
+ 
+        // Refresh the kitchen modal to reflect new item status + updated totals
+        if (kitchenModalOrderId) {
+            await refreshKitchenModal(kitchenModalOrderId);
+        }
+ 
+        // Patch the table row — update order status badge, actions, and total
+        const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
+        if (row && data.order_status) {
+            row.setAttribute('data-status', data.order_status);
+            const statusCell  = row.querySelector('td[data-label="Status"]');
+            const actionsCell = row.querySelector('td[data-label="Actions"]');
+            const totalSpan   = row.querySelector('td[data-label="Total"] span');
+ 
+            if (statusCell)  statusCell.innerHTML = getOrderStatusBadge(data.order_status);
+            if (totalSpan) {
+                totalSpan.className = data.order_status === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
+                // Update displayed total if it changed
+                if (data.new_total !== undefined) {
+                    totalSpan.textContent = '₱' + formatPrice(data.new_total);
+                    row.setAttribute('data-order-total', data.new_total);
+                }
+            }
+            if (actionsCell) {
+                actionsCell.innerHTML = getOrderActionsHTML({
+                    order_id:     data.order_id,
+                    order_number: row.getAttribute('data-order-number'),
+                    total_amount: data.new_total ?? row.getAttribute('data-order-total'),
+                    status:       data.order_status,
+                });
+            }
+        }
+ 
+    } catch (err) {
+        console.error('❌ Cancel/void item error:', err);
+        alert('Error: ' + err.message);
+        if (btn) {
+            btn.disabled  = false;
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';
+        }
+    }
+}
+async function voidOrder(orderId, orderNumber, btn) {
+    const confirmed = window.confirm(
+        `Void entire Order #${orderNumber}?\n\n` +
+        `All items are ready but the customer will not pay.\n` +
+        `Ingredients are written off as waste — this cannot be undone.`
+    );
+    if (!confirmed) return;
+ 
+    if (btn) {
+        btn.disabled  = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voiding…';
+    }
+ 
+    try {
+        const formData = new FormData();
+        formData.append('order_id', orderId);
+ 
+        const res  = await fetch(VOID_ORDER_URL, { method: 'POST', body: formData });
+        const data = await res.json();
+ 
+        if (!data.success) throw new Error(data.error || 'Void failed');
+ 
+        // Patch the table row immediately
+        const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
+        if (row) {
+            row.setAttribute('data-status', data.order_status);
+            const statusCell  = row.querySelector('td[data-label="Status"]');
+            const actionsCell = row.querySelector('td[data-label="Actions"]');
+            const totalSpan   = row.querySelector('td[data-label="Total"] span');
+ 
+            if (statusCell)  statusCell.innerHTML = getOrderStatusBadge(data.order_status);
+            if (totalSpan) {
+                totalSpan.className   = 'price-total-paid';
+                totalSpan.textContent = '₱0.00';
+                row.setAttribute('data-order-total', '0');
+            }
+            if (actionsCell) {
+                actionsCell.innerHTML = getOrderActionsHTML({
+                    order_id:     data.order_id,
+                    order_number: row.getAttribute('data-order-number'),
+                    total_amount: 0,
+                    status:       data.order_status,
+                });
+            }
+        }
+ 
+        // Close kitchen modal if it was open for this order
+        if (kitchenModalOrderId && String(kitchenModalOrderId) === String(orderId)) {
+            kitchenItemsModal?.hide();
+            kitchenModalOrderId = null;
+        }
+ 
+    } catch (err) {
+        console.error('❌ Void order error:', err);
+        alert('Error: ' + err.message);
+        if (btn) {
+            btn.disabled  = false;
+            btn.innerHTML = '<i class="fas fa-ban"></i> Void Order';
+        }
+    }
+}
 
 // ============================================
 
@@ -1247,129 +1376,121 @@ function renderKitchenModal(order, items) {
  */
 
 function buildItemCardHTML(item, orderStatus) {
-
-    const userRole   = window.userRole || '';
-
-    const canUpdate  = userRole === 'kitchen' || userRole === 'admin';
-
-    const orderDone  = orderStatus === 'completed' || orderStatus === 'cancelled';
-
+    const userRole  = window.userRole || '';
+    const isAdmin   = userRole === 'admin';
+    const isCashier  = userRole === 'cashier'; 
+    const canUpdate = userRole === 'kitchen' || isAdmin;
+    const orderDone = orderStatus === 'completed' || orderStatus === 'cancelled';
     const itemStatus = item.item_status || 'pending';
-
-    const isReady    = itemStatus === 'ready' || itemStatus === 'completed' || itemStatus === 'cancelled';
-
-
-
+ 
+    // Items that are already terminal — no buttons at all
+    const isTerminal = ['completed', 'cancelled', 'voided'].includes(itemStatus);
+ 
     const displayConfig = {
-
         pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
-
         preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
-
         ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
-
         completed: { label: 'Completed', icon: 'fa-check-double',    cls: 'item-status-completed' },
-
         cancelled: { label: 'Cancelled', icon: 'fa-ban',             cls: 'item-status-cancelled' },
-
+        voided:    { label: 'Voided',    icon: 'fa-trash-can',       cls: 'item-status-voided'    },
     };
-
-
-
+ 
     const sc    = displayConfig[itemStatus] || displayConfig.pending;
-
     const badge = `<span class="item-status-badge ${sc.cls}"><i class="fas ${sc.icon}"></i> ${sc.label}</span>`;
-
-
-
-    let actionBtn = '';
-
-    if (canUpdate && !orderDone && !isReady) {
-
+ 
+    // ── Kitchen progress button (pending → preparing → ready) ─────────────────
+    let progressBtn = '';
+    if (canUpdate && !orderDone && !isTerminal && itemStatus !== 'ready') {
         const nextStatus = itemStatus === 'pending' ? 'preparing' : 'ready';
-
         const btnConfig  = itemStatus === 'pending'
-
             ? { label: 'Start Cooking', icon: 'fa-play',  cls: 'item-action-start' }
-
             : { label: 'Mark Ready',    icon: 'fa-check', cls: 'item-action-ready' };
-
-        actionBtn = `<button type="button"
-
-                             class="item-status-btn ${btnConfig.cls}"
-
-                             data-order-item-id="${item.order_item_id}"
-
-                             data-next-status="${nextStatus}">
-
-                         <i class="fas ${btnConfig.icon}"></i>
-
-                         <span>${btnConfig.label}</span>
-
-                     </button>`;
-
+        progressBtn = `<button type="button"
+                               class="item-status-btn ${btnConfig.cls}"
+                               data-order-item-id="${item.order_item_id}"
+                               data-next-status="${nextStatus}">
+                           <i class="fas ${btnConfig.icon}"></i>
+                           <span>${btnConfig.label}</span>
+                       </button>`;
     }
+ 
+    // ── Admin cancel/void buttons ─────────────────────────────────────────────
+    // Cancel: only when item is pending
+    // Void:   only when item is ready
+    // Cancel: admin OR cashier when item is pending
+    // Void:   admin only when item is ready
+    let adminActionBtn = '';
+    const canCancel = (isAdmin || isCashier) && !orderDone && !isTerminal && itemStatus === 'pending';
+    const canVoid   = isAdmin && !orderDone && !isTerminal && itemStatus === 'ready';
 
-
-
-    // Item display name: "Item Name · Variant" if variant exists, prioritize snapshot data
-
-    const baseName   = escapeHtml(item.item_name || '');
-
-    // Use snapshot variant name first (historical accuracy), fall back to current variant name
-
+    if (canCancel) {
+        adminActionBtn = `<button type="button"
+                                  class="item-status-btn item-action-cancel-item"
+                                  data-order-item-id="${item.order_item_id}"
+                                  data-action="cancel_item"
+                                  data-item-name="${escapeHtml(item.item_name || '')}"
+                                  title="Cancel this item">
+                              <i class="fas fa-times"></i>
+                              <span>Cancel Item</span>
+                          </button>`;
+    } else if (canVoid) {
+        adminActionBtn = `<button type="button"
+                                  class="item-status-btn item-action-void-item"
+                                  data-order-item-id="${item.order_item_id}"
+                                  data-action="void_item"
+                                  data-item-name="${escapeHtml(item.item_name || '')}"
+                                  title="Void this item — ingredients are written off as waste">
+                              <i class="fas fa-ban"></i>
+                              <span>Void Item</span>
+                          </button>`;
+    } else if (itemStatus === 'ready') {
+            adminActionBtn = `<button type="button"
+                                      class="item-status-btn item-action-void-item"
+                                      data-order-item-id="${item.order_item_id}"
+                                      data-action="void_item"
+                                      data-item-name="${escapeHtml(item.item_name || '')}"
+                                      title="Void this item — ingredients are written off as waste">
+                                  <i class="fas fa-ban"></i>
+                                  <span>Void Item</span>
+                              </button>`;
+        }
+    
+ 
+    // Display name
+    const baseName    = escapeHtml(item.item_name || '');
     const variantName = item.variant_name_snapshot || item.current_variant_name || item.variant_name || null;
-
     const variantBit  = variantName
-
         ? `<span class="item-variant-label"> · ${escapeHtml(variantName)}</span>`
-
         : '';
-
-
-
+ 
     const addonsHTML = (item.addons && item.addons.length > 0)
-
         ? `<div class="item-addons"><span class="item-addons-label">Add-ons:</span>
-
            ${item.addons.map(a => `<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>`).join('')}</div>`
-
         : '';
-
-
-
+ 
     const noteHTML = (item.item_notes && item.item_notes.trim())
-
         ? `<div class="item-card-note-inline"><span class="item-card-note-label">Note:</span><span class="item-card-note-text">${escapeHtml(item.item_notes)}</span></div>`
-
         : '';
-
-
-
-    return `<div class="item-card item-card-${itemStatus}"
-
-                 data-item-id="${item.order_item_id}">
-
+ 
+    // Voided items get a faded overlay style via item-card-voided class
+    const cardClass = `item-card item-card-${itemStatus}`;
+ 
+    return `<div class="${cardClass}" data-item-id="${item.order_item_id}">
                 <div class="item-card-header">
-
                     <div class="item-card-name">
-
                         <span class="item-name-text">${baseName}${variantBit}</span>
-
                         <span class="item-qty-badge">×${item.quantity || 1}</span>
-
                     </div>
-
-                    <div class="item-card-right">${badge}${actionBtn}</div>
-
+                    <div class="item-card-right">
+                        ${badge}
+                        ${progressBtn}
+                        ${adminActionBtn}
+                    </div>
                 </div>
-
                 ${addonsHTML}${noteHTML}
-
             </div>`;
-
 }
-
+ 
 
 
 // ============================================
@@ -2105,15 +2226,33 @@ function setupEventListeners() {
             showCancelOrderModal(btn.dataset.orderId, btn.dataset.orderNumber);
 
         }
-
-        if (e.target.closest('.item-status-btn')) {
-
-            const btn = e.target.closest('.item-status-btn');
-
+        if (e.target.closest('.void-order-btn')) {
+            const btn = e.target.closest('.void-order-btn');
             if (btn.disabled) return;
-
-            updateItemStatus(btn.getAttribute('data-order-item-id'), btn.getAttribute('data-next-status'), btn);
-
+            voidOrder(btn.dataset.orderId, btn.dataset.orderNumber, btn);
+        }
+        if (e.target.closest('.item-status-btn')) {
+            const btn = e.target.closest('.item-status-btn');
+            if (btn.disabled) return;
+ 
+            // Admin cancel/void actions
+            if (btn.classList.contains('item-action-cancel-item') ||
+                btn.classList.contains('item-action-void-item')) {
+                cancelVoidOrderItem(
+                    btn.getAttribute('data-order-item-id'),
+                    btn.getAttribute('data-action'),
+                    btn.getAttribute('data-item-name'),
+                    btn
+                );
+                return;
+            }
+ 
+            // Kitchen progress (pending → preparing → ready)
+            updateItemStatus(
+                btn.getAttribute('data-order-item-id'),
+                btn.getAttribute('data-next-status'),
+                btn
+            );
         }
 
     });

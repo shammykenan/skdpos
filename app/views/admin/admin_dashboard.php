@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -22,48 +22,145 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.5; }
 
-        /* TOPBAR */
-        .topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-height); background: white; border-bottom: 1px solid var(--border); z-index: 1040; padding: 0 2rem; box-shadow: 0 4px 12px rgba(15,76,92,0.04); }
-        .topbar .logo { font-size: 1.6rem; font-weight: 700; color: var(--primary-dark); text-decoration: none; display: flex; align-items: center; gap: 0.65rem; }
-        .topbar .logo i { font-size: 1.9rem; color: var(--secondary); transition: transform 0.2s; }
-        .topbar .logo:hover i { transform: scale(1.05); }
-        .topbar .logo span { background: linear-gradient(135deg, var(--primary), var(--navy)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .mobile-menu-btn { background: white; border: 1px solid var(--border); font-size: 1.4rem; color: var(--primary); cursor: pointer; padding: 0.5rem 1rem; border-radius: 12px; transition: all 0.2s; }
-        .mobile-menu-btn:hover { background: var(--secondary); border-color: var(--secondary); color: white; }
-        .notification-btn { position: relative; background: white; border: 1px solid var(--border); font-size: 1.25rem; color: var(--primary); cursor: pointer; padding: 0.6rem 1rem; border-radius: 12px; transition: all 0.2s; }
-        .notification-btn:hover { background: var(--lavender); border-color: var(--primary-light); color: var(--primary-dark); }
-        .notification-badge { position: absolute; top: -6px; right: -6px; background: var(--secondary); color: white; border-radius: 50px; width: 20px; height: 20px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid white; }
+        /* ── TOPBAR ─────────────────────────────────────────────────────── */
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: var(--topbar-height);
+            background: white; border-bottom: 1px solid var(--border);
+            z-index: 1040; padding: 0 2rem;
+            box-shadow: 0 4px 12px rgba(15,76,92,0.04);
+            display: flex; align-items: center; justify-content: space-between;
+        }
 
-        /* User button — always visible, shrinks gracefully */
+        /* Logo */
+        .topbar-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex-shrink: 1; }
+        .topbar .logo {
+            text-decoration: none;
+            display: flex; align-items: center; gap: 0.65rem;
+            min-width: 0;
+        }
+        /* Solid image placeholder — swap div for <img> in production */
+        .logo-img-fallback {
+            width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+            background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.25rem;
+            box-shadow: 0 4px 10px rgba(15,76,92,0.25);
+        }
+        /* Two-line logo text */
+        .logo-text-wrap {
+            display: flex; flex-direction: column; line-height: 1.1;
+            min-width: 0;
+        }
+        .logo-text-main {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-weight: 800; font-size: 1.2rem;
+            color: var(--primary-dark);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            letter-spacing: -0.3px;
+        }
+        .logo-text-sub {
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 500; font-size: 0.68rem;
+            color: var(--secondary);
+            text-transform: uppercase; letter-spacing: 1.4px;
+            white-space: nowrap;
+        }
+
+        .mobile-menu-btn {
+            background: white; border: 1px solid var(--border);
+            font-size: 1.2rem; color: var(--primary); cursor: pointer;
+            padding: 0.45rem 0.85rem; border-radius: 12px; transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .mobile-menu-btn:hover { background: var(--secondary); border-color: var(--secondary); color: white; }
+
+        /* ── Topbar RIGHT cluster ────────────────────────────────────────── */
+        .topbar-right {
+            display: flex; align-items: center;
+            gap: 0.5rem; flex-shrink: 0;
+        }
+
+        .notification-btn {
+            position: relative; background: white; border: 1px solid var(--border);
+            font-size: 1.15rem; color: var(--primary); cursor: pointer;
+            padding: 0.55rem 0.85rem; border-radius: 12px; transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .notification-btn:hover { background: var(--lavender); border-color: var(--primary-light); color: var(--primary-dark); }
+        .notification-badge {
+            position: absolute; top: -6px; right: -6px;
+            background: var(--secondary); color: white;
+            border-radius: 50px; width: 20px; height: 20px;
+            font-size: 0.68rem; display: flex; align-items: center;
+            justify-content: center; font-weight: 700; border: 2px solid white;
+        }
+
+        /* ── User button — always visible, responsive ─────────────────── */
         .user-btn {
             color: var(--navy) !important;
             font-weight: 600;
             display: flex !important;
             align-items: center;
-            max-width: 180px;
-            overflow: hidden;
+            gap: 0.35rem;
+            padding: 0.45rem 0.75rem !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--border) !important;
+            background: white;
+            text-decoration: none !important;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            max-width: 200px;
+        }
+        .user-btn:hover { background: var(--lavender); border-color: var(--primary-light) !important; }
+        .user-btn .user-avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 0.8rem; font-weight: 700;
+            flex-shrink: 0;
         }
         .user-btn .user-name {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 0.9rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-size: 0.875rem; font-weight: 600; color: var(--navy);
         }
+        /* Hide the Bootstrap dropdown caret on very small screens only */
+        .user-btn::after { display: none !important; }
+        /* Custom caret */
+        .user-btn .user-caret { color: var(--warm-gray); font-size: 0.7rem; flex-shrink: 0; }
 
-        /* SIDEBAR */
-        .sidebar { position: fixed; top: var(--topbar-height); left: 0; width: var(--sidebar-width); height: calc(100vh - var(--topbar-height)); background: white; border-right: 1px solid var(--border); overflow-y: auto; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1030; box-shadow: 2px 0 12px rgba(0,0,0,0.02); }
+        /* ── SIDEBAR ─────────────────────────────────────────────────────── */
+        .sidebar {
+            position: fixed; top: var(--topbar-height); left: 0;
+            width: var(--sidebar-width); height: calc(100vh - var(--topbar-height));
+            background: white; border-right: 1px solid var(--border);
+            overflow-y: auto; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+            z-index: 1030; box-shadow: 2px 0 12px rgba(0,0,0,0.02);
+        }
         .sidebar::-webkit-scrollbar { width: 5px; }
         .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
         .sidebar-nav { padding: 2rem 0.75rem; }
-        .nav-section-title { padding: 0.6rem 1.2rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--warm-gray); letter-spacing: 1.2px; opacity: 0.7; margin-top: 0.8rem; }
+        .nav-section-title {
+            padding: 0.6rem 1.2rem; font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; color: var(--warm-gray); letter-spacing: 1.2px;
+            opacity: 0.7; margin-top: 0.8rem;
+        }
         .nav-item { margin: 0.2rem 0.6rem; }
-        .nav-link { display: flex; align-items: center; padding: 0.8rem 1.2rem; color: var(--warm-gray); text-decoration: none; border-radius: 14px; transition: all 0.2s; font-weight: 500; font-size: 0.95rem; }
+        .nav-link {
+            display: flex; align-items: center; padding: 0.8rem 1.2rem;
+            color: var(--warm-gray); text-decoration: none;
+            border-radius: 14px; transition: all 0.2s; font-weight: 500; font-size: 0.95rem;
+        }
         .nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
         .nav-link.active { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(15,76,92,0.2); }
         .nav-link i { width: 24px; margin-right: 0.85rem; font-size: 1.2rem; text-align: center; }
 
-        /* MAIN */
-        .main-content { margin-left: var(--sidebar-width); margin-top: var(--topbar-height); padding: 2.2rem; min-height: calc(100vh - var(--topbar-height)); transition: margin-left 0.2s; }
+        /* ── MAIN ─────────────────────────────────────────────────────────── */
+        .main-content {
+            margin-left: var(--sidebar-width); margin-top: var(--topbar-height);
+            padding: 2.2rem; min-height: calc(100vh - var(--topbar-height));
+            transition: margin-left 0.2s;
+        }
         .page-header { margin-bottom: 2.2rem; }
         .page-header h1 { font-size: 2.1rem; font-weight: 700; color: var(--navy); margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.7rem; }
         .page-header h1 i { color: var(--secondary); font-size: 2.1rem; }
@@ -72,7 +169,7 @@
         .breadcrumb-item a:hover { color: var(--primary); }
         .breadcrumb-item.active { color: var(--primary-dark); font-weight: 600; }
 
-        /* STAT CARDS */
+        /* ── STAT CARDS ────────────────────────────────────────────────────── */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 1.8rem; margin-bottom: 2.5rem; }
         .stat-card { background: white; border-radius: 24px; padding: 1.6rem 1.5rem; border: 1px solid rgba(203,213,224,0.5); transition: all 0.25s; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(15,76,92,0.04); }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary), var(--secondary)); opacity: 0.9; }
@@ -80,26 +177,26 @@
         .stat-card.info::before { background: var(--info); }
         .stat-card.success::before { background: var(--success); }
         .stat-card:hover { transform: translateY(-6px); box-shadow: 0 16px 28px rgba(15,76,92,0.08); border-color: var(--primary-light); }
-        .stat-card .icon { width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1.2rem; background: linear-gradient(145deg,#f0f5fa,white); color: var(--primary); border: 1px solid rgba(15,76,92,0.1); }
+        .stat-card .icon { width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1.2rem; background: #f0f5fa; color: var(--primary); border: 1px solid rgba(15,76,92,0.1); }
         .stat-card .label { font-size: 0.8rem; color: var(--warm-gray); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
         .stat-card .value { font-size: 2.3rem; font-weight: 700; color: var(--navy); line-height: 1.1; margin-bottom: 0.5rem; }
         .stat-card .footer { font-size: 0.85rem; color: var(--warm-gray); border-top: 1px solid rgba(203,213,224,0.5); padding-top: 0.7rem; margin-top: 0.3rem; }
 
-        /* CARDS */
+        /* ── CARDS ────────────────────────────────────────────────────────── */
         .card { background: white; border-radius: 24px; border: 1px solid rgba(203,213,224,0.5); box-shadow: 0 8px 20px rgba(15,76,92,0.02); margin-bottom: 1.8rem; transition: box-shadow 0.2s; }
         .card:hover { box-shadow: 0 14px 26px rgba(15,76,92,0.06); }
         .card-header { background: white; border-bottom: 1px solid rgba(203,213,224,0.5); padding: 1.35rem 1.8rem; border-radius: 24px 24px 0 0; }
         .card-body { padding: 1.6rem 1.8rem; }
         .card-title { font-size: 1.18rem; font-weight: 650; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
 
-        /* TABLE */
+        /* ── TABLE ────────────────────────────────────────────────────────── */
         .table-container { overflow-x: auto; margin: 0; }
         .table { margin: 0; border-collapse: separate; border-spacing: 0; }
         .table thead th { background: #f2f6fc; border-bottom: 2px solid var(--primary-light); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--primary-dark); padding: 1.1rem 1.2rem; white-space: nowrap; }
         .table tbody td { padding: 1.2rem 1.2rem; vertical-align: middle; border-bottom: 1px solid #edf2f7; color: var(--dark); background: white; }
         .table tbody tr:hover td { background-color: #fafcff; }
 
-        /* BADGES / STATUS */
+        /* ── BADGES / STATUS ─────────────────────────────────────────────── */
         .badge { padding: 0.45rem 1rem; border-radius: 30px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.3px; }
         .order-status { padding: 0.45rem 1rem; border-radius: 30px; font-size: 0.75rem; font-weight: 600; display: inline-block; min-width: 100px; text-align: center; }
         .status-pending   { background: #fff3cd; color: #856404; border-left: 3px solid #ffc107; }
@@ -108,56 +205,89 @@
         .status-completed { background: #d4edda; color: #155724; border-left: 3px solid #28a745; }
         .status-cancelled { background: #f8d7da; color: #721c24; border-left: 3px solid #dc3545; }
 
-        /* STOCK */
+        /* ── STOCK ────────────────────────────────────────────────────────── */
         .low-stock-item { border-left: 6px solid var(--accent); background: #fffef7; border-radius: 16px; margin-bottom: 8px; border: 1px solid rgba(254,228,64,0.3); }
         .critical-stock { border-left: 6px solid var(--danger); background: #fff5f3; border: 1px solid rgba(214,64,69,0.2); }
         .progress { height: 8px; border-radius: 12px; background: #e2e8f0; }
         .progress-bar { border-radius: 12px; }
 
-        /* BUTTONS */
+        /* ── BUTTONS ─────────────────────────────────────────────────────── */
         .btn { padding: 0.6rem 1.5rem; border-radius: 40px; font-weight: 600; font-size: 0.85rem; transition: all 0.18s; letter-spacing: 0.3px; }
         .btn-primary { background: var(--primary); border: none; color: white; }
         .btn-primary:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 10px 18px rgba(15,76,92,0.25); }
 
-        /* DROPDOWN */
+        /* ── DROPDOWN ────────────────────────────────────────────────────── */
         .dropdown-menu { border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,0.04); padding: 0.6rem; }
         .dropdown-item { border-radius: 14px; padding: 0.6rem 1.2rem; font-size: 0.9rem; }
         .dropdown-item:hover { background: var(--lavender); color: var(--primary-dark); }
 
-        /* FOOTER */
+        /* ── FOOTER ──────────────────────────────────────────────────────── */
         .main-footer { background: white; border-top: 1px solid var(--border); padding: 1.5rem 2.2rem; margin-left: var(--sidebar-width); color: var(--warm-gray); }
 
         canvas { max-height: 280px; width: 100% !important; }
 
-        /* RESPONSIVE */
+        /* ── RESPONSIVE ──────────────────────────────────────────────────── */
         @media (max-width: 1199.98px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
             .main-content { margin-left: 0; padding: 1.8rem; }
             .main-footer { margin-left: 0; }
-            .sidebar-overlay { position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0; background: rgba(15,76,92,0.2); backdrop-filter: blur(3px); z-index: 1025; display: none; }
+            .sidebar-overlay {
+                position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0;
+                background: rgba(15,76,92,0.2); backdrop-filter: blur(3px);
+                z-index: 1025; display: none;
+            }
             .sidebar-overlay.show { display: block; }
+
+            /* Topbar: shrink padding on tablet */
+            .topbar { padding: 0 1rem; }
         }
+
         @media (max-width: 767.98px) {
             .main-content { padding: 1.2rem; }
             .stats-grid { grid-template-columns: 1fr; }
             .page-header h1 { font-size: 1.8rem; }
             .stat-card .value { font-size: 2rem; }
-            .topbar { padding: 0 1rem; }
-            .user-btn { max-width: 130px; }
-            .user-btn .user-name { font-size: 0.82rem; }
-            .notification-btn { padding: 0.5rem 0.7rem; font-size: 1.1rem; }
+            .topbar { padding: 0 0.85rem; }
+
+            /* Slightly smaller logo image on mobile */
+            .logo-img-fallback { width: 36px; height: 36px; font-size: 1.1rem; border-radius: 10px; }
+            .logo-text-main { font-size: 1.05rem; }
+            .logo-text-sub { font-size: 0.62rem; }
+
+            /* Notification / DB buttons: tighter */
+            .notification-btn { padding: 0.45rem 0.65rem; font-size: 1.05rem; }
+
+            /* User button: keep name always visible but tighter */
+            .user-btn { padding: 0.4rem 0.6rem !important; max-width: 160px; gap: 0.3rem; }
+            .user-btn .user-name { font-size: 0.8rem; }
+            .user-btn .user-avatar { width: 26px; height: 26px; font-size: 0.72rem; }
         }
+
         @media (max-width: 480px) {
             .topbar { padding: 0 0.6rem; }
-            .topbar-right { gap: 0.35rem !important; }
-            .user-btn { max-width: 95px; }
-            .user-btn .user-name { font-size: 0.76rem; }
-            .notification-btn { padding: 0.45rem 0.6rem; }
-            /* hide logo text, show icon only */
-            .topbar .logo span { display: none; }
+            .topbar-right { gap: 0.3rem; }
+
+            /* On very small screens: hide tagline, keep main brand name */
+            .logo-text-sub { display: none; }
+            .logo-text-main { font-size: 0.95rem; }
+
+            /* User name stays visible — just constrained */
+            .user-btn { max-width: 130px; padding: 0.38rem 0.55rem !important; }
+            .user-btn .user-name { font-size: 0.78rem; }
+
+            /* Hide the DB button icon on tiny screens to save space */
+            .db-btn { display: none !important; }
+
+            .notification-btn { padding: 0.4rem 0.6rem; font-size: 1rem; }
         }
+
+        /* ── Extra-small: don't hide the user name ───────────────────────── */
+        /* Override: never hide .user-name at any breakpoint */
+        .user-btn .user-name { display: block !important; }
+
         .fade-in { animation: modernFade 0.4s ease forwards; }
         @keyframes modernFade { from { opacity: 0.6; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -165,16 +295,30 @@
 <body>
 
 <!-- TOPBAR -->
-<div class="topbar d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center gap-2">
+<div class="topbar">
+    <div class="topbar-left">
+        <!-- Mobile hamburger -->
         <button class="mobile-menu-btn d-lg-none" id="menuToggle"><i class="fas fa-bars"></i></button>
+
+        <!-- Logo: image placeholder + two-line brand text -->
         <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo">
-            <i class="fas fa-utensils"></i>
-            <span>Dine with Din - Cafeteria</span>
+            <!--
+                LOGO IMAGE PLACEHOLDER
+                Replace the div below with:
+                <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din"
+                     style="width:44px;height:44px;border-radius:12px;object-fit:cover;">
+            -->
+            <div class="logo-img-fallback" title="Logo placeholder">
+                <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din"   style="width:44px;height:44px;border-radius:12px;object-fit:cover;">
+            </div>
+            <div class="logo-text-wrap">
+                <span class="logo-text-main">Dine with Din</span>
+                <span class="logo-text-sub">Restaurant Management System</span>
+            </div>
         </a>
     </div>
 
-    <div class="d-flex align-items-center topbar-right" style="gap:0.6rem;">
+    <div class="topbar-right">
 
         <!-- Notifications -->
         <div class="dropdown">
@@ -218,8 +362,8 @@
             </ul>
         </div>
 
-        <!-- Database -->
-        <div class="dropdown">
+        <!-- Database — hidden on very small screens via .db-btn -->
+        <div class="dropdown db-btn">
             <button class="notification-btn" type="button" data-bs-toggle="dropdown" title="Database Backup &amp; Restore">
                 <i class="fas fa-database"></i>
             </button>
@@ -235,15 +379,30 @@
             </ul>
         </div>
 
-        <!-- User — full name always visible -->
+        <!-- User — avatar + full name, always visible -->
         <div class="dropdown">
-            <button class="btn btn-link text-decoration-none dropdown-toggle user-btn"
-                    type="button" data-bs-toggle="dropdown">
-                <i class="far fa-user-circle flex-shrink-0 me-1 me-sm-2" style="font-size:1.5rem;color:var(--secondary);"></i>
-                <span class="user-name"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin') ?></span>
+            <button class="btn user-btn dropdown-toggle"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <!-- Avatar circle with initials -->
+                <span class="user-avatar" aria-hidden="true">
+                    <?php
+                        $fullName = $_SESSION['full_name'] ?? 'Admin';
+                        $parts    = explode(' ', trim($fullName));
+                        $initials = strtoupper(substr($parts[0], 0, 1));
+                        if (count($parts) > 1) $initials .= strtoupper(substr(end($parts), 0, 1));
+                        echo htmlspecialchars($initials);
+                    ?>
+                </span>
+                <span class="user-name"><?= htmlspecialchars($fullName) ?></span>
+                <i class="fas fa-chevron-down user-caret ms-1"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <div class="px-3 py-2" style="border-bottom:1px solid var(--border);margin-bottom:0.4rem;">
+                        <div style="font-weight:700;color:var(--navy);font-size:0.9rem;"><?= htmlspecialchars($fullName) ?></div>
+                        <div style="font-size:0.78rem;color:var(--warm-gray);">Administrator</div>
+                    </div>
+                </li>
                 <li><a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout">
                     <i class="fas fa-sign-out-alt me-2"></i> Logout
                 </a></li>
@@ -463,13 +622,9 @@
     sidebarOverlay?.addEventListener('click', () => { sidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
 
     // ── Config ────────────────────────────────────────────────────────
-    // Build the AJAX URL dynamically from the same base as this page
-    // so it works regardless of where the app is hosted.
     const BASE = '<?= $baseUrl ?>';
     const COUNTS_URL = BASE.replace('/public', '') + '/app/ajax/get_dashboard_counts.php';
     const POLL_MS    = 3000;
-
-    const pollDot = document.getElementById('poll-status');
 
     // ── Initial chart data from PHP ───────────────────────────────────
     const initSalesLabels = [<?php
@@ -558,27 +713,8 @@
 
     // ── DOM updaters ──────────────────────────────────────────────────
     function updateStatCards(data) {
-        console.log('updateStatCards called with:', data);
-        
-        if (!document.readyState === 'complete') {
-            console.log('DOM not ready, skipping updateStatCards');
-            return;
-        }
-        
-        const set     = (sel, val) => { 
-            const el = document.querySelector(sel); 
-            console.log(`Setting ${sel} to ${val}, element found:`, !!el);
-            if (el) el.textContent = val; 
-            else console.error('Element not found:', sel);
-        };
-        const setHtml = (sel, val) => { 
-            const el = document.querySelector(sel); 
-            console.log(`Setting HTML ${sel} to ${val}, element found:`, !!el);
-            if (el) el.innerHTML  = val; 
-            else console.error('Element not found:', sel);
-        };
-        
-        console.log('Updating revenue:', data.today_revenue);
+        const set     = (sel, val) => { const el = document.querySelector(sel); if (el) el.textContent = val; };
+        const setHtml = (sel, val) => { const el = document.querySelector(sel); if (el) el.innerHTML  = val; };
         set('.stat-card.primary .value',    '₱' + fmt(data.today_revenue));
         set('.stat-card.primary .footer',   'Monthly: ₱' + fmt(data.monthly_revenue));
         set('.stat-card.secondary .value',  data.today_orders);
@@ -646,7 +782,6 @@
         const list = document.querySelector('.top-items-list');
         if (!list || !items) return;
         list.innerHTML = items.map((item, i) => {
-            // Always show price. Show variant label only when variant_name is non-empty.
             const priceStr = '₱' + fmt(item.price) + ' each';
             const subHtml  = item.variant_name
                 ? `<small style="color:var(--success);font-weight:600;">${esc(item.variant_name)} Variant</small>
@@ -724,24 +859,10 @@
     // ── Polling ───────────────────────────────────────────────────────
     async function pollDashboard() {
         try {
-            console.log('Fetching dashboard data from:', COUNTS_URL);
             const res = await fetch(COUNTS_URL, { cache: 'no-store' });
-            console.log('Response status:', res.status);
-            
-            if (!res.ok) { 
-                console.error('Response not OK:', res.status, res.statusText);
-                return; 
-            }
-
+            if (!res.ok) return;
             const data = await res.json();
-            console.log('Dashboard data received:', data);
-            
-            if (!data.success) { 
-                console.error('Dashboard error:', data.error); 
-                return; 
-            }
-
-            console.log('Updating dashboard with data:', data);
+            if (!data.success) { console.error('Dashboard error:', data.error); return; }
             updateStatCards(data);
             updateNotifications(data);
             updateRecentOrders(data.recent_orders);
@@ -753,7 +874,6 @@
         }
     }
 
-    // Fire immediately, then every POLL_MS, then on tab focus
     pollDashboard();
     setInterval(pollDashboard, POLL_MS);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pollDashboard(); });

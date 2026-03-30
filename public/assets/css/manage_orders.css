@@ -4485,3 +4485,89 @@ body {
     font-size: 0.9em;
 
 }
+/* ================================================================
+   manage_orders.css — ADDITIONS
+   Add these rules to the bottom of your existing manage_orders.css
+   ================================================================ */
+
+
+/* ── Voided item status badge ──────────────────────────────────── */
+.item-status-voided {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #c4b5fd;
+}
+
+/* ── Voided item card — faded to signal it's removed from the bill */
+.item-card-voided {
+    opacity: 0.55;
+    border-color: #e9d5ff !important;
+    background: #faf5ff !important;
+}
+
+.item-card-voided .item-name-text {
+    text-decoration: line-through;
+    color: #9ca3af;
+}
+
+
+/* ── Cancel Item button (pending items, admin only) ─────────────── */
+.item-action-cancel-item {
+    background: #fff1f2;
+    color: #dc2626;
+    border: 1.5px solid #fca5a5;
+    border-radius: 10px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.item-action-cancel-item:hover:not(:disabled) {
+    background: #fee2e2;
+    border-color: #dc2626;
+}
+.item-action-cancel-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* ── Void Item button (ready items, admin only) ─────────────────── */
+.item-action-void-item {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1.5px solid #c4b5fd;
+    border-radius: 10px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.item-action-void-item:hover:not(:disabled) {
+    background: #ede9fe;
+    border-color: #7c3aed;
+}
+.item-action-void-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* ── item-card-right: allow wrapping when multiple buttons exist ── */
+.item-card-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}

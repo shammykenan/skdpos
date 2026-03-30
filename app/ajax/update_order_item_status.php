@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/ingredientsHelper.php'; // needed for deduction functions
 
 header('Content-Type: application/json');
 
@@ -72,6 +73,42 @@ try {
     // ── 3. Update item status ─────────────────────────────────────────────────
     $pdo->prepare("UPDATE order_items SET status = ? WHERE order_item_id = ?")
         ->execute([$new_status, $order_item_id]);
+
+    // ── 3b. Deduct ingredients when kitchen starts preparing ──────────────────
+    // Stock is NOT deducted at order creation — only here, when the kitchen
+    // confirms they are actively preparing the item.
+    if ($new_status === 'preparing') {
+
+        // Fetch the item details needed for deduction
+        $stmt = $pdo->prepare("
+            SELECT item_id, variant_id, quantity
+            FROM order_items
+            WHERE order_item_id = ?
+        ");
+        $stmt->execute([$order_item_id]);
+        $orderItem = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($orderItem) {
+            // Deduct base/variant recipe ingredients
+            deductIngredientsForItem(
+                $pdo,
+                (int)$orderItem['item_id'],
+                (int)$orderItem['quantity'],
+                $orderItem['variant_id'] !== null ? (int)$orderItem['variant_id'] : null
+            );
+
+            // Deduct addon ingredients for this specific order item
+            $addonStmt = $pdo->prepare("
+                SELECT addon_id, quantity
+                FROM order_item_addons
+                WHERE order_item_id = ?
+            ");
+            $addonStmt->execute([$order_item_id]);
+            foreach ($addonStmt->fetchAll(PDO::FETCH_ASSOC) as $ad) {
+                deductIngredientsForAddon($pdo, (int)$ad['addon_id'], (int)$ad['quantity']);
+            }
+        }
+    }
 
     $order_id = $item['order_id'];
 

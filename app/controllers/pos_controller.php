@@ -393,12 +393,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
                 createOrderItemAddon($pdo, $order_item_id, $ad['addon_id'], $ad['quantity'], $ad['price']);
             }
 
-            // Strict variant-aware deduction — getEffectiveRecipe() never mixes modes
-            deductIngredientsForItem($pdo, $detail['item_id'], $detail['quantity'], $detail['variant_id']);
-
-            foreach ($detail['addons'] as $ad) {
-                deductIngredientsForAddon($pdo, $ad['addon_id'], $ad['quantity']);
-            }
         }
 
         clearDraftOrder($pdo, $_SESSION['user_id']);

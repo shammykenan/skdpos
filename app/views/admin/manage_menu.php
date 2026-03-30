@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #0f4c5c; --primary-dark: #0a3a47; --primary-light: #1f7a8c;
@@ -25,16 +25,96 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.5; }
 
-        /* TOPBAR */
-        .topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-height); background: white; border-bottom: 1px solid var(--border); z-index: 1040; padding: 0 2rem; box-shadow: 0 4px 12px rgba(15,76,92,0.04); }
-        .topbar .logo { font-size: 1.6rem; font-weight: 700; color: var(--primary-dark); text-decoration: none; display: flex; align-items: center; gap: 0.65rem; }
-        .topbar .logo i { font-size: 1.9rem; color: var(--secondary); transition: transform 0.2s; }
-        .topbar .logo:hover i { transform: scale(1.05); }
-        .topbar .logo span { background: linear-gradient(135deg,var(--primary),var(--navy)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .mobile-menu-btn { background: white; border: 1px solid var(--border); font-size: 1.4rem; color: var(--primary); cursor: pointer; padding: 0.5rem 1rem; border-radius: 12px; transition: all 0.2s; }
+        /* ── TOPBAR ─────────────────────────────────────────────────────── */
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: var(--topbar-height);
+            background: white; border-bottom: 1px solid var(--border);
+            z-index: 1040; padding: 0 2rem;
+            box-shadow: 0 4px 12px rgba(15,76,92,0.04);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        /* ── Logo ─────────────────────────────────────────────────────────── */
+        .topbar-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex-shrink: 1; }
+        .topbar .logo {
+            text-decoration: none;
+            display: flex; align-items: center; gap: 0.65rem;
+            min-width: 0;
+        }
+        .logo-img-fallback {
+            width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+            background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.25rem;
+            box-shadow: 0 4px 10px rgba(15,76,92,0.25);
+            overflow: hidden;
+        }
+        .logo-img-fallback img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .logo-text-wrap {
+            display: flex; flex-direction: column; line-height: 1.1; min-width: 0;
+        }
+        .logo-text-main {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-weight: 800; font-size: 1.2rem;
+            color: var(--primary-dark);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            letter-spacing: -0.3px;
+        }
+        .logo-text-sub {
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 500; font-size: 0.68rem;
+            color: var(--secondary);
+            text-transform: uppercase; letter-spacing: 1.4px;
+            white-space: nowrap;
+        }
+
+        .mobile-menu-btn {
+            background: white; border: 1px solid var(--border);
+            font-size: 1.2rem; color: var(--primary); cursor: pointer;
+            padding: 0.45rem 0.85rem; border-radius: 12px; transition: all 0.2s;
+            flex-shrink: 0;
+        }
         .mobile-menu-btn:hover { background: var(--secondary); border-color: var(--secondary); color: white; }
 
-        /* SIDEBAR */
+        /* ── Topbar RIGHT cluster ────────────────────────────────────────── */
+        .topbar-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+
+        /* ── User button ─────────────────────────────────────────────────── */
+        .user-btn {
+            color: var(--navy) !important;
+            font-weight: 600;
+            display: flex !important;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.45rem 0.75rem !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--border) !important;
+            background: white;
+            text-decoration: none !important;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            max-width: 200px;
+        }
+        .user-btn:hover { background: var(--lavender); border-color: var(--primary-light) !important; }
+        .user-btn .user-avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 0.8rem; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .user-btn .user-name {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-size: 0.875rem; font-weight: 600; color: var(--navy);
+            display: block !important;
+        }
+        .user-btn::after { display: none !important; }
+        .user-btn .user-caret { color: var(--warm-gray); font-size: 0.7rem; flex-shrink: 0; }
+
+        /* ── SIDEBAR ─────────────────────────────────────────────────────── */
         .sidebar { position: fixed; top: var(--topbar-height); left: 0; width: var(--sidebar-width); height: calc(100vh - var(--topbar-height)); background: white; border-right: 1px solid var(--border); overflow-y: auto; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1030; }
         .sidebar::-webkit-scrollbar { width: 5px; }
         .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
@@ -46,7 +126,7 @@
         .nav-link.active { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(15,76,92,0.2); }
         .nav-link i { width: 24px; margin-right: 0.85rem; font-size: 1.2rem; text-align: center; }
 
-        /* MAIN */
+        /* ── MAIN ─────────────────────────────────────────────────────────── */
         .main-content { margin-left: var(--sidebar-width); margin-top: var(--topbar-height); padding: 2.2rem; min-height: calc(100vh - var(--topbar-height)); }
         .page-header { margin-bottom: 2.2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
         .page-header h1 { font-size: 2.1rem; font-weight: 700; color: var(--navy); margin-bottom: 0; display: flex; align-items: center; gap: 0.7rem; }
@@ -61,7 +141,7 @@
         .btn-add-category { background: white; color: var(--primary); padding: 0.7rem 1.6rem; border-radius: 40px; font-weight: 600; font-size: 0.95rem; border: 2px solid var(--primary); transition: all 0.2s; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
         .btn-add-category:hover { background: var(--primary); color: white; transform: translateY(-2px); }
 
-        /* STATS */
+        /* ── STATS ────────────────────────────────────────────────────────── */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.8rem; margin-bottom: 2.5rem; }
         .stat-card { background: white; border-radius: 24px; padding: 1.6rem 1.5rem; border: 1px solid rgba(203,213,224,0.5); transition: all 0.25s; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(15,76,92,0.04); display: flex; align-items: center; gap: 1.2rem; }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg,var(--primary),var(--secondary)); }
@@ -69,25 +149,25 @@
         .stat-card.info::before { background: var(--info); }
         .stat-card.warning::before { background: var(--warning); }
         .stat-card:hover { transform: translateY(-6px); box-shadow: 0 16px 28px rgba(15,76,92,0.08); }
-        .stat-card .icon { width: 60px; height: 60px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: linear-gradient(145deg,#f0f5fa,white); color: var(--primary); border: 1px solid rgba(15,76,92,0.1); }
+        .stat-card .icon { width: 60px; height: 60px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: #f0f5fa; color: var(--primary); border: 1px solid rgba(15,76,92,0.1); flex-shrink: 0; }
         .stat-card .label { font-size: 0.8rem; color: var(--warm-gray); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
         .stat-card .value { font-size: 1.9rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
 
-        /* CARD */
+        /* ── CARD ─────────────────────────────────────────────────────────── */
         .card { background: white; border-radius: 24px; border: 1px solid rgba(203,213,224,0.5); box-shadow: 0 8px 20px rgba(15,76,92,0.02); margin-bottom: 1.8rem; }
         .card:hover { box-shadow: 0 14px 26px rgba(15,76,92,0.06); }
         .card-header { background: white; border-bottom: 1px solid rgba(203,213,224,0.5); padding: 1.35rem 1.8rem; border-radius: 24px 24px 0 0; }
         .card-body { padding: 1.6rem 1.8rem; }
         .card-title { font-size: 1.18rem; font-weight: 650; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
 
-        /* TABLE */
+        /* ── TABLE ────────────────────────────────────────────────────────── */
         .table-container { overflow-x: auto; }
         .table { margin: 0; border-collapse: separate; border-spacing: 0; }
         .table thead th { background: #f2f6fc; border-bottom: 2px solid var(--primary-light); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--primary-dark); padding: 1.1rem 1.2rem; white-space: nowrap; }
         .table tbody td { padding: 1.2rem 1.2rem; vertical-align: middle; border-bottom: 1px solid #edf2f7; color: var(--dark); background: white; }
         .table tbody tr:hover td { background-color: #fafcff; }
 
-        /* Variant display */
+        /* ── Variant display ─────────────────────────────────────────────── */
         .variant-prices-compact { max-height: 180px; overflow-y: auto; scrollbar-width: thin; margin-bottom: 0.5rem; }
         .variant-prices-compact::-webkit-scrollbar { width: 3px; }
         .variant-prices-compact::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
@@ -97,24 +177,23 @@
         .btn-manage-variants:hover { background: var(--primary) !important; color: white !important; transform: translateY(-1px); }
         .btn-manage-variants:hover i { color: white !important; }
 
-        /* No-price warning badge */
         .price-missing-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(214,64,69,0.1); color: var(--danger); border: 1px solid rgba(214,64,69,0.25); border-radius: 20px; padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 600; }
 
-        /* ITEM IMAGE */
+        /* ── ITEM IMAGE ───────────────────────────────────────────────────── */
         .item-img { width: 54px; height: 54px; object-fit: cover; border-radius: 14px; border: 1px solid var(--border); }
         .item-img-placeholder { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; background: #f2f6fc; border-radius: 14px; border: 1px solid var(--border); color: var(--primary-light); font-size: 1.2rem; }
 
-        /* TAGS */
+        /* ── TAGS ─────────────────────────────────────────────────────────── */
         .category-tag { display: inline-block; padding: 0.35rem 1rem; background: rgba(15,76,92,0.08); color: var(--primary-dark); border-radius: 30px; font-size: 0.75rem; font-weight: 600; }
 
-        /* BADGES */
+        /* ── BADGES ───────────────────────────────────────────────────────── */
         .badge { padding: 0.45rem 1rem; border-radius: 30px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.3px; }
         .bg-success { background: var(--success) !important; }
         .bg-danger  { background: var(--danger)  !important; }
         .bg-warning { background: var(--warning) !important; color: #1a202c; }
         .bg-info    { background: var(--info)    !important; }
 
-        /* ACTION BUTTONS */
+        /* ── ACTION BUTTONS ───────────────────────────────────────────────── */
         .action-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
         .btn-icon { width: 38px; height: 38px; padding: 0; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: #f2f6fc; border: none; color: var(--primary); transition: all 0.15s; cursor: pointer; }
         .btn-icon:hover { background: var(--secondary); color: white; transform: scale(0.95); }
@@ -123,7 +202,7 @@
         .btn-icon.btn-delete { background: rgba(214,64,69,0.08); color: var(--danger); border: 1px solid rgba(214,64,69,0.15); }
         .btn-icon.btn-delete:hover { background: var(--danger); color: white; }
 
-        /* MODAL */
+        /* ── MODAL ────────────────────────────────────────────────────────── */
         .modal { padding-right: 0 !important; }
         .modal-content { border-radius: 28px; border: none; box-shadow: 0 25px 40px rgba(0,0,0,0.12); }
         .modal-header { border-bottom: 1px solid var(--border); padding: 1.6rem 1.8rem; border-radius: 28px 28px 0 0; }
@@ -131,39 +210,37 @@
         .modal-footer { border-top: 1px solid var(--border); padding: 1.5rem 1.8rem; border-radius: 0 0 28px 28px; }
         .modal-title { font-size: 1.3rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
 
-        /* FORM */
+        /* ── FORM ─────────────────────────────────────────────────────────── */
         .form-label { font-weight: 600; color: var(--navy); margin-bottom: 0.5rem; font-size: 0.85rem; }
         .form-control, .form-select { border: 1px solid var(--border); border-radius: 14px; padding: 0.65rem 1rem; font-size: 0.9rem; transition: all 0.2s; }
         .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15,76,92,0.1); }
         .input-group-text { background: #f2f6fc; border: 1px solid var(--border); border-radius: 14px 0 0 14px; color: var(--primary-dark); font-weight: 500; }
         .form-control:disabled { background: #f0f4f8; color: #8a9bb0; cursor: not-allowed; }
 
-        /* PRICING MODE BANNER */
+        /* ── PRICING MODE BANNER ──────────────────────────────────────────── */
         .pricing-mode-banner { border-radius: 14px; padding: 0.85rem 1.1rem; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 0.6rem; transition: all 0.3s; }
         .pricing-mode-banner.mode-base { background: rgba(44,122,90,0.1); color: var(--success); border: 1px solid rgba(44,122,90,0.25); }
         .pricing-mode-banner.mode-variant { background: rgba(15,76,92,0.1); color: var(--primary-dark); border: 1px solid rgba(15,76,92,0.25); }
-
-        /* BASE PRICE SECTION locked state */
         .base-price-locked { opacity: 0.5; pointer-events: none; }
         .base-price-locked .form-control { background: #f0f4f8 !important; }
 
-        /* IMAGE PREVIEW */
+        /* ── IMAGE PREVIEW ────────────────────────────────────────────────── */
         .image-preview-container { border: 1px solid var(--border); border-radius: 16px; padding: 0.75rem; background: #fafcff; }
         .image-preview { max-width: 100%; max-height: 140px; border-radius: 14px; display: block; margin: 0 auto; }
         .image-preview-placeholder { border: 2px dashed var(--border); border-radius: 16px; padding: 0.75rem; background: #f8faff; }
 
-        /* ALERTS */
+        /* ── ALERTS ───────────────────────────────────────────────────────── */
         .alert { border-radius: 18px; border: none; padding: 1rem 1.5rem; margin-bottom: 1.8rem; }
         .alert-success { background: rgba(44,122,90,0.12); color: #1e4a3b; border-left: 6px solid var(--success); }
         .alert-danger  { background: rgba(214,64,69,0.08); color: #9e3a34; border-left: 6px solid var(--danger); }
         .alert-warning { background: rgba(244,185,66,0.12); color: #7a5a10; border-left: 6px solid var(--warning); }
 
-        /* CATEGORY MODAL */
-        .category-modal-icon { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg,rgba(15,76,92,0.1),rgba(31,122,140,0.08)); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: var(--primary); flex-shrink: 0; }
+        /* ── CATEGORY MODAL ───────────────────────────────────────────────── */
+        .category-modal-icon { width: 52px; height: 52px; border-radius: 16px; background: rgba(15,76,92,0.08); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: var(--primary); flex-shrink: 0; }
         .char-counter { font-size: 0.75rem; color: var(--warm-gray); text-align: right; margin-top: 0.3rem; }
         .char-counter.over { color: var(--danger); font-weight: 600; }
 
-        /* MANAGE VARIANTS MODAL */
+        /* ── MANAGE VARIANTS MODAL ────────────────────────────────────────── */
         .variant-row { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem; border-bottom: 1px solid #edf2f7; gap: 0.75rem; }
         .variant-row:last-child { border-bottom: none; }
         .variant-row:hover { background: #fafcff; }
@@ -177,12 +254,18 @@
         .btn-icon-sm.btn-delete { background: rgba(214,64,69,0.08); color: var(--danger); }
         .btn-icon-sm.btn-delete:hover { background: var(--danger); color: white; }
 
-        /* INLINE VARIANT FORM */
+        /* ── INLINE VARIANT FORM ──────────────────────────────────────────── */
         #variantInlineForm { border-top: 2px dashed var(--border); padding-top: 1.2rem; margin-top: 0.5rem; }
         .variant-form-title { font-size: 0.85rem; font-weight: 700; color: var(--navy); margin-bottom: 0.9rem; display: flex; align-items: center; gap: 0.4rem; }
 
-        /* RESPONSIVE */
+        /* ── DROPDOWN ─────────────────────────────────────────────────────── */
+        .dropdown-menu { border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,0.04); padding: 0.6rem; }
+        .dropdown-item { border-radius: 14px; padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+        .dropdown-item:hover { background: var(--lavender); color: var(--primary-dark); }
+
+        /* ── RESPONSIVE ───────────────────────────────────────────────────── */
         @media (max-width: 1199.98px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
@@ -190,13 +273,22 @@
             .sidebar-overlay { position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0; background: rgba(15,76,92,0.2); backdrop-filter: blur(3px); z-index: 1025; display: none; }
             .sidebar-overlay.show { display: block; }
             .stats-grid { grid-template-columns: repeat(2,1fr); }
+            .topbar { padding: 0 1rem; }
         }
+
         @media (max-width: 767.98px) {
             .main-content { padding: 1.2rem; }
             .stats-grid { grid-template-columns: 1fr; }
             .page-header h1 { font-size: 1.8rem; }
             .header-actions { width: 100%; }
             .btn-add, .btn-add-category { flex: 1; justify-content: center; }
+            .topbar { padding: 0 0.85rem; }
+            .logo-img-fallback { width: 36px; height: 36px; font-size: 1.1rem; border-radius: 10px; }
+            .logo-text-main { font-size: 1.05rem; }
+            .logo-text-sub { font-size: 0.62rem; }
+            .user-btn { padding: 0.4rem 0.6rem !important; max-width: 160px; gap: 0.3rem; }
+            .user-btn .user-name { font-size: 0.8rem; }
+            .user-btn .user-avatar { width: 26px; height: 26px; font-size: 0.72rem; }
             .table thead { display: none; }
             .table tbody tr { display: block; margin-bottom: 1.2rem; border: 1px solid var(--border); border-radius: 20px; background: white; }
             .table tbody td { display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1.2rem; border-bottom: 1px solid #edf2f7; }
@@ -205,38 +297,80 @@
             .action-btns { justify-content: flex-end; }
             .modal-dialog { margin: 0.5rem; }
         }
-        @media (max-width: 480px) { .topbar .logo span { display: none; } .topbar { padding: 0 1rem; } .main-content { padding: 1rem; } }
+
+        @media (max-width: 480px) {
+            .topbar { padding: 0 0.6rem; }
+            .topbar-right { gap: 0.3rem; }
+            .logo-text-sub { display: none; }
+            .logo-text-main { font-size: 0.95rem; }
+            .user-btn { max-width: 130px; padding: 0.38rem 0.55rem !important; }
+            .user-btn .user-name { font-size: 0.78rem; }
+            .main-content { padding: 1rem; }
+        }
+
         .fade-in { animation: modernFade 0.4s ease forwards; }
         @keyframes modernFade { from { opacity: 0.6; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
-<!-- TOPBAR -->
-<div class="topbar d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center gap-3">
+
+<!-- ── TOPBAR ─────────────────────────────────────────────────────────────── -->
+<div class="topbar">
+    <div class="topbar-left">
         <button class="mobile-menu-btn d-lg-none" id="menuToggle"><i class="fas fa-bars"></i></button>
-        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-none d-sm-flex">
-            <i class="fas fa-utensils"></i><span>Dine with Din - Cafeteria</span>
-        </a>
-        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo d-sm-none">
-            <i class="fas fa-utensils"></i>
+        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo">
+            <!--
+                LOGO IMAGE PLACEHOLDER
+                Replace the div below with:
+                <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din"
+                     style="width:44px;height:44px;border-radius:12px;object-fit:cover;">
+            -->
+            <div class="logo-img-fallback" title="Logo placeholder">
+                <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din"
+                     style="width:44px;height:44px;border-radius:12px;object-fit:cover;">
+            </div>
+            <div class="logo-text-wrap">
+                <span class="logo-text-main">Dine with Din</span>
+                <span class="logo-text-sub">Restaurant Management System</span>
+            </div>
         </a>
     </div>
-    <div class="dropdown">
-        <button class="btn btn-link text-decoration-none dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" style="color:var(--navy);font-weight:600;">
-            <i class="far fa-user-circle fa-xl me-2" style="font-size:1.6rem;color:var(--secondary);"></i>
-            <span class="d-none d-md-inline"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin') ?></span>
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
-        </ul>
+
+    <div class="topbar-right">
+        <!-- User — avatar + full name, always visible -->
+        <div class="dropdown">
+            <button class="btn user-btn dropdown-toggle"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="user-avatar" aria-hidden="true">
+                    <?php
+                        $fullName = $_SESSION['full_name'] ?? 'Admin';
+                        $parts    = explode(' ', trim($fullName));
+                        $initials = strtoupper(substr($parts[0], 0, 1));
+                        if (count($parts) > 1) $initials .= strtoupper(substr(end($parts), 0, 1));
+                        echo htmlspecialchars($initials);
+                    ?>
+                </span>
+                <span class="user-name"><?= htmlspecialchars($fullName) ?></span>
+                <i class="fas fa-chevron-down user-caret ms-1"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <div class="px-3 py-2" style="border-bottom:1px solid var(--border);margin-bottom:0.4rem;">
+                        <div style="font-weight:700;color:var(--navy);font-size:0.9rem;"><?= htmlspecialchars($fullName) ?></div>
+                        <div style="font-size:0.78rem;color:var(--warm-gray);">Administrator</div>
+                    </div>
+                </li>
+                <li><a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout">
+                    <i class="fas fa-sign-out-alt me-2"></i> Logout
+                </a></li>
+            </ul>
+        </div>
     </div>
 </div>
 
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<!-- SIDEBAR -->
+<!-- ── SIDEBAR ────────────────────────────────────────────────────────────── -->
 <div class="sidebar" id="sidebar">
     <div class="sidebar-nav">
         <div class="nav-section-title">DASHBOARD</div>
@@ -255,7 +389,7 @@
     </div>
 </div>
 
-<!-- MAIN CONTENT -->
+<!-- ── MAIN CONTENT ────────────────────────────────────────────────────────── -->
 <div class="main-content" id="mainContent">
 
     <div class="page-header">
@@ -370,7 +504,6 @@
                         <span class="category-tag"><?= htmlspecialchars($item['category_name']) ?></span>
                     </td>
 
-                    <!-- PRICE & VARIANTS COLUMN -->
                     <td data-label="Price / Variants">
                         <?php if ($hasVariants): ?>
                             <div class="variant-info">
@@ -434,7 +567,6 @@
                         <?php endif; ?>
                     </td>
 
-                    <!-- PROFIT MARGIN COLUMN -->
                     <td data-label="Profit Margin">
                         <?php if ($hasVariants && !empty($activeVariants)): ?>
                             <?php
@@ -497,7 +629,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <!-- Pricing mode notice -->
                     <div class="mx-3 mt-3 mb-0 p-3 rounded-3" id="mvPricingNotice"
                          style="background:rgba(15,76,92,0.07);border:1px solid rgba(15,76,92,0.15);font-size:0.82rem;color:var(--primary-dark);">
                         <i class="fas fa-info-circle me-2" style="color:var(--primary);"></i>
@@ -505,11 +636,7 @@
                         Once at least one variant exists, the item's base price is ignored.
                         All pricing comes from the variants below.
                     </div>
-
-                    <!-- Variant list -->
                     <div id="mvVariantList" style="min-height:60px;"></div>
-
-                    <!-- Add / Edit form (inline) -->
                     <div id="variantInlineForm" class="px-4 pb-4 d-none">
                         <div class="variant-form-title">
                             <i class="fas fa-plus-circle" style="color:var(--secondary);"></i>
@@ -519,7 +646,6 @@
                             <input type="hidden" name="item_id"        id="vf_item_id">
                             <input type="hidden" name="variant_id"     id="vf_variant_id">
                             <input type="hidden" name="variant_action" id="vf_action" value="">
-
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label">Variant Name <span class="text-danger">*</span></label>
@@ -551,7 +677,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="d-flex gap-2 mt-3 justify-content-end">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelVariantForm()">Cancel</button>
                                 <button type="submit" class="btn btn-primary btn-sm" id="vf_submit_btn">
@@ -720,10 +845,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════
-         ADD MENU ITEM MODAL
-         Pricing rule: base price ↔ variant price are mutually exclusive
-    ═══════════════════════════════════════════════ -->
+    <!-- ADD MENU ITEM MODAL -->
     <div class="modal fade" id="addMenuItemModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -734,7 +856,6 @@
                 <form method="POST" enctype="multipart/form-data" id="addItemForm">
                     <div class="modal-body">
                         <input type="hidden" name="add_menu_item" value="1">
-
                         <div class="mb-3">
                             <label class="form-label">Item Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="item_name" placeholder="e.g., Caramel Macchiato" required>
@@ -752,19 +873,13 @@
                                 <?php endforeach; ?>
                             </select>
                         </div>
-
-                        <!-- ─── PRICING MODE BANNER ─── -->
                         <div class="pricing-mode-banner mode-base mb-3" id="pricingModeBanner">
                             <i class="fas fa-tag"></i>
                             <span id="pricingModeText">Base price mode — enter a price below.</span>
                         </div>
-
-                        <!-- Base pricing (visible in base mode, locked/hidden in variant mode) -->
                         <div id="basePriceSection" class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label">
-                                    Base Price <span class="text-danger" id="basePriceRequired">*</span>
-                                </label>
+                                <label class="form-label">Base Price <span class="text-danger" id="basePriceRequired">*</span></label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
                                     <input type="number" class="form-control" id="basePriceInput" name="base_price"
@@ -782,8 +897,6 @@
                                 <small class="text-muted">0 or greater</small>
                             </div>
                         </div>
-
-                        <!-- Variants section -->
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label mb-0 fw-semibold">
@@ -796,8 +909,6 @@
                             </div>
                             <div id="variantsContainer"></div>
                         </div>
-
-                        <!-- Image upload -->
                         <div class="mb-3">
                             <label class="form-label">Item Image</label>
                             <input type="file" class="form-control" id="modal_image" name="image" accept="image/*">
@@ -819,9 +930,7 @@
     <!-- EDIT MENU ITEM MODAL -->
     <?php if (isset($item_to_edit) && !empty($item_to_edit)): ?>
     <?php
-        // Check if this item has variants (passed from controller via $item_to_edit's context)
-        // We need the variant count for this item
-        $edit_variants = array_values(array_filter($menu_items ?? [], fn($i) => $i['item_id'] == $item_to_edit['item_id']));
+        $edit_variants     = array_values(array_filter($menu_items ?? [], fn($i) => $i['item_id'] == $item_to_edit['item_id']));
         $edit_has_variants = !empty($edit_variants) && ($edit_variants[0]['has_variants'] ?? false);
     ?>
     <div class="modal fade" id="editMenuItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -835,19 +944,15 @@
                     <div class="modal-body">
                         <input type="hidden" name="item_id" value="<?= $item_to_edit['item_id'] ?>">
                         <input type="hidden" name="update_menu_item" value="1">
-
                         <div class="mb-3">
                             <label class="form-label">Item Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="item_name"
                                    value="<?= htmlspecialchars($item_to_edit['item_name']) ?>" required>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label">Description</label>
                             <textarea class="form-control" name="description" rows="2"><?= htmlspecialchars($item_to_edit['description'] ?? '') ?></textarea>
                         </div>
-
-                        <!-- Base pricing (show but note if variants exist) -->
                         <?php if ($edit_has_variants): ?>
                             <div class="alert alert-warning mb-3 py-2 px-3" style="font-size:0.85rem;">
                                 <i class="fas fa-layer-group me-2"></i>
@@ -856,12 +961,9 @@
                                 Manage variants from the main table.
                             </div>
                         <?php endif; ?>
-
                         <div class="row g-3 mb-3" id="editBasePriceSection" <?= $edit_has_variants ? 'style="opacity:0.5;pointer-events:none;"' : '' ?>>
                             <div class="col-md-6">
-                                <label class="form-label">
-                                    Base Price <?= !$edit_has_variants ? '<span class="text-danger">*</span>' : '' ?>
-                                </label>
+                                <label class="form-label">Base Price <?= !$edit_has_variants ? '<span class="text-danger">*</span>' : '' ?></label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
                                     <input type="number" class="form-control" name="base_price"
@@ -882,7 +984,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label">Category <span class="text-danger">*</span></label>
                             <select class="form-select" name="category_id" required>
@@ -895,7 +996,6 @@
                                 <?php endforeach; ?>
                             </select>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label">Item Image</label>
                             <?php if (!empty($item_to_edit['image_url'])): ?>
@@ -913,7 +1013,6 @@
                                 <img id="editImagePreview" class="image-preview" alt="Preview">
                             </div>
                         </div>
-
                         <div class="mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="edit_is_available"
@@ -923,7 +1022,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="modal-footer">
                         <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn btn-outline-secondary">Cancel</a>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Update Item</button>
@@ -988,12 +1086,7 @@ function confirmDeleteVariant(id, name) {
     setTimeout(() => new bootstrap.Modal(document.getElementById('deleteVariantModal')).show(), 250);
 }
 
-// ════════════════════════════════════════════════════════════════
-// ADD ITEM MODAL — Pricing Mode Logic
-// Rule:
-//   • No variants  → base price required, inputs enabled
-//   • ≥1 variant   → base price nulled and disabled, variant pricing active
-// ════════════════════════════════════════════════════════════════
+// ── Add Item Modal — Pricing Mode Logic ───────────────────────
 let variantCounter = 0;
 
 function setBasePriceMode(hasVariants) {
@@ -1006,28 +1099,22 @@ function setBasePriceMode(hasVariants) {
     const modeText  = document.getElementById('pricingModeText');
 
     if (hasVariants) {
-        // VARIANT MODE — disable and clear base price
         banner.className  = 'pricing-mode-banner mode-variant mb-3';
         banner.querySelector('i').className = 'fas fa-layer-group';
         modeText.textContent = 'Variant pricing active — base price is ignored and will be set to NULL.';
         section.classList.add('base-price-locked');
-        bpInput.disabled  = true;
-        bcInput.disabled  = true;
-        bpInput.value     = '';
-        bcInput.value     = '';
-        bpInput.removeAttribute('required');
-        bpInput.removeAttribute('min');
+        bpInput.disabled  = true; bcInput.disabled  = true;
+        bpInput.value     = ''; bcInput.value     = '';
+        bpInput.removeAttribute('required'); bpInput.removeAttribute('min');
         bpReq.style.display = 'none';
         bpHint.textContent  = 'Overridden by variants — will be stored as NULL';
         bpHint.style.color  = 'var(--primary)';
     } else {
-        // BASE PRICE MODE — re-enable
         banner.className  = 'pricing-mode-banner mode-base mb-3';
         banner.querySelector('i').className = 'fas fa-tag';
         modeText.textContent = 'Base price mode — enter a selling price below.';
         section.classList.remove('base-price-locked');
-        bpInput.disabled  = false;
-        bcInput.disabled  = false;
+        bpInput.disabled  = false; bcInput.disabled  = false;
         bpInput.setAttribute('required', 'required');
         bpInput.setAttribute('min', '0.01');
         bpReq.style.display = '';
@@ -1039,24 +1126,16 @@ function setBasePriceMode(hasVariants) {
 function getVariantCount() {
     return document.querySelectorAll('#variantsContainer .variant-row-add').length;
 }
-
-function refreshPricingMode() {
-    setBasePriceMode(getVariantCount() > 0);
-}
+function refreshPricingMode() { setBasePriceMode(getVariantCount() > 0); }
 
 function escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function addVariantRow(name = '', price = '', cost = '', isActive = true) {
+function addVariantRow(name='',price='',cost='',isActive=true) {
     const container = document.getElementById('variantsContainer');
     const rowId     = `vrow_${variantCounter++}`;
     const checked   = isActive ? 'checked' : '';
-
     container.insertAdjacentHTML('beforeend', `
         <div class="variant-row-add card mb-2" id="${rowId}" style="border-radius:14px;border:1px solid var(--border);">
             <div class="card-body py-2 px-3">
@@ -1092,7 +1171,6 @@ function addVariantRow(name = '', price = '', cost = '', isActive = true) {
             </div>
         </div>
     `);
-
     refreshPricingMode();
 }
 
@@ -1103,7 +1181,6 @@ function removeVariantRow(rowId) {
 
 document.getElementById('addVariantBtn')?.addEventListener('click', () => addVariantRow());
 
-// Reset modal completely on close
 document.getElementById('addMenuItemModal')?.addEventListener('hidden.bs.modal', function () {
     document.getElementById('variantsContainer').innerHTML = '';
     variantCounter = 0;
@@ -1111,15 +1188,11 @@ document.getElementById('addMenuItemModal')?.addEventListener('hidden.bs.modal',
     document.getElementById('modalImagePreviewContainer').classList.add('d-none');
     refreshPricingMode();
 });
-
-// Init pricing mode on open
 document.getElementById('addMenuItemModal')?.addEventListener('shown.bs.modal', function () {
     refreshPricingMode();
 });
 
-// ════════════════════════════════════════════════════════════════
-// MANAGE VARIANTS MODAL
-// ════════════════════════════════════════════════════════════════
+// ── Manage Variants Modal ─────────────────────────────────────
 let _mvCurrentItemId   = null;
 let _mvCurrentItemName = null;
 
@@ -1147,7 +1220,6 @@ function renderVariantList(variants) {
             </div>`;
         return;
     }
-
     let html = '';
     variants.forEach(v => {
         const profit = v.price - v.cost_price;
@@ -1155,7 +1227,6 @@ function renderVariantList(variants) {
         const statusBadge = v.is_active
             ? `<span class="badge" style="background:rgba(44,122,90,0.12);color:var(--success);">Active</span>`
             : `<span class="badge" style="background:rgba(214,64,69,0.1);color:var(--danger);">Inactive</span>`;
-
         html += `
         <div class="variant-row">
             <div style="flex:1;min-width:0;">

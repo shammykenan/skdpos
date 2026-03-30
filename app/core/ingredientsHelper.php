@@ -160,12 +160,14 @@ function checkIngredientsStockForAddon(PDO $pdo, int $addon_id, int $order_qty):
  */
 // FIX (BUG 7): Uses restoreIngredientsForItem() and restoreIngredientsForAddon()
 // with positive quantities. No more negative-qty trick.
-function restoreIngredientsForOrder(PDO $pdo, int $order_id): void
-{
+function restoreIngredientsForOrder(PDO $pdo, int $order_id): void {
+    // ✅ Only restore items that reached 'preparing' or 'ready'
+    // (those are the only ones that had stock deducted)
     $stmt = $pdo->prepare("
         SELECT item_id, variant_id, quantity
         FROM order_items
-        WHERE order_id = ? AND status != 'cancelled'
+        WHERE order_id = ?
+          AND status IN ('preparing', 'ready')
     ");
     $stmt->execute([$order_id]);
 
@@ -178,12 +180,13 @@ function restoreIngredientsForOrder(PDO $pdo, int $order_id): void
         );
     }
 
-    // Restore addon ingredients
+    // Only restore addon ingredients for those same items
     $stmt = $pdo->prepare("
         SELECT oia.addon_id, oia.quantity
         FROM order_item_addons oia
         JOIN order_items oi ON oia.order_item_id = oi.order_item_id
         WHERE oi.order_id = ?
+          AND oi.status IN ('preparing', 'ready')
     ");
     $stmt->execute([$order_id]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
