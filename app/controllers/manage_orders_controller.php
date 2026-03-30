@@ -6,6 +6,7 @@ require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/tableHelper.php';
+
 requireRole(['admin', 'cashier', 'kitchen']);
 
 $baseUrl = $_ENV['BASE_URL'] ?? '';
@@ -38,22 +39,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
         $amount_paid    = (float) $_POST['amount_paid'];
         $change_amount  = (float) ($_POST['change_amount'] ?? 0);
 
-        // Use model — no raw query in controller
         $order = getOrderById($pdo, $order_id);
-
         if (!$order) throw new Exception('Order not found.');
-
         if ($order['status'] !== 'ready') {
             throw new Exception('Order must be ready before it can be completed.');
         }
-
         if ($amount_paid < (float) $order['total_amount']) {
             throw new Exception('Payment amount is less than the order total.');
         }
 
-        // ── Insert payment ────────────────────────────────────────────────────
-        // cashier_id  = original order owner (keeps shift reports accurate)
-        // processed_by = who physically processed the payment (audit trail)
         $stmt = $pdo->prepare("
             INSERT INTO payments
                 (order_id, payment_method, amount_paid, change_amount, payment_status, cashier_id, processed_by)
@@ -64,17 +58,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
             $payment_method,
             $amount_paid,
             $change_amount,
-            $order['cashier_id'],   // original cashier — used in shift reports
-            $_SESSION['user_id'],   // who processed the payment — used for audit
+            $order['cashier_id'],
+            $_SESSION['user_id'],
         ]);
 
         updateOrderStatus($pdo, $order_id, 'completed', date('Y-m-d H:i:s'));
 
-        // Sync item statuses — mark all non-cancelled items as 'completed'
+        // Mark all non-terminal items as completed.
+        // IMPORTANT: exclude 'cancelled' AND 'voided' — both are already terminal
+        // and must not be overwritten with 'completed'.
         $pdo->prepare("
             UPDATE order_items
             SET status = 'completed'
-            WHERE order_id = ? AND status != 'cancelled'
+            WHERE order_id = ?
+              AND status NOT IN ('cancelled', 'voided')
         ")->execute([$order_id]);
 
         $pdo->commit();
@@ -89,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     exit;
 }
 
-// ── Cancel order (cashier/admin, pending orders only) ────────────────────────
+// ── Cancel order (pending orders only) ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
     if (!hasRole('admin') && !hasRole('cashier')) {
         $_SESSION['error'] = 'You do not have permission to cancel orders.';
@@ -97,32 +94,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
         exit;
     }
 
-    $order_id = (int) $_POST['order_id'];
+    $order_id     = (int) $_POST['order_id'];
+    $cancel_reason = trim($_POST['cancel_reason'] ?? '');
+
+    if ($cancel_reason === '') {
+        $_SESSION['error'] = 'A cancellation reason is required.';
+        header("Location: $baseUrl/index.php?page=manage_orders");
+        exit;
+    }
 
     try {
         $pdo->beginTransaction();
 
-        // Use model — no raw query in controller
         $order = getOrderById($pdo, $order_id);
-
         if (!$order) throw new Exception('Order not found.');
         if ($order['status'] !== 'pending') {
             throw new Exception('Only pending orders can be cancelled.');
         }
 
+        // Restore stock for any items that reached 'preparing' or 'ready'.
+        // For a pending order this is a no-op (stock is deducted only at 'preparing'),
+        // but we call it anyway for correctness in case the order state is mixed.
         restoreIngredientsForOrder($pdo, $order_id);
+
+        // Write cancel_reason to the order row before calling cancelOrder()
+        $pdo->prepare("
+            UPDATE orders SET cancel_reason = ? WHERE order_id = ?
+        ")->execute([$cancel_reason, $order_id]);
+
         cancelOrder($pdo, $order_id);
 
-        // Sync item statuses — mark all items as 'cancelled'
+        // Write cancel_reason to every item row + mark all as cancelled
         $pdo->prepare("
-            UPDATE order_items SET status = 'cancelled' WHERE order_id = ?
-        ")->execute([$order_id]);
+            UPDATE order_items
+            SET status = 'cancelled', cancel_reason = ?
+            WHERE order_id = ?
+        ")->execute([$cancel_reason, $order_id]);
 
-        // Free the table immediately — customer isn't coming back
         freeTableByOrderId($pdo, $order_id);
 
+        // Audit log
+        $pdo->prepare("
+            INSERT INTO activity_logs (user_id, action, details, ip_address)
+            VALUES (?, 'cancel_order', ?, ?)
+        ")->execute([
+            (int) $_SESSION['user_id'],
+            json_encode([
+                'order_id'      => $order_id,
+                'order_number'  => $order['order_number'] ?? '',
+                'reason'        => $cancel_reason,
+                'performed_by'  => (int) $_SESSION['user_id'],
+                'stock_note'    => 'Order was pending — no stock had been deducted. Nothing restored.',
+            ]),
+            $_SERVER['REMOTE_ADDR'] ?? null,
+        ]);
+
         $pdo->commit();
-        $_SESSION['success'] = 'Order cancelled and ingredients restored.';
+        $_SESSION['success'] = 'Order cancelled successfully.';
 
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -133,10 +161,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
     exit;
 }
 
-// ── Fetch orders for page render — use helper, no raw query ──────────────────
+// ── Fetch orders for page render ──────────────────────────────────────────────
 $currentUserId = (int) $_SESSION['user_id'];
 
-// getAllOrdersWithItems() handles draft exclusion + cashier filter via getAllOrders()
 if (hasRole('admin') || hasRole('kitchen')) {
     $orders = getAllOrdersWithItems($pdo);
 } else {

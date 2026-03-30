@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
-require_once __DIR__ . '/../core/ingredientsHelper.php'; // needed for deduction functions
+require_once __DIR__ . '/../core/ingredientsHelper.php';
 
 header('Content-Type: application/json');
 
@@ -45,7 +45,7 @@ try {
         exit;
     }
 
-    if (in_array($item['order_status'], ['completed', 'cancelled'])) {
+    if (in_array($item['order_status'], ['completed', 'cancelled', 'voided'])) {
         $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => 'Cannot update items on a ' . $item['order_status'] . ' order.']);
         exit;
@@ -57,7 +57,6 @@ try {
     $newRank     = $progression[$new_status] ?? -1;
 
     if ($newRank <= $currentRank) {
-        // Already at or past this status — return current real state, no error
         $pdo->rollBack();
         echo json_encode([
             'success'       => true,
@@ -75,37 +74,23 @@ try {
         ->execute([$new_status, $order_item_id]);
 
     // ── 3b. Deduct ingredients when kitchen starts preparing ──────────────────
-    // Stock is NOT deducted at order creation — only here, when the kitchen
-    // confirms they are actively preparing the item.
     if ($new_status === 'preparing') {
-
-        // Fetch the item details needed for deduction
-        $stmt = $pdo->prepare("
-            SELECT item_id, variant_id, quantity
-            FROM order_items
-            WHERE order_item_id = ?
-        ");
+        $stmt = $pdo->prepare("SELECT item_id, variant_id, quantity FROM order_items WHERE order_item_id = ?");
         $stmt->execute([$order_item_id]);
         $orderItem = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($orderItem) {
-            // Deduct base/variant recipe ingredients
             deductIngredientsForItem(
                 $pdo,
-                (int)$orderItem['item_id'],
-                (int)$orderItem['quantity'],
-                $orderItem['variant_id'] !== null ? (int)$orderItem['variant_id'] : null
+                (int) $orderItem['item_id'],
+                (int) $orderItem['quantity'],
+                $orderItem['variant_id'] !== null ? (int) $orderItem['variant_id'] : null
             );
 
-            // Deduct addon ingredients for this specific order item
-            $addonStmt = $pdo->prepare("
-                SELECT addon_id, quantity
-                FROM order_item_addons
-                WHERE order_item_id = ?
-            ");
+            $addonStmt = $pdo->prepare("SELECT addon_id, quantity FROM order_item_addons WHERE order_item_id = ?");
             $addonStmt->execute([$order_item_id]);
             foreach ($addonStmt->fetchAll(PDO::FETCH_ASSOC) as $ad) {
-                deductIngredientsForAddon($pdo, (int)$ad['addon_id'], (int)$ad['quantity']);
+                deductIngredientsForAddon($pdo, (int) $ad['addon_id'], (int) $ad['quantity']);
             }
         }
     }
@@ -113,27 +98,47 @@ try {
     $order_id = $item['order_id'];
 
     // ── 4. Recalculate order status ───────────────────────────────────────────
-    // Any item preparing/ready → order = preparing
-    $pdo->prepare("
-        UPDATE orders SET status = 'preparing'
+    // CRITICAL: Only count items that are NOT cancelled or voided.
+    // Cancelled/voided items are invisible to the status logic.
+    $statusCountStmt = $pdo->prepare("
+        SELECT status, COUNT(*) AS cnt
+        FROM order_items
         WHERE order_id = ?
-          AND status NOT IN ('completed','cancelled')
-          AND EXISTS (
-              SELECT 1 FROM order_items oi
-              WHERE oi.order_id = ? AND oi.status IN ('preparing','ready')
-          )
-    ")->execute([$order_id, $order_id]);
+          AND status NOT IN ('cancelled', 'voided')
+        GROUP BY status
+    ");
+    $statusCountStmt->execute([$order_id]);
+    $counts = [];
+    foreach ($statusCountStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $counts[$row['status']] = (int) $row['cnt'];
+    }
 
-    // All items ready → order = ready
-    $pdo->prepare("
-        UPDATE orders SET status = 'ready'
-        WHERE order_id = ?
-          AND status NOT IN ('completed','cancelled')
-          AND NOT EXISTS (
-              SELECT 1 FROM order_items oi
-              WHERE oi.order_id = ? AND oi.status != 'ready'
-          )
-    ")->execute([$order_id, $order_id]);
+    $activeTotal    = array_sum($counts);
+    $pendingCount   = $counts['pending']   ?? 0;
+    $preparingCount = $counts['preparing'] ?? 0;
+    $readyCount     = $counts['ready']     ?? 0;
+
+    $guard = "WHERE order_id = ? AND status NOT IN ('completed', 'cancelled', 'voided')";
+
+    if ($activeTotal === 0) {
+        // Defensive: all active items gone — shouldn't happen from this endpoint
+        $voidCheck = $pdo->prepare("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND status = 'voided'");
+        $voidCheck->execute([$order_id]);
+        $terminal = (int) $voidCheck->fetchColumn() > 0 ? 'voided' : 'cancelled';
+        $pdo->prepare("UPDATE orders SET status = ? $guard")->execute([$terminal, $order_id]);
+
+    } elseif ($readyCount === $activeTotal) {
+        // Every active item is ready
+        $pdo->prepare("UPDATE orders SET status = 'ready' $guard")->execute([$order_id]);
+
+    } elseif ($preparingCount > 0 || ($readyCount > 0 && $pendingCount > 0)) {
+        // Mix of states
+        $pdo->prepare("UPDATE orders SET status = 'preparing' $guard")->execute([$order_id]);
+
+    } elseif ($pendingCount === $activeTotal) {
+        // All active items are pending
+        $pdo->prepare("UPDATE orders SET status = 'pending' $guard")->execute([$order_id]);
+    }
 
     // ── 5. Fetch final order status ───────────────────────────────────────────
     $stmt = $pdo->prepare("SELECT status FROM orders WHERE order_id = ?");

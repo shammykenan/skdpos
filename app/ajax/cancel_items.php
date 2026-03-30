@@ -6,9 +6,6 @@ require_once __DIR__ . '/../core/ingredientsHelper.php';
 
 header('Content-Type: application/json');
 
-// ── Role check ────────────────────────────────────────────────────────────────
-// cancel_item → admin OR cashier
-// void_item   → admin only
 $isAdmin   = hasRole('admin');
 $isCashier = hasRole('cashier');
 
@@ -23,23 +20,28 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $order_item_id = (int) ($_POST['order_item_id'] ?? 0);
-$action        = trim($_POST['action'] ?? ''); // 'cancel_item' | 'void_item'
+$action        = trim($_POST['action'] ?? '');   // 'cancel_item' | 'void_item'
+$reason        = trim($_POST['reason'] ?? '');
 
 if (!$order_item_id || !in_array($action, ['cancel_item', 'void_item'])) {
     echo json_encode(['success' => false, 'error' => 'Invalid parameters.']);
     exit;
 }
 
-// void_item is admin-only even if cashier somehow calls it
 if ($action === 'void_item' && !$isAdmin) {
     echo json_encode(['success' => false, 'error' => 'Only admins can void items.']);
+    exit;
+}
+
+if ($reason === '') {
+    echo json_encode(['success' => false, 'error' => 'A reason is required.']);
     exit;
 }
 
 try {
     $pdo->beginTransaction();
 
-    // ── Fetch the item and its parent order ───────────────────────────────────
+    // ── Fetch item + parent order ─────────────────────────────────────────────
     $stmt = $pdo->prepare("
         SELECT
             oi.order_item_id,
@@ -49,9 +51,8 @@ try {
             oi.quantity,
             oi.subtotal,
             oi.status          AS item_status,
+            oi.item_name_snapshot,
             o.status           AS order_status,
-            o.subtotal         AS order_subtotal,
-            o.total_amount     AS order_total,
             o.discount         AS order_discount
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
@@ -67,64 +68,70 @@ try {
         exit;
     }
 
-    // ── Guard: order must not already be completed or cancelled ───────────────
-    if (in_array($item['order_status'], ['completed', 'cancelled'])) {
+    if (in_array($item['order_status'], ['completed', 'cancelled', 'voided'])) {
         $pdo->rollBack();
-        echo json_encode([
-            'success' => false,
-            'error'   => 'Cannot modify items on a ' . $item['order_status'] . ' order.',
-        ]);
+        echo json_encode(['success' => false, 'error' => 'Cannot modify items on a ' . $item['order_status'] . ' order.']);
         exit;
     }
 
-    // ── Guard: item must not already be in a terminal state ───────────────────
     if (in_array($item['item_status'], ['cancelled', 'voided', 'completed'])) {
         $pdo->rollBack();
-        echo json_encode([
-            'success' => false,
-            'error'   => 'Item is already ' . $item['item_status'] . '.',
-        ]);
+        echo json_encode(['success' => false, 'error' => 'Item is already ' . $item['item_status'] . '.']);
         exit;
     }
 
-    // ── Action-specific validation ────────────────────────────────────────────
     if ($action === 'cancel_item' && $item['item_status'] !== 'pending') {
         $pdo->rollBack();
-        echo json_encode([
-            'success' => false,
-            'error'   => 'Only pending items can be cancelled. This item is ' . $item['item_status'] . '.',
-        ]);
+        echo json_encode(['success' => false, 'error' => 'Only pending items can be cancelled. This item is ' . $item['item_status'] . '.']);
         exit;
     }
 
     if ($action === 'void_item' && $item['item_status'] !== 'ready') {
         $pdo->rollBack();
-        echo json_encode([
-            'success' => false,
-            'error'   => 'Only ready items can be voided. This item is ' . $item['item_status'] . '.',
-        ]);
+        echo json_encode(['success' => false, 'error' => 'Only ready items can be voided. This item is ' . $item['item_status'] . '.']);
         exit;
     }
 
     $order_id        = (int) $item['order_id'];
     $new_item_status = $action === 'cancel_item' ? 'cancelled' : 'voided';
+    $itemLabel       = $item['item_name_snapshot'] ?? ('Item #' . $order_item_id);
 
-    // ── 1. Update item status ─────────────────────────────────────────────────
-    $pdo->prepare("UPDATE order_items SET status = ? WHERE order_item_id = ?")
-        ->execute([$new_item_status, $order_item_id]);
-
-    // ── 2. Ingredient handling ────────────────────────────────────────────────
-    // cancel_item (pending): ingredients were never deducted (deduction happens
-    //   at 'preparing'). Nothing to restore.
+    // ── 1. Update item status + write reason to the correct column ────────────
     //
-    // void_item (ready): ingredients were already consumed by the kitchen.
-    //   Do NOT restore — food was physically prepared; it's a waste write-off.
-    //   Log the cost to activity_logs for management visibility.
+    // cancel_item → cancel_reason column  (void_reason stays NULL)
+    // void_item   → void_reason column    (cancel_reason stays NULL)
+    //
+    // Stock behaviour:
+    //   cancel_item (pending): stock was NEVER deducted (deduction happens at
+    //   'preparing'). Nothing to restore. Price zeroed from order total.
+    //
+    //   void_item (ready): stock was ALREADY deducted at 'preparing' and
+    //   consumed by the kitchen. Do NOT restore. Price zeroed from sale total
+    //   but waste cost is logged for accounting.
 
+    if ($action === 'cancel_item') {
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'cancelled', cancel_reason = ?
+            WHERE order_item_id = ?
+        ")->execute([$reason, $order_item_id]);
+
+        // No stock restoration needed — pending items have no stock deducted yet.
+
+    } else {
+        // void_item — stock stays deducted (consumed by kitchen, written off as waste)
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'voided', void_reason = ?
+            WHERE order_item_id = ?
+        ")->execute([$reason, $order_item_id]);
+    }
+
+    // ── 2. Calculate waste cost for void audit (void only) ────────────────────
+    $wasteCost = 0.00;
     if ($action === 'void_item') {
         $costStmt = $pdo->prepare("
             SELECT
-                oi.item_name_snapshot,
                 oi.quantity,
                 COALESCE(mv.cost_price, mi.cost_price) AS unit_cost
             FROM order_items oi
@@ -134,31 +141,38 @@ try {
         ");
         $costStmt->execute([$order_item_id]);
         $costRow   = $costStmt->fetch(PDO::FETCH_ASSOC);
-        $wasteCost = $costRow
-            ? round((float)$costRow['unit_cost'] * (int)$costRow['quantity'], 2)
-            : 0.00;
-
-        $itemLabel = $costRow['item_name_snapshot'] ?? ('Item #' . $order_item_id);
-
-        $logStmt = $pdo->prepare("
-            INSERT INTO activity_logs (user_id, action, details, ip_address)
-            VALUES (?, 'void_order_item', ?, ?)
-        ");
-        $logStmt->execute([
-            (int) $_SESSION['user_id'],
-            json_encode([
-                'order_item_id' => $order_item_id,
-                'order_id'      => $order_id,
-                'item'          => $itemLabel,
-                'qty'           => (int)$item['quantity'],
-                'waste_cost'    => $wasteCost,
-                'note'          => 'Ingredients consumed — not restored. Cost written off as waste.',
-            ]),
-            $_SERVER['REMOTE_ADDR'] ?? null,
-        ]);
+        $wasteCost = $costRow ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2) : 0.00;
     }
 
-    // ── 3. Recalculate order totals ───────────────────────────────────────────
+    // ── 3. Audit log ──────────────────────────────────────────────────────────
+    $logAction  = $action === 'cancel_item' ? 'cancel_order_item' : 'void_order_item';
+    $logDetails = [
+        'order_item_id' => $order_item_id,
+        'order_id'      => $order_id,
+        'item'          => $itemLabel,
+        'qty'           => (int) $item['quantity'],
+        'reason'        => $reason,
+        'performed_by'  => (int) $_SESSION['user_id'],
+    ];
+    if ($action === 'cancel_item') {
+        $logDetails['stock_note'] = 'Item was pending — no stock had been deducted. Nothing restored.';
+    } else {
+        $logDetails['waste_cost'] = $wasteCost;
+        $logDetails['stock_note'] = 'Item was ready — ingredients already consumed. Stock NOT restored. Cost written off as waste.';
+    }
+
+    $pdo->prepare("
+        INSERT INTO activity_logs (user_id, action, details, ip_address)
+        VALUES (?, ?, ?, ?)
+    ")->execute([
+        (int) $_SESSION['user_id'],
+        $logAction,
+        json_encode($logDetails),
+        $_SERVER['REMOTE_ADDR'] ?? null,
+    ]);
+
+    // ── 4. Recalculate order totals ───────────────────────────────────────────
+    // Both cancel and void remove the item price from the active order total.
     $totalsStmt = $pdo->prepare("
         SELECT COALESCE(SUM(subtotal), 0) AS active_subtotal
         FROM order_items
@@ -186,7 +200,8 @@ try {
         UPDATE orders SET subtotal = ?, total_amount = ? WHERE order_id = ?
     ")->execute([$newSubtotal, $newTotalAmount, $order_id]);
 
-    // ── 4. Recalculate order status based on remaining active items ───────────
+    // ── 5. Recalculate order status ───────────────────────────────────────────
+    // Only count items that are NOT cancelled or voided.
     $statusCountStmt = $pdo->prepare("
         SELECT status, COUNT(*) AS cnt
         FROM order_items
@@ -206,13 +221,18 @@ try {
     $readyCount     = $statusCounts['ready']     ?? 0;
 
     $newOrderStatus = $item['order_status'];
+    $guard          = "WHERE order_id = ? AND status NOT IN ('completed', 'cancelled', 'voided')";
 
     if ($activeTotal === 0) {
-        // All items cancelled/voided — cancel the whole order
-        $newOrderStatus = 'cancelled';
-        $pdo->prepare("
-            UPDATE orders SET status = 'cancelled' WHERE order_id = ?
-        ")->execute([$order_id]);
+        // All items are now cancelled or voided
+        $voidedCheck = $pdo->prepare("
+            SELECT COUNT(*) FROM order_items WHERE order_id = ? AND status = 'voided'
+        ");
+        $voidedCheck->execute([$order_id]);
+        $hasVoided      = (int) $voidedCheck->fetchColumn() > 0;
+        $newOrderStatus = $hasVoided ? 'voided' : 'cancelled';
+
+        $pdo->prepare("UPDATE orders SET status = ? $guard")->execute([$newOrderStatus, $order_id]);
 
         // Free the table
         $pdo->prepare("
@@ -222,49 +242,41 @@ try {
 
         $pdo->prepare("
             INSERT INTO activity_logs (user_id, action, details, ip_address)
-            VALUES (?, 'auto_cancel_order', ?, ?)
+            VALUES (?, 'auto_close_order', ?, ?)
         ")->execute([
             (int) $_SESSION['user_id'],
             json_encode([
-                'order_id' => $order_id,
-                'reason'   => 'All items were cancelled or voided.',
+                'order_id'     => $order_id,
+                'final_status' => $newOrderStatus,
+                'reason'       => 'All items were cancelled or voided.',
             ]),
             $_SERVER['REMOTE_ADDR'] ?? null,
         ]);
 
     } elseif ($readyCount === $activeTotal) {
         $newOrderStatus = 'ready';
-        $pdo->prepare("
-            UPDATE orders SET status = 'ready'
-            WHERE order_id = ? AND status NOT IN ('completed','cancelled')
-        ")->execute([$order_id]);
+        $pdo->prepare("UPDATE orders SET status = 'ready' $guard")->execute([$order_id]);
 
-    } elseif ($preparingCount > 0 || $readyCount > 0) {
+    } elseif ($preparingCount > 0 || ($readyCount > 0 && $pendingCount > 0)) {
         $newOrderStatus = 'preparing';
-        $pdo->prepare("
-            UPDATE orders SET status = 'preparing'
-            WHERE order_id = ? AND status NOT IN ('completed','cancelled')
-        ")->execute([$order_id]);
+        $pdo->prepare("UPDATE orders SET status = 'preparing' $guard")->execute([$order_id]);
 
     } elseif ($pendingCount === $activeTotal) {
         $newOrderStatus = 'pending';
-        $pdo->prepare("
-            UPDATE orders SET status = 'pending'
-            WHERE order_id = ? AND status NOT IN ('completed','cancelled')
-        ")->execute([$order_id]);
+        $pdo->prepare("UPDATE orders SET status = 'pending' $guard")->execute([$order_id]);
     }
 
     $pdo->commit();
 
     echo json_encode([
-        'success'        => true,
-        'action'         => $action,
-        'order_item_id'  => $order_item_id,
-        'item_status'    => $new_item_status,
-        'order_id'       => $order_id,
-        'order_status'   => $newOrderStatus,
-        'new_total'      => $newTotalAmount,
-        'new_subtotal'   => $newSubtotal,
+        'success'       => true,
+        'action'        => $action,
+        'order_item_id' => $order_item_id,
+        'item_status'   => $new_item_status,
+        'order_id'      => $order_id,
+        'order_status'  => $newOrderStatus,
+        'new_total'     => $newTotalAmount,
+        'new_subtotal'  => $newSubtotal,
     ]);
 
 } catch (Exception $e) {

@@ -119,11 +119,6 @@ function updateOrderStatus(PDO $pdo, int $order_id, string $status): bool {
     return $pdo->prepare($sql)->execute([$status, $order_id]);
 }
 
-function cancelOrder(PDO $pdo, int $order_id): bool {
-    return $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE order_id = ?")
-               ->execute([$order_id]);
-}
-
 // =============================================================================
 // DRAFT FUNCTIONS
 //

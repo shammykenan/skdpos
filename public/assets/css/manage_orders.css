@@ -4571,3 +4571,157 @@ body {
     flex-wrap: wrap;
     justify-content: flex-end;
 }
+/* ================================================================
+   manage_orders.css — ADDITIONS / OVERRIDES
+   Paste at the very bottom of your existing manage_orders.css.
+   These rules override earlier definitions where needed.
+   ================================================================ */
+
+
+/* ── Order-level status badges ───────────────────────────────────────────────
+   Fix: cancelled must be red
+   New: voided uses --primary dark navy/teal = matches "Manage items" button
+   ── */
+
+.status-cancelled {
+    background: rgba(214, 64, 69, 0.10);
+    color: var(--danger);
+    border: 1px solid rgba(214, 64, 69, 0.25);
+}
+
+.status-voided {
+    background: rgba(15, 76, 92, 0.10);
+    color: var(--primary-dark);
+    border: 1px solid rgba(15, 76, 92, 0.28);
+}
+
+
+/* ── Item-level status badges ────────────────────────────────────────────────
+   Fix: item-status-cancelled must be red
+   New: item-status-voided uses primary dark teal
+   ── */
+
+.item-status-cancelled {
+    background: rgba(214, 64, 69, 0.10);
+    color: var(--danger);
+    border: 1px solid rgba(214, 64, 69, 0.25);
+}
+
+.item-status-voided {
+    background: rgba(15, 76, 92, 0.10);
+    color: var(--primary-dark);
+    border: 1px solid rgba(15, 76, 92, 0.28);
+}
+
+
+/* ── Kitchen modal status pill for voided order ──────────────────────────── */
+.kitchen-modal-status-voided {
+    background: rgba(15, 76, 92, 0.35);
+    border-color: rgba(15, 76, 92, 0.6);
+}
+
+
+/* ── Item card — voided state ────────────────────────────────────────────── */
+.item-card-voided {
+    opacity: 0.55;
+    border-color: rgba(15, 76, 92, 0.22) !important;
+    background: rgba(15, 76, 92, 0.03) !important;
+}
+
+.item-card-voided .item-name-text {
+    text-decoration: line-through;
+    color: var(--warm-gray);
+}
+
+
+/* ── Cancel Item button (pending items) ──────────────────────────────────── */
+.item-action-cancel-item {
+    background: #fff1f2;
+    color: #dc2626;
+    border: 1.5px solid #fca5a5;
+    border-radius: 10px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.item-action-cancel-item:hover:not(:disabled) {
+    background: #fee2e2;
+    border-color: #dc2626;
+}
+.item-action-cancel-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* ── Void Item button (ready items) ─────────────────────────────────────── */
+.item-action-void-item {
+    background: rgba(15, 76, 92, 0.07);
+    color: var(--primary-dark);
+    border: 1.5px solid rgba(15, 76, 92, 0.28);
+    border-radius: 10px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.item-action-void-item:hover:not(:disabled) {
+    background: rgba(15, 76, 92, 0.13);
+    border-color: var(--primary);
+}
+.item-action-void-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* ── item-card-right: allow wrapping when multiple buttons present ────────── */
+.item-card-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+/* ================================================================
+   manage_orders.css — APPEND THESE AT THE BOTTOM
+   ================================================================ */
+
+/* ── Voided filter tab — teal/primary dark to distinguish from cancelled ── */
+.filter-tab-voided.active {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    color: white;
+}
+.filter-tab-voided:not(.active):hover {
+    border-color: var(--primary-dark);
+    color: var(--primary-dark);
+    background: rgba(15,76,92,0.06);
+}
+
+/* ── Void reason textarea — focus ring matches primary ── */
+#voidOrderReason:focus,
+#cancelVoidItemReason:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(15,76,92,0.1);
+    outline: none;
+}
+
+/* ── Void info card in order details modal ── */
+#detailVoidSection .od-payment-title {
+    color: var(--primary-dark);
+}
+#detailVoidSection .od-payment-row span:last-child {
+    color: var(--primary-dark);
+}

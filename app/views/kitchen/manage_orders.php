@@ -106,6 +106,13 @@
         <div class="card-body">
             <div class="row g-3 align-items-center">
                 <div class="col-lg-8 col-md-12">
+
+                    <!-- ═══════════════════════════════════════════════════════
+                         PATCH A — Filter tabs
+                         Voided tab is now visible to both admin and cashier.
+                         Admins see all voided orders; cashiers see only their
+                         own (enforced server-side in get_orders.php).
+                    ════════════════════════════════════════════════════════ -->
                     <div class="filter-tabs">
                         <button class="filter-tab active" data-status="all">
                             <i class="fas fa-th me-1"></i> All
@@ -131,7 +138,14 @@
                             <i class="fas fa-times-circle me-1"></i> Cancelled
                             <span class="filter-count">0</span>
                         </button>
+                        <?php if (hasRole('admin') || hasRole('cashier')): ?>
+                        <button class="filter-tab filter-tab-voided" data-status="voided">
+                            <i class="fas fa-ban me-1"></i> Voided
+                            <span class="filter-count">0</span>
+                        </button>
+                        <?php endif; ?>
                     </div>
+
                 </div>
                 <div class="col-lg-4 col-md-12">
                     <div class="search-box">
@@ -170,28 +184,28 @@
                 </div>
 
                 <?php if (hasRole('admin')): ?>
-<div class="cashier-view-toggle" id="cashierViewToggle">
-    <button type="button" class="cashier-view-btn active" data-view="all">
-        <i class="fas fa-users"></i> All Cashiers
-    </button>
-    <button type="button" class="cashier-view-btn" data-view="mine">
-        <i class="fas fa-user"></i> My Orders
-    </button>
-</div>
+                <div class="cashier-view-toggle" id="cashierViewToggle">
+                    <button type="button" class="cashier-view-btn active" data-view="all">
+                        <i class="fas fa-users"></i> All Cashiers
+                    </button>
+                    <button type="button" class="cashier-view-btn" data-view="mine">
+                        <i class="fas fa-user"></i> My Orders
+                    </button>
+                </div>
 
-<div id="processedByWrapper" style="display:none;align-items:center;gap:.5rem;">
-    <span style="font-size:.78rem;color:var(--warm-gray);white-space:nowrap;">
-        <i class="fas fa-shield-alt me-1"></i> Processed by:
-    </span>
-    <select id="processedByFilter"
-            class="date-filter-input"
-            style="border-radius:8px;padding:.35rem .8rem;font-size:.82rem;
-                   border:1.5px solid var(--border);color:var(--navy);
-                   background:white;cursor:pointer;min-width:160px;">
-        <option value="0">Cashiers</option>
-    </select>
-</div>
-<?php endif; ?>
+                <div id="processedByWrapper" style="display:none;align-items:center;gap:.5rem;">
+                    <span style="font-size:.78rem;color:var(--warm-gray);white-space:nowrap;">
+                        <i class="fas fa-shield-alt me-1"></i> Processed by:
+                    </span>
+                    <select id="processedByFilter"
+                            class="date-filter-input"
+                            style="border-radius:8px;padding:.35rem .8rem;font-size:.82rem;
+                                   border:1.5px solid var(--border);color:var(--navy);
+                                   background:white;cursor:pointer;min-width:160px;">
+                        <option value="0">Cashiers</option>
+                    </select>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -311,6 +325,10 @@
 
 <!-- ══════════════════════════════════════════
      CANCEL ORDER MODAL
+     PATCH B — reason <select> now empty;
+     options loaded from DB via loadReasons().
+     "Other" textarea hidden by default,
+     revealed by wireReasonDropdown() in JS.
 ══════════════════════════════════════════ -->
 <div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -322,21 +340,49 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center">
-                <div class="modal-icon danger"><i class="fas fa-times-circle"></i></div>
-                <h5 class="mb-3">Are you sure?</h5>
-                <p class="text-muted mb-0">
-                    Cancel <strong>Order #<span id="cancelOrderNumber"></span></strong>?
-                    This action cannot be undone and ingredients will be restored.
-                </p>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="modal-icon danger"><i class="fas fa-times-circle"></i></div>
+                    <h5 class="mb-2">Cancel Order #<span id="cancelOrderNumber"></span>?</h5>
+                    <p class="text-muted mb-0" style="font-size:0.88rem;line-height:1.6;">
+                        This action cannot be undone.<br>
+                        Since the order is <strong>pending</strong>, no stock has been deducted — nothing will be restored.
+                    </p>
+                </div>
+
+                <div class="mt-3">
+                    <label for="cancelOrderReasonSelect" class="form-label fw-semibold"
+                           style="font-size:0.82rem;color:var(--navy);">
+                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
+                        Reason for cancelling <span class="text-danger">*</span>
+                    </label>
+                    <select id="cancelOrderReasonSelect"
+                            class="form-select mb-2"
+                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
+                        <option value="">— Select a reason —</option>
+                        <!-- Populated dynamically by loadReasons('cancel_order', ...) -->
+                    </select>
+                    <textarea id="cancelOrderReasonText"
+                              class="form-control"
+                              rows="2"
+                              maxlength="255"
+                              placeholder="Describe the reason in more detail…"
+                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"
+                    ></textarea>
+                    <div id="cancelOrderReasonError"
+                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
+                        Please select or enter a reason.
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-arrow-left me-1"></i> Go Back
                 </button>
                 <form method="POST" action="" id="cancelOrderForm">
-                    <input type="hidden" name="order_id" id="cancelOrderId">
-                    <button type="submit" name="cancel_order" class="btn btn-danger">
+                    <input type="hidden" name="order_id"      id="cancelOrderId">
+                    <input type="hidden" name="cancel_reason" id="cancelOrderReasonHidden">
+                    <button type="button" id="cancelOrderSubmitBtn" class="btn btn-danger">
                         <i class="fas fa-times-circle me-1"></i> Yes, Cancel Order
                     </button>
                 </form>
@@ -442,10 +488,15 @@
                         </table>
                     </div>
 
-                    <!-- Totals + Payment -->
+                    <!-- ═══════════════════════════════════════════════════════
+                         PATCH C — od-footer-grid
+                         Added #detailCancelSection alongside the existing
+                         payment and void sections. All three are hidden by
+                         default and revealed by populateOrderDetailsModal().
+                    ════════════════════════════════════════════════════════ -->
                     <div class="od-footer-grid">
 
-                        <!-- Payment info (shown only when completed) -->
+                        <!-- Payment info (completed orders) -->
                         <div id="detailPaymentSection" class="od-payment-card" style="display:none;">
                             <div class="od-payment-title">
                                 <i class="fas fa-money-bill-wave me-1"></i> Payment
@@ -462,13 +513,55 @@
                                 <span>Change</span>
                                 <span>₱<span id="detailChange">0.00</span></span>
                             </div>
-                            <!-- Processed by — shown only when admin processed someone else's order -->
                             <div class="od-payment-row" id="detailProcessedByRow" style="display:none;">
                                 <span style="color:var(--warm-gray);font-size:0.8rem;">
                                     <i class="fas fa-shield-halved me-1" style="color:var(--primary-light);"></i>
                                     Processed by
                                 </span>
                                 <span id="detailProcessedBy" style="font-size:0.82rem;font-weight:600;color:var(--navy);">—</span>
+                            </div>
+                        </div>
+
+                        <!-- Cancel audit info (cancelled orders) -->
+                        <div id="detailCancelSection" class="od-payment-card"
+                             style="display:none;border-color:rgba(214,64,69,0.2);">
+                            <div class="od-payment-title" style="color:var(--danger);">
+                                <i class="fas fa-times-circle me-1"></i> Cancellation Info
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Reason</span>
+                                <span id="detailCancelReason"
+                                      style="font-size:0.82rem;font-weight:600;color:var(--danger);max-width:60%;text-align:right;">—</span>
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Stock impact</span>
+                                <span style="font-size:0.78rem;color:var(--warm-gray);max-width:60%;text-align:right;">
+                                    No stock deducted — nothing restored
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Void audit info (voided orders) -->
+                        <div id="detailVoidSection" class="od-payment-card"
+                             style="display:none;border-color:rgba(15,76,92,0.2);">
+                            <div class="od-payment-title" style="color:var(--primary-dark);">
+                                <i class="fas fa-ban me-1"></i> Void Information
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Reason</span>
+                                <span id="detailVoidReason"
+                                      style="font-size:0.82rem;font-weight:600;color:var(--primary-dark);max-width:60%;text-align:right;">—</span>
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Waste Cost</span>
+                                <span id="detailWasteCost"
+                                      style="font-size:0.82rem;font-weight:700;color:var(--danger);">—</span>
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Stock impact</span>
+                                <span style="font-size:0.78rem;color:var(--warm-gray);max-width:60%;text-align:right;">
+                                    Consumed — not restored
+                                </span>
                             </div>
                         </div>
 
@@ -488,17 +581,20 @@
                             </div>
                         </div>
 
-                    </div>
-                </div>
+                    </div><!-- /.od-footer-grid -->
+
+                </div><!-- /#orderDetailsContent -->
 
                 <!-- Error -->
-                <div id="orderDetailsError" style="display:none;text-align:center;padding:3rem 1.5rem;color:var(--danger);">
+                <div id="orderDetailsError"
+                     style="display:none;text-align:center;padding:3rem 1.5rem;color:var(--danger);">
                     <i class="fas fa-exclamation-circle" style="font-size:2.5rem;margin-bottom:0.8rem;display:block;"></i>
                     <p class="fw-semibold mb-0">Failed to load order details. Please try again.</p>
                 </div>
             </div>
 
-            <div class="modal-footer" style="border-top:1px solid var(--border);padding:1.1rem 1.6rem;border-radius:0 0 24px 24px;">
+            <div class="modal-footer"
+                 style="border-top:1px solid var(--border);padding:1.1rem 1.6rem;border-radius:0 0 24px 24px;">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Close
                 </button>
@@ -532,6 +628,139 @@
 </div>
 <?php unset($_SESSION['success']); ?>
 <?php endif; ?>
+
+
+<!-- ══════════════════════════════════════════
+     VOID ORDER MODAL
+     PATCH D — reason <select> now empty;
+     options loaded from DB via loadReasons().
+     "Other" textarea hidden by default,
+     revealed by wireReasonDropdown() in JS.
+══════════════════════════════════════════ -->
+<div class="modal fade" id="voidOrderModal" tabindex="-1" aria-labelledby="voidOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="voidOrderModalLabel">
+                    <i class="fas fa-ban me-2" style="color:var(--primary-dark);"></i>
+                    Void Order
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="modal-icon" style="background:rgba(15,76,92,0.10);color:var(--primary-dark);">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <h5 class="mb-2">Void entire Order #<span id="voidOrderNumber"></span>?</h5>
+                    <p class="text-muted mb-0" style="font-size:0.88rem;line-height:1.6;">
+                        All items are ready but the customer will not pay.<br>
+                        <strong>Ingredients are written off as waste</strong> — stock is NOT restored.<br>
+                        Sale total becomes <strong>₱0</strong>. Waste cost is tracked for accounting.
+                    </p>
+                </div>
+
+                <div class="mt-3">
+                    <label for="voidOrderReasonSelect" class="form-label fw-semibold"
+                           style="font-size:0.82rem;color:var(--navy);">
+                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
+                        Reason for voiding <span class="text-danger">*</span>
+                    </label>
+                    <select id="voidOrderReasonSelect"
+                            class="form-select mb-2"
+                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
+                        <option value="">— Select a reason —</option>
+                        <!-- Populated dynamically by loadReasons('void_order', ...) -->
+                    </select>
+                    <textarea id="voidOrderReasonText"
+                              class="form-control"
+                              rows="2"
+                              maxlength="255"
+                              placeholder="Describe the reason in more detail…"
+                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"
+                    ></textarea>
+                    <div id="voidOrderReasonError"
+                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
+                        Please select or enter a reason.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-arrow-left me-1"></i> Go Back
+                </button>
+                <button type="button" class="btn" id="confirmVoidOrderBtn"
+                        style="background:var(--primary);color:white;"
+                        data-order-id="" data-order-number="">
+                    <i class="fas fa-ban me-1"></i> Yes, Void Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     CANCEL / VOID ITEM MODAL
+     PATCH E — reason <select> now empty;
+     options loaded from DB via loadReasons()
+     when modal opens (cancel_item vs void_item).
+     "Other" textarea hidden by default.
+══════════════════════════════════════════ -->
+<div class="modal fade" id="cancelVoidItemModal" tabindex="-1" aria-labelledby="cancelVoidItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelVoidItemModalLabel">
+                    <!-- injected by JS -->
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="modal-icon" id="cancelVoidItemIcon"></div>
+                    <h5 class="mb-2" id="cancelVoidItemHeading"></h5>
+                    <p class="text-muted mb-0" id="cancelVoidItemBody"
+                       style="font-size:0.88rem;line-height:1.6;"></p>
+                </div>
+
+                <div class="mt-3">
+                    <label for="cancelVoidItemReasonSelect" class="form-label fw-semibold"
+                           style="font-size:0.82rem;color:var(--navy);">
+                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
+                        Reason <span class="text-danger">*</span>
+                    </label>
+                    <select id="cancelVoidItemReasonSelect"
+                            class="form-select mb-2"
+                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
+                        <option value="">— Select a reason —</option>
+                        <!-- Populated dynamically by loadReasons('cancel_item' | 'void_item', ...) -->
+                    </select>
+                    <textarea id="cancelVoidItemReasonText"
+                              class="form-control"
+                              rows="2"
+                              maxlength="255"
+                              placeholder="Describe the reason in more detail…"
+                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"
+                    ></textarea>
+                    <div id="cancelVoidItemReasonError"
+                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
+                        Please select or enter a reason.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-arrow-left me-1"></i> Go Back
+                </button>
+                <button type="button" class="btn" id="confirmCancelVoidItemBtn"
+                        data-order-item-id="" data-action="" data-item-name="">
+                    <!-- label injected by JS -->
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 
 <!-- ERROR MODAL -->
