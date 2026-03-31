@@ -100,7 +100,12 @@ if (
 
         addRecipeForVariant($pdo, $item_id, $ingredient_id, $quantity_required, $variant_id);
 
-        echo json_encode(['ok' => true, 'message' => 'Ingredient added to recipe successfully.']);
+        $newRecipeId = (int) $pdo->lastInsertId();
+        echo json_encode([
+            'ok'        => true,
+            'message'   => 'Ingredient added to recipe successfully.',
+            'recipe_id' => $newRecipeId,
+        ]);
 
     } catch (Exception $e) {
 

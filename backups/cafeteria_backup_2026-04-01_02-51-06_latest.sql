@@ -1,6 +1,6 @@
 -- ============================================================
 -- Dine with Din Cafeteria POS — Database Backup
--- Generated : 2026-03-29 00:28:15 (Asia/Manila)
+-- Generated : 2026-04-01 02:51:06 (Asia/Manila)
 -- Host      : LAPTOP-PL0A30MQ
 -- ============================================================
 
@@ -33,6 +33,20 @@ CREATE TABLE `login_attempts` (
   PRIMARY KEY (`attempt_id`),
   KEY `idx_la_ip_time` (`ip_address`,`attempt_time`),
   KEY `idx_la_username_time` (`username`,`attempt_time`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ----------------------------------------------------------
+-- Table: `order_item_reasons`
+-- ----------------------------------------------------------
+DROP TABLE IF EXISTS `order_item_reasons`;
+CREATE TABLE `order_item_reasons` (
+  `reason_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `reason_type` enum('cancel_order','void_order','cancel_item','void_item') NOT NULL,
+  `reason_text` varchar(255) NOT NULL,
+  `sort_order` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`reason_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
@@ -71,7 +85,7 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `users` (`user_id`, `username`, `password_hash`, `full_name`, `email`, `role`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-  ('1', 'admin', '$2y$10$iwyVIsVb.vDSEVVGidRwI.TmJz4TILUsMksp0cKqfg7jGsOznyKCC', 'Admin', 'dinshammykenan012@gmail.com', 'admin', '1', NULL, '2026-03-29 00:27:29', NULL);
+  ('1', 'admin', '$2y$10$TM.KaMBpEdSG.XA9/3lwIe4SUfttibE1QZaEK7E7BbqVwRdCnNlHC', 'Admin123', 'dinshammykenan012@gmail.com', 'admin', '1', '2026-04-01 02:50:40', '2026-04-01 02:49:42', '2026-04-01 02:50:40');
 
 -- ----------------------------------------------------------
 -- Table: `menu_items`
@@ -123,7 +137,11 @@ CREATE TABLE `activity_logs` (
   PRIMARY KEY (`log_id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `activity_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `activity_logs` (`log_id`, `user_id`, `action`, `details`, `ip_address`, `created_at`) VALUES
+  ('1', '1', 'forgot_password_request', 'Password reset requested for email: dinshammykenan012@gmail.com', '192.168.100.11', '2026-04-01 02:50:00'),
+  ('2', '1', 'password_reset_success', 'Password successfully reset via email link.', '192.168.100.11', '2026-04-01 02:50:26');
 
 -- ----------------------------------------------------------
 -- Table: `password_resets`
@@ -141,10 +159,11 @@ CREATE TABLE `password_resets` (
   UNIQUE KEY `token` (`token`),
   KEY `idx_pr_token` (`token`),
   KEY `idx_pr_user` (`user_id`),
-  KEY `idx_pr_ip_created` (`ip_address`,`created_at`),
-  KEY `idx_pr_expires` (`expires_at`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `password_resets` (`reset_id`, `user_id`, `token`, `expires_at`, `used`, `ip_address`, `created_at`) VALUES
+  ('1', '1', 'de6fa829dfba88576526f98828d4eb9840a3034c2d257d476a6fea133db7a243', '2026-04-01 03:49:58', '1', '192.168.100.11', '2026-04-01 02:49:58');
 
 -- ----------------------------------------------------------
 -- Table: `menu_variants`
@@ -160,8 +179,7 @@ CREATE TABLE `menu_variants` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`variant_id`),
-  UNIQUE KEY `uq_item_variant` (`item_id`,`variant_name`),
-  KEY `idx_variant_item` (`item_id`),
+  UNIQUE KEY `item_id` (`item_id`,`variant_name`),
   CONSTRAINT `menu_variants_ibfk_1` FOREIGN KEY (`item_id`) REFERENCES `menu_items` (`item_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -191,12 +209,10 @@ CREATE TABLE `recipes` (
   `variant_id` int(11) DEFAULT NULL,
   `ingredient_id` int(11) NOT NULL,
   `quantity_required` decimal(10,2) NOT NULL,
-  `variant_id_key` int(11) GENERATED ALWAYS AS (ifnull(`variant_id`,0)) STORED,
   PRIMARY KEY (`recipe_id`),
-  UNIQUE KEY `uq_recipe` (`item_id`,`ingredient_id`,`variant_id_key`),
+  UNIQUE KEY `item_id` (`item_id`,`ingredient_id`,`variant_id`),
+  KEY `variant_id` (`variant_id`),
   KEY `ingredient_id` (`ingredient_id`),
-  KEY `idx_recipe_item` (`item_id`),
-  KEY `idx_recipe_variant` (`variant_id`),
   CONSTRAINT `recipes_ibfk_1` FOREIGN KEY (`item_id`) REFERENCES `menu_items` (`item_id`) ON DELETE CASCADE,
   CONSTRAINT `recipes_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `menu_variants` (`variant_id`) ON DELETE CASCADE,
   CONSTRAINT `recipes_ibfk_3` FOREIGN KEY (`ingredient_id`) REFERENCES `ingredients` (`ingredient_id`)
@@ -233,15 +249,16 @@ CREATE TABLE `order_items` (
   `quantity` int(11) NOT NULL,
   `unit_price` decimal(10,2) NOT NULL,
   `subtotal` decimal(10,2) NOT NULL,
+  `waste_cost` decimal(10,2) DEFAULT 0.00,
   `item_notes` text DEFAULT NULL,
-  `status` enum('pending','preparing','ready','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `status` enum('pending','preparing','ready','completed','cancelled','voided') NOT NULL DEFAULT 'pending',
   PRIMARY KEY (`order_item_id`),
+  KEY `order_id` (`order_id`),
   KEY `item_id` (`item_id`),
-  KEY `idx_order_items_order` (`order_id`),
-  KEY `idx_order_items_variant` (`variant_id`),
+  KEY `variant_id` (`variant_id`),
   CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`order_id`) ON DELETE CASCADE,
   CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`item_id`) REFERENCES `menu_items` (`item_id`),
-  CONSTRAINT `order_items_ibfk_3` FOREIGN KEY (`variant_id`) REFERENCES `menu_variants` (`variant_id`) ON DELETE SET NULL
+  CONSTRAINT `order_items_ibfk_3` FOREIGN KEY (`variant_id`) REFERENCES `menu_variants` (`variant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
@@ -259,17 +276,17 @@ CREATE TABLE `orders` (
   `subtotal` decimal(10,2) NOT NULL,
   `discount` decimal(10,2) NOT NULL DEFAULT 0.00,
   `total_amount` decimal(10,2) NOT NULL,
-  `status` enum('draft','pending','preparing','ready','completed','cancelled') NOT NULL DEFAULT 'pending',
-  `draft_cart` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`draft_cart`)),
+  `waste_total` decimal(10,2) DEFAULT 0.00,
+  `status` enum('draft','pending','preparing','ready','completed','cancelled','voided') NOT NULL DEFAULT 'pending',
+  `draft_cart` longtext DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `completed_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`order_id`),
   UNIQUE KEY `order_number` (`order_number`),
+  KEY `cashier_id` (`cashier_id`),
   KEY `table_id` (`table_id`),
-  KEY `idx_orders_cashier` (`cashier_id`),
-  KEY `idx_orders_status` (`status`),
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`cashier_id`) REFERENCES `users` (`user_id`),
-  CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`table_id`) REFERENCES `tables` (`table_id`) ON DELETE SET NULL
+  CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`table_id`) REFERENCES `tables` (`table_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
@@ -293,7 +310,7 @@ CREATE TABLE `payments` (
   KEY `processed_by` (`processed_by`),
   CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`order_id`),
   CONSTRAINT `payments_ibfk_2` FOREIGN KEY (`cashier_id`) REFERENCES `users` (`user_id`),
-  CONSTRAINT `payments_ibfk_3` FOREIGN KEY (`processed_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+  CONSTRAINT `payments_ibfk_3` FOREIGN KEY (`processed_by`) REFERENCES `users` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
