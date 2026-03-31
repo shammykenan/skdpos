@@ -64,7 +64,6 @@ function getOrderById(PDO $pdo, int $order_id): ?array {
  */
 function getOrderDetails(PDO $pdo, int $order_id): ?array {
     // ── Order row ─────────────────────────────────────────────────────────────
-    // includes void_reason, cancel_reason, waste_total — all direct columns
     $stmt = $pdo->prepare("
         SELECT o.*, u.full_name AS cashier_name, t.table_name
         FROM orders o
@@ -96,8 +95,6 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
     $payment = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
     // ── Cancel audit ──────────────────────────────────────────────────────────
-    // Source: orders.cancel_reason (written by pos_controller.php).
-    // Cancelled orders had status = 'pending' — no stock was ever deducted.
     $cancelAudit = null;
     if ($order['status'] === 'cancelled') {
         $cancelAudit = [
@@ -107,47 +104,26 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
     }
 
     // ── Void audit ────────────────────────────────────────────────────────────
-    // waste_total is read directly from orders.waste_total — the canonical DB
-    // column written at void time. No activity_logs parsing needed.
-    //
-    // For orders voided before migration_waste_cost.sql was run (waste_total IS
-    // NULL), we fall back to summing item-level waste_cost values from
-    // order_items. If those are also NULL (very old data), we fall back to
-    // activity_logs for backward compatibility.
     $voidAudit = null;
     if ($order['status'] === 'voided') {
-        $wasteCostValue = null;
+        // Sum all item-level waste_cost (handles both individual and full-order voids)
+        $sumStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(waste_cost), 0) AS total
+            FROM order_items
+            WHERE order_id = ?
+              AND status = 'voided'
+              AND waste_cost IS NOT NULL
+        ");
+        $sumStmt->execute([$order_id]);
+        $wasteCostValue = (float) $sumStmt->fetchColumn();
 
-        // Primary: direct column on orders row (fastest, most reliable)
-        if ($order['waste_total'] !== null) {
+        // Fallback: use orders.waste_total if item-level sum is 0 (legacy data)
+        if ($wasteCostValue <= 0 && $order['waste_total'] !== null) {
             $wasteCostValue = (float) $order['waste_total'];
-
-        // Fallback 1: sum item-level waste_cost (items voided individually)
-        } else {
-            $sumStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(waste_cost), 0)
-                FROM order_items
-                WHERE order_id = ?
-                  AND status = 'voided'
-                  AND waste_cost IS NOT NULL
-            ");
-            $sumStmt->execute([$order_id]);
-            $itemSum = (float) $sumStmt->fetchColumn();
-
-            // Only trust the item sum if at least one item has a non-NULL waste_cost.
-            // If all are NULL it means they were voided before the migration ran.
-            $checkStmt = $pdo->prepare("
-                SELECT COUNT(*) FROM order_items
-                WHERE order_id = ? AND status = 'voided' AND waste_cost IS NOT NULL
-            ");
-            $checkStmt->execute([$order_id]);
-            if ((int) $checkStmt->fetchColumn() > 0) {
-                $wasteCostValue = $itemSum;
-            }
         }
 
-        // Fallback 2: activity_logs JSON (backward compat for pre-migration voids)
-        if ($wasteCostValue === null) {
+        // If still 0, fallback to activity_logs for pre-migration data
+        if ($wasteCostValue <= 0) {
             $logStmt = $pdo->prepare("
                 SELECT details
                 FROM activity_logs
@@ -159,11 +135,10 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
             $logStmt->execute([$order_id]);
             $logRow  = $logStmt->fetch(PDO::FETCH_ASSOC);
             $logData = $logRow ? (json_decode($logRow['details'], true) ?? []) : [];
+            $wasteCostValue = !empty($logData) ? (float) ($logData['total_waste_cost'] ?? 0) : 0;
 
-            if (!empty($logData)) {
-                $wasteCostValue = (float) ($logData['total_waste_cost'] ?? 0);
-            } else {
-                // Item-level void logs (no single order-level log)
+            // Still 0? Sum individual item void logs
+            if ($wasteCostValue <= 0) {
                 $itemLogStmt = $pdo->prepare("
                     SELECT details
                     FROM activity_logs
@@ -195,7 +170,6 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
         'void_audit'   => $voidAudit,
     ];
 }
-
 // ───────────────────────────────────────────────────────────────────────────
 // FILTERED ORDERS
 // ───────────────────────────────────────────────────────────────────────────

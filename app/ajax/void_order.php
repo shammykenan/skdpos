@@ -78,7 +78,7 @@ try {
             oi.variant_id,
             oi.quantity,
             oi.item_name_snapshot,
-            COALESCE(mv.cost_price, mi.cost_price) AS unit_cost
+            COALESCE(NULLIF(mv.cost_price, 0), mi.cost_price) AS unit_cost
         FROM order_items oi
         JOIN menu_items mi ON oi.item_id = mi.item_id
         LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
