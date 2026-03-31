@@ -237,7 +237,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ── Void Order confirm ────────────────────────────────────────────────────
-    // FIX: This handler was entirely missing — added here.
     document.getElementById('confirmVoidOrderBtn')?.addEventListener('click', async function () {
         const reason = window._voidOrderReason?.getReason() || '';
         if (!reason) {
@@ -252,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ── Cancel/Void Item confirm (wired ONCE) ─────────────────────────────────
-    // FIX: Was wired twice — removed duplicate, keeping only this single handler.
     document.getElementById('confirmCancelVoidItemBtn')?.addEventListener('click', async function () {
         const reason = window._cancelVoidItemReason?.getReason() || '';
         if (!reason) {
@@ -427,23 +425,45 @@ function renderTableRows(orders) {
     tbody.innerHTML = orders.map(order => createOrderRowHTML(order)).join('');
 }
 
+// FIX 4: patchTableRows — always sync price cells on every refresh pass,
+// not only when status changes. Ensures subtotal/total update in real-time
+// after a void zeroes the order total.
 function patchTableRows(orders) {
     const tbody = document.getElementById('ordersTableBody');
     if (!tbody) return;
     orders.forEach(order => {
         const row = tbody.querySelector(`tr[data-order-id="${order.order_id}"]`);
         if (!row) return;
+
         const currentStatus = row.getAttribute('data-status');
         const newStatus     = (order.status || 'pending').toLowerCase();
+
+        // Always sync price cells on every refresh pass — not only on status change.
+        // Ensures subtotal/total update immediately after void zeroes the order total.
+        const newTotal      = parseFloat(order.total_amount || 0);
+        const newSubtotalEx = newTotal / 1.12;
+        const newVat        = newTotal - newSubtotalEx;
+        const subtotalCell  = row.querySelector('td[data-label="Subtotal"]');
+        if (subtotalCell) {
+            subtotalCell.innerHTML = `
+                <span class="price-subtotal">₱${formatPrice(newSubtotalEx)}</span>
+                <div class="price-vat">+₱${formatPrice(newVat)} VAT (12%)</div>`;
+        }
+
         if (currentStatus !== newStatus) {
             row.setAttribute('data-status', newStatus);
+            row.setAttribute('data-order-total', order.total_amount || 0);
             const statusCell  = row.querySelector('td[data-label="Status"]');
             const actionsCell = row.querySelector('td[data-label="Actions"]');
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
             if (statusCell)  statusCell.innerHTML  = getOrderStatusBadge(newStatus);
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML(order);
-            if (totalSpan)   totalSpan.className   = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
+            if (totalSpan) {
+                totalSpan.className   = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
+                totalSpan.textContent = '₱' + formatPrice(newTotal);
+            }
         }
+
         if (order.items) {
             const itemsCell = row.querySelector('.items-cell');
             if (itemsCell) {
@@ -900,6 +920,8 @@ async function refreshKitchenModal(orderId) {
     } catch (err) { console.error('Kitchen modal refresh error:', err); }
 }
 
+// FIX 1: Compute activeItemCount and pass to buildItemCardHTML.
+// Active = not cancelled, voided, or completed.
 function renderKitchenModal(order, items) {
     const modal = document.getElementById('kitchenItemsModal');
     if (!modal || !modal.classList.contains('show')) return;
@@ -925,8 +947,15 @@ function renderKitchenModal(order, items) {
     }
     const bodyEl = document.getElementById('kitchenModalBody');
     if (bodyEl) {
+        // Count items that are still active (not cancelled, voided, or completed).
+        // If only 1 active item remains, individual cancel/void buttons are hidden —
+        // the user must use the order-level Cancel/Void instead.
+        const activeItemCount = items.filter(
+            i => !['cancelled', 'voided', 'completed'].includes(i.item_status || 'pending')
+        ).length;
+
         bodyEl.innerHTML = items.length
-            ? '<div class="kitchen-modal-items">' + items.map(item => buildItemCardHTML(item, orderStatus)).join('') + '</div>'
+            ? '<div class="kitchen-modal-items">' + items.map(item => buildItemCardHTML(item, orderStatus, activeItemCount)).join('') + '</div>'
             : '<p class="text-muted text-center py-3">No items found.</p>';
     }
 }
@@ -934,7 +963,10 @@ function renderKitchenModal(order, items) {
 // ============================================
 // ITEM CARD HTML
 // ============================================
-function buildItemCardHTML(item, orderStatus) {
+// FIX 2: Accept activeItemCount (default 99 so existing call-sites without the
+// argument are unaffected). When only 1 active item remains, hide the individual
+// cancel/void button — force use of the order-level cancel/void instead.
+function buildItemCardHTML(item, orderStatus, activeItemCount = 99) {
     const userRole   = window.userRole || '';
     const isAdmin    = userRole === 'admin';
     const isCashier  = userRole === 'cashier';
@@ -971,8 +1003,11 @@ function buildItemCardHTML(item, orderStatus) {
     }
 
     let adminActionBtn = '';
-    const canCancel = (isAdmin || isCashier) && !orderDone && !isTerminal && itemStatus === 'pending';
-    const canVoid   = isAdmin && !orderDone && !isTerminal && itemStatus === 'ready';
+    // If only 1 active item remains on the order, hide individual cancel/void —
+    // user must cancel/void the whole order instead.
+    const onlyOneLeft = activeItemCount <= 1;
+    const canCancel = (isAdmin || isCashier) && !orderDone && !isTerminal && itemStatus === 'pending' && !onlyOneLeft;
+    const canVoid   = isAdmin && !orderDone && !isTerminal && itemStatus === 'ready' && !onlyOneLeft;
 
     if (canCancel) {
         adminActionBtn = `<button type="button"
@@ -1118,13 +1153,16 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
                 itemStatusBit = ` <span class="item-status-badge item-status-${item.item_status}" style="font-size:0.68rem;padding:0.12rem 0.45rem;vertical-align:middle;">${capitalize(item.item_status)}</span>`;
             }
 
+            // FIX 3: Only show per-item reason pill for item-level cancel/void.
+            // Order-level cancel/void writes the same reason to all items — that
+            // reason is shown once in #detailCancelSection / #detailVoidSection.
             let reasonPill = '';
-            if (item.item_status === 'cancelled' && item.cancel_reason) {
+            if (item.item_status === 'cancelled' && item.cancel_reason && order.status !== 'cancelled') {
                 reasonPill = `<div class="od-note-pill" style="background:rgba(214,64,69,0.08);border-color:rgba(214,64,69,0.3);color:#9e3a34;">
                     <i class="fas fa-times-circle" style="color:var(--danger);"></i>
                     <span style="font-style:normal;font-weight:600;">Cancel reason:</span> ${escapeHtml(item.cancel_reason)}
                 </div>`;
-            } else if (item.item_status === 'voided' && item.void_reason) {
+            } else if (item.item_status === 'voided' && item.void_reason && order.status !== 'voided') {
                 reasonPill = `<div class="od-note-pill" style="background:rgba(15,76,92,0.07);border-color:rgba(15,76,92,0.25);color:var(--primary-dark);">
                     <i class="fas fa-ban" style="color:var(--primary-dark);"></i>
                     <span style="font-style:normal;font-weight:600;">Void reason:</span> ${escapeHtml(item.void_reason)}

@@ -379,10 +379,11 @@
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-arrow-left me-1"></i> Go Back
                 </button>
-                <form method="POST" action="" id="cancelOrderForm">
-                    <input type="hidden" name="order_id"      id="cancelOrderId">
-                    <input type="hidden" name="cancel_reason" id="cancelOrderReasonHidden">
-                    <button type="button" id="cancelOrderSubmitBtn" class="btn btn-danger">
+                    <form method="POST" action="index.php?page=manage_orders" id="cancelOrderForm">
+                        <input type="hidden" name="order_id"      id="cancelOrderId">
+                        <input type="hidden" name="cancel_reason" id="cancelOrderReasonHidden">
+                        <input type="hidden" name="cancel_order"  value="1">
+                        <button type="button" id="cancelOrderSubmitBtn" class="btn btn-danger">
                         <i class="fas fa-times-circle me-1"></i> Yes, Cancel Order
                     </button>
                 </form>

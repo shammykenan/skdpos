@@ -96,39 +96,11 @@ try {
     $new_item_status = $action === 'cancel_item' ? 'cancelled' : 'voided';
     $itemLabel       = $item['item_name_snapshot'] ?? ('Item #' . $order_item_id);
 
-    // ── 1. Update item status + write reason to the correct column ────────────
-    //
-    // cancel_item → cancel_reason column  (void_reason stays NULL)
-    // void_item   → void_reason column    (cancel_reason stays NULL)
-    //
-    // Stock behaviour:
-    //   cancel_item (pending): stock was NEVER deducted (deduction happens at
-    //   'preparing'). Nothing to restore. Price zeroed from order total.
-    //
-    //   void_item (ready): stock was ALREADY deducted at 'preparing' and
-    //   consumed by the kitchen. Do NOT restore. Price zeroed from sale total
-    //   but waste cost is logged for accounting.
+    // ── 1. Calculate waste cost (void only) ───────────────────────────────────
+    // Cancelled items were never prepared — no ingredients were used, no waste.
+    // Voided items were ready (prepared) — ingredients consumed, cost is waste.
+    $wasteCost = null; // NULL for cancelled items — explicitly not applicable
 
-    if ($action === 'cancel_item') {
-        $pdo->prepare("
-            UPDATE order_items
-            SET status = 'cancelled', cancel_reason = ?
-            WHERE order_item_id = ?
-        ")->execute([$reason, $order_item_id]);
-
-        // No stock restoration needed — pending items have no stock deducted yet.
-
-    } else {
-        // void_item — stock stays deducted (consumed by kitchen, written off as waste)
-        $pdo->prepare("
-            UPDATE order_items
-            SET status = 'voided', void_reason = ?
-            WHERE order_item_id = ?
-        ")->execute([$reason, $order_item_id]);
-    }
-
-    // ── 2. Calculate waste cost for void audit (void only) ────────────────────
-    $wasteCost = 0.00;
     if ($action === 'void_item') {
         $costStmt = $pdo->prepare("
             SELECT
@@ -144,7 +116,45 @@ try {
         $wasteCost = $costRow ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2) : 0.00;
     }
 
-    // ── 3. Audit log ──────────────────────────────────────────────────────────
+    // ── 2. Update item status + write reason + waste_cost ─────────────────────
+    //
+    // cancel_item → cancel_reason column, void_reason stays NULL, waste_cost stays NULL
+    // void_item   → void_reason column,   cancel_reason stays NULL, waste_cost set
+
+    if ($action === 'cancel_item') {
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'cancelled', cancel_reason = ?, waste_cost = NULL
+            WHERE order_item_id = ?
+        ")->execute([$reason, $order_item_id]);
+
+    } else {
+        // void_item — write waste_cost directly to the row
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'voided', void_reason = ?, waste_cost = ?
+            WHERE order_item_id = ?
+        ")->execute([$reason, $wasteCost, $order_item_id]);
+    }
+
+    // ── 3. Recalculate orders.waste_total ─────────────────────────────────────
+    // Sum waste_cost from all voided items on this order.
+    // Only voided items have a non-NULL waste_cost.
+    $wasteTotalStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(waste_cost), 0)
+        FROM order_items
+        WHERE order_id = ?
+          AND status = 'voided'
+          AND waste_cost IS NOT NULL
+    ");
+    $wasteTotalStmt->execute([$order_id]);
+    $newWasteTotal = (float) $wasteTotalStmt->fetchColumn();
+
+    $pdo->prepare("
+        UPDATE orders SET waste_total = ? WHERE order_id = ?
+    ")->execute([$newWasteTotal, $order_id]);
+
+    // ── 4. Audit log ──────────────────────────────────────────────────────────
     $logAction  = $action === 'cancel_item' ? 'cancel_order_item' : 'void_order_item';
     $logDetails = [
         'order_item_id' => $order_item_id,
@@ -155,7 +165,7 @@ try {
         'performed_by'  => (int) $_SESSION['user_id'],
     ];
     if ($action === 'cancel_item') {
-        $logDetails['stock_note'] = 'Item was pending — no stock had been deducted. Nothing restored.';
+        $logDetails['stock_note'] = 'Item was pending — no stock had been deducted. Nothing restored. No waste.';
     } else {
         $logDetails['waste_cost'] = $wasteCost;
         $logDetails['stock_note'] = 'Item was ready — ingredients already consumed. Stock NOT restored. Cost written off as waste.';
@@ -171,8 +181,7 @@ try {
         $_SERVER['REMOTE_ADDR'] ?? null,
     ]);
 
-    // ── 4. Recalculate order totals ───────────────────────────────────────────
-    // Both cancel and void remove the item price from the active order total.
+    // ── 5. Recalculate order totals ───────────────────────────────────────────
     $totalsStmt = $pdo->prepare("
         SELECT COALESCE(SUM(subtotal), 0) AS active_subtotal
         FROM order_items
@@ -200,8 +209,7 @@ try {
         UPDATE orders SET subtotal = ?, total_amount = ? WHERE order_id = ?
     ")->execute([$newSubtotal, $newTotalAmount, $order_id]);
 
-    // ── 5. Recalculate order status ───────────────────────────────────────────
-    // Only count items that are NOT cancelled or voided.
+    // ── 6. Recalculate order status ───────────────────────────────────────────
     $statusCountStmt = $pdo->prepare("
         SELECT status, COUNT(*) AS cnt
         FROM order_items
@@ -224,7 +232,6 @@ try {
     $guard          = "WHERE order_id = ? AND status NOT IN ('completed', 'cancelled', 'voided')";
 
     if ($activeTotal === 0) {
-        // All items are now cancelled or voided
         $voidedCheck = $pdo->prepare("
             SELECT COUNT(*) FROM order_items WHERE order_id = ? AND status = 'voided'
         ");
@@ -234,7 +241,6 @@ try {
 
         $pdo->prepare("UPDATE orders SET status = ? $guard")->execute([$newOrderStatus, $order_id]);
 
-        // Free the table
         $pdo->prepare("
             UPDATE tables SET status = 'available', current_order_id = NULL
             WHERE current_order_id = ?
@@ -277,9 +283,11 @@ try {
         'order_status'  => $newOrderStatus,
         'new_total'     => $newTotalAmount,
         'new_subtotal'  => $newSubtotal,
+        'waste_cost'    => $wasteCost,      // null for cancel, float for void
+        'waste_total'   => $newWasteTotal,  // cumulative for this order
     ]);
 
 } catch (Exception $e) {
     $pdo->rollBack();
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-}
+}   

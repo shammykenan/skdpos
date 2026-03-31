@@ -1,10 +1,9 @@
 <?php
-
 require_once __DIR__ . '/../../config/db.php';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 // ORDER NUMBER
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 
 function generateUniqueOrderNumber(PDO $pdo): string {
     do {
@@ -15,9 +14,9 @@ function generateUniqueOrderNumber(PDO $pdo): string {
     return $number;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 // ORDER FETCHING
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 
 function getAllOrders(PDO $pdo, ?int $cashierId = null): array {
     $where  = ["o.status != 'draft'"];
@@ -48,20 +47,24 @@ function getOrderById(PDO $pdo, int $order_id): ?array {
 }
 
 /**
- * Get full order details: items (with addons + per-item reasons), payment,
- * and void/cancel audit for display in the Order Details modal.
+ * Get full order details: items (with addons + per-item reasons + waste_cost),
+ * payment, and void/cancel audit for the Order Details modal.
+ *
+ * waste_total is now read directly from orders.waste_total — no activity_logs
+ * JSON parsing needed. This is the canonical source of truth for waste cost.
  *
  * Return shape:
  * [
- *   'order'       => [...],   // orders row including void_reason, cancel_reason
- *   'items'       => [...],   // order_items rows including void_reason, cancel_reason per item
- *   'payment'     => [...],   // payments row (null if not completed)
- *   'cancel_audit'=> [...],   // populated when order status = 'cancelled'
- *   'void_audit'  => [...],   // populated when order status = 'voided'
+ *   'order'        => [...],  // includes void_reason, cancel_reason, waste_total
+ *   'items'        => [...],  // each item includes void_reason, cancel_reason, waste_cost
+ *   'payment'      => [...],  // null if not completed
+ *   'cancel_audit' => [...],  // populated when status = 'cancelled'
+ *   'void_audit'   => [...],  // populated when status = 'voided'
  * ]
  */
 function getOrderDetails(PDO $pdo, int $order_id): ?array {
-    // ── Order row (includes void_reason + cancel_reason columns) ──────────────
+    // ── Order row ─────────────────────────────────────────────────────────────
+    // includes void_reason, cancel_reason, waste_total — all direct columns
     $stmt = $pdo->prepare("
         SELECT o.*, u.full_name AS cashier_name, t.table_name
         FROM orders o
@@ -74,7 +77,7 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
     $order = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$order) return null;
 
-    // ── Items (includes void_reason + cancel_reason per item) ─────────────────
+    // ── Items (includes void_reason, cancel_reason, waste_cost per item) ──────
     $items = getOrderItems($pdo, $order_id);
     foreach ($items as &$item) {
         $item['addons'] = getOrderItemAddons($pdo, $item['order_item_id']);
@@ -93,8 +96,8 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
     $payment = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
     // ── Cancel audit ──────────────────────────────────────────────────────────
-    // Source: orders.cancel_reason (written by pos_controller.php)
-    // Stock note: order was pending, so no stock was deducted — nothing restored.
+    // Source: orders.cancel_reason (written by pos_controller.php).
+    // Cancelled orders had status = 'pending' — no stock was ever deducted.
     $cancelAudit = null;
     if ($order['status'] === 'cancelled') {
         $cancelAudit = [
@@ -104,44 +107,82 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
     }
 
     // ── Void audit ────────────────────────────────────────────────────────────
-    // Source: orders.void_reason (written by void_order.php)
-    // Waste cost: summed from activity_logs entry for the void event.
-    // Stock note: ingredients were already consumed — NOT restored.
+    // waste_total is read directly from orders.waste_total — the canonical DB
+    // column written at void time. No activity_logs parsing needed.
+    //
+    // For orders voided before migration_waste_cost.sql was run (waste_total IS
+    // NULL), we fall back to summing item-level waste_cost values from
+    // order_items. If those are also NULL (very old data), we fall back to
+    // activity_logs for backward compatibility.
     $voidAudit = null;
     if ($order['status'] === 'voided') {
-        // Pull waste cost from the void_entire_order log entry
-        $logStmt = $pdo->prepare("
-            SELECT details
-            FROM activity_logs
-            WHERE action = 'void_entire_order'
-              AND JSON_UNQUOTE(JSON_EXTRACT(details, '$.order_id')) = CAST(? AS CHAR)
-            ORDER BY created_at DESC
-            LIMIT 1
-        ");
-        $logStmt->execute([$order_id]);
-        $logRow  = $logStmt->fetch(PDO::FETCH_ASSOC);
-        $logData = $logRow ? (json_decode($logRow['details'], true) ?? []) : [];
+        $wasteCostValue = null;
 
-        // If voided via item-level voids (no single order-level log), sum item waste costs
-        if (empty($logData)) {
-            $itemLogStmt = $pdo->prepare("
+        // Primary: direct column on orders row (fastest, most reliable)
+        if ($order['waste_total'] !== null) {
+            $wasteCostValue = (float) $order['waste_total'];
+
+        // Fallback 1: sum item-level waste_cost (items voided individually)
+        } else {
+            $sumStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(waste_cost), 0)
+                FROM order_items
+                WHERE order_id = ?
+                  AND status = 'voided'
+                  AND waste_cost IS NOT NULL
+            ");
+            $sumStmt->execute([$order_id]);
+            $itemSum = (float) $sumStmt->fetchColumn();
+
+            // Only trust the item sum if at least one item has a non-NULL waste_cost.
+            // If all are NULL it means they were voided before the migration ran.
+            $checkStmt = $pdo->prepare("
+                SELECT COUNT(*) FROM order_items
+                WHERE order_id = ? AND status = 'voided' AND waste_cost IS NOT NULL
+            ");
+            $checkStmt->execute([$order_id]);
+            if ((int) $checkStmt->fetchColumn() > 0) {
+                $wasteCostValue = $itemSum;
+            }
+        }
+
+        // Fallback 2: activity_logs JSON (backward compat for pre-migration voids)
+        if ($wasteCostValue === null) {
+            $logStmt = $pdo->prepare("
                 SELECT details
                 FROM activity_logs
-                WHERE action = 'void_order_item'
+                WHERE action = 'void_entire_order'
                   AND JSON_UNQUOTE(JSON_EXTRACT(details, '$.order_id')) = CAST(? AS CHAR)
+                ORDER BY created_at DESC
+                LIMIT 1
             ");
-            $itemLogStmt->execute([$order_id]);
-            $totalWaste = 0;
-            foreach ($itemLogStmt->fetchAll(PDO::FETCH_ASSOC) as $il) {
-                $d = json_decode($il['details'], true) ?? [];
-                $totalWaste += (float) ($d['waste_cost'] ?? 0);
+            $logStmt->execute([$order_id]);
+            $logRow  = $logStmt->fetch(PDO::FETCH_ASSOC);
+            $logData = $logRow ? (json_decode($logRow['details'], true) ?? []) : [];
+
+            if (!empty($logData)) {
+                $wasteCostValue = (float) ($logData['total_waste_cost'] ?? 0);
+            } else {
+                // Item-level void logs (no single order-level log)
+                $itemLogStmt = $pdo->prepare("
+                    SELECT details
+                    FROM activity_logs
+                    WHERE action = 'void_order_item'
+                      AND JSON_UNQUOTE(JSON_EXTRACT(details, '$.order_id')) = CAST(? AS CHAR)
+                ");
+                $itemLogStmt->execute([$order_id]);
+                $totalWaste = 0;
+                foreach ($itemLogStmt->fetchAll(PDO::FETCH_ASSOC) as $il) {
+                    $d = json_decode($il['details'], true) ?? [];
+                    $totalWaste += (float) ($d['waste_cost'] ?? 0);
+                }
+                $wasteCostValue = $totalWaste;
             }
-            $logData = ['total_waste_cost' => $totalWaste];
         }
 
         $voidAudit = [
             'reason'           => $order['void_reason'] ?? null,
-            'total_waste_cost' => $logData['total_waste_cost'] ?? 0,
+            'total_waste_cost' => $wasteCostValue,
             'stock_note'       => 'Ingredients already consumed — stock NOT restored. Cost written off as waste.',
         ];
     }
@@ -155,9 +196,9 @@ function getOrderDetails(PDO $pdo, int $order_id): ?array {
     ];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 // FILTERED ORDERS
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 
 function getFilteredOrders(PDO $pdo, array $options): array {
     $currentUserId = $options['current_user_id'];
@@ -171,8 +212,7 @@ function getFilteredOrders(PDO $pdo, array $options): array {
     $dateTo        = $options['date_to']      ?? '';
     $cashierView   = $options['cashier_view'] ?? 'all';
 
-    $validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
-    if ($isAdmin) $validStatuses[] = 'voided';
+    $validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled', 'voided'];
 
     $where  = ["o.status != 'draft'"];
     $params = [];
@@ -251,8 +291,7 @@ function getFilteredOrders(PDO $pdo, array $options): array {
     $countAllStmt = $pdo->prepare("SELECT status, COUNT(*) AS cnt FROM orders $cWhereSQL GROUP BY status");
     $countAllStmt->execute($cParams);
 
-    $statusCounts = ['pending' => 0, 'preparing' => 0, 'ready' => 0, 'completed' => 0, 'cancelled' => 0];
-    if ($isAdmin) $statusCounts['voided'] = 0;
+    $statusCounts = ['pending' => 0, 'preparing' => 0, 'ready' => 0, 'completed' => 0, 'cancelled' => 0, 'voided' => 0];
     $total = 0;
     foreach ($countAllStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         if (isset($statusCounts[$row['status']])) $statusCounts[$row['status']] = (int) $row['cnt'];
@@ -267,9 +306,9 @@ function getFilteredOrders(PDO $pdo, array $options): array {
     ];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 // ORDER MUTATIONS
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 
 function cancelOrder(PDO $pdo, int $order_id): void {
     $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE order_id = ?");

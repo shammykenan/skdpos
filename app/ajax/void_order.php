@@ -67,7 +67,10 @@ try {
         exit;
     }
 
-    // Fetch ready items for waste audit
+    // ── Fetch ready items for waste cost calculation ───────────────────────────
+    // Only ready items are voided here — they were prepared, ingredients consumed.
+    // Cancelled items (if any already exist on this order) are skipped:
+    // they were never prepared, so no waste applies.
     $itemsStmt = $pdo->prepare("
         SELECT
             oi.order_item_id,
@@ -96,31 +99,42 @@ try {
         ];
     }
 
-    // Mark ready items as voided, writing void_reason per item
-    // (cancel_reason stays NULL — this is a void, not a cancel)
-    $pdo->prepare("
-        UPDATE order_items
-        SET status = 'voided', void_reason = ?
-        WHERE order_id = ? AND status = 'ready'
-    ")->execute([$reason, $order_id]);
+    // ── Mark ready items as voided ────────────────────────────────────────────
+    // Write void_reason and waste_cost per item.
+    // cancel_reason stays NULL — this is a void, not a cancel.
+    // waste_cost is stored per item for granular audit.
+    foreach ($readyItems as $ri) {
+        $itemCost = round((float) $ri['unit_cost'] * (int) $ri['quantity'], 2);
+        $pdo->prepare("
+            UPDATE order_items
+            SET status = 'voided', void_reason = ?, waste_cost = ?
+            WHERE order_item_id = ?
+        ")->execute([$reason, $itemCost, $ri['order_item_id']]);
+    }
 
-    // Mark the order as voided with void_reason
+    // ── Update order: voided, totals zeroed, waste_total recorded ─────────────
     // Stock was already deducted when kitchen moved items to 'preparing' —
-    // ingredients are consumed and written off as waste. Do NOT restore.
-    // Sale total → 0. Waste cost tracked in activity_logs for accounting.
+    // ingredients consumed and written off as waste. Do NOT restore stock.
+    // Sale total → 0. waste_total stored directly on the orders row
+    // so getOrderDetails() can read it in a single query without JSON parsing.
     $pdo->prepare("
         UPDATE orders
-        SET status = 'voided', void_reason = ?, subtotal = 0, total_amount = 0
+        SET
+            status      = 'voided',
+            void_reason = ?,
+            subtotal    = 0,
+            total_amount = 0,
+            waste_total  = ?
         WHERE order_id = ?
-    ")->execute([$reason, $order_id]);
+    ")->execute([$reason, $totalWasteCost, $order_id]);
 
-    // Free the table
+    // ── Free the table ────────────────────────────────────────────────────────
     $pdo->prepare("
         UPDATE tables SET status = 'available', current_order_id = NULL
         WHERE current_order_id = ?
     ")->execute([$order_id]);
 
-    // Audit log
+    // ── Audit log ─────────────────────────────────────────────────────────────
     $pdo->prepare("
         INSERT INTO activity_logs (user_id, action, details, ip_address)
         VALUES (?, 'void_entire_order', ?, ?)

@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . '/../../config/db.php';
 
 function getAllCategories(PDO $pdo) {
@@ -56,7 +55,7 @@ function getMenuItemById(PDO $pdo, $item_id) {
     return $stmt->fetch();
 }
 
-function getTotalSalesByItem(PDO $pdo, $item_id) {
+function getTotalSalesByItem($pdo, $item_id) {
     $stmt = $pdo->prepare("SELECT SUM(quantity) as total_sold FROM order_items WHERE item_id = :item_id");
     $stmt->execute([':item_id' => $item_id]);
     return (int) $stmt->fetchColumn();
@@ -66,10 +65,12 @@ function getTotalSalesByItem(PDO $pdo, $item_id) {
  * Get all items for a given order.
  *
  * Columns returned:
- *   - item_name_snapshot / variant_name_snapshot  : names stored at order time (never change)
- *   - item_name                                   : resolved display name (snapshot → live fallback)
+ *   - item_name_snapshot / variant_name_snapshot : names stored at order time (never change)
+ *   - item_name                                  : resolved display name (snapshot → live fallback)
  *   - current_variant_name / current_variant_price: live variant data for price-change comparison
- *   - void_reason / cancel_reason                 : per-item audit reasons
+ *   - void_reason / cancel_reason                : per-item audit reasons
+ *   - waste_cost                                 : NULL for non-voided or cancelled items;
+ *                                                  DECIMAL for voided items (cost of ingredients used)
  */
 function getOrderItems(PDO $pdo, int $order_id): array {
     $stmt = $pdo->prepare("
@@ -86,6 +87,7 @@ function getOrderItems(PDO $pdo, int $order_id): array {
             oi.item_notes,
             oi.void_reason,
             oi.cancel_reason,
+            oi.waste_cost,
 
             mi.item_name       AS current_item_name,
 
