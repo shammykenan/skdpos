@@ -113,7 +113,21 @@ try {
         ");
         $costStmt->execute([$order_item_id]);
         $costRow   = $costStmt->fetch(PDO::FETCH_ASSOC);
-        $wasteCost = $costRow ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2) : 0.00;
+
+        // Item cost = ingredient cost * quantity
+        $itemCost = $costRow ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2) : 0.00;
+
+        // Addon cost = sum of addon prices on this item
+        $addonStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(price * quantity), 0) AS addon_total
+            FROM order_item_addons
+            WHERE order_item_id = ?
+        ");
+        $addonStmt->execute([$order_item_id]);
+        $addonCost = (float)($addonStmt->fetchColumn() ?? 0);
+
+        // Total waste cost = item cost + addon cost
+        $wasteCost = round($itemCost + $addonCost, 2);
     }
 
     // ── 2. Update item status + write reason + waste_cost ─────────────────────

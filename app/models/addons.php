@@ -38,7 +38,21 @@ function updateAddon(PDO $pdo, int $addon_id, string $addon_name, float $price, 
  */
 function deleteAddon(PDO $pdo, int $addon_id): bool
 {
-    $sql = "DELETE FROM addons WHERE addon_id = :addon_id";
-    $stmt = $pdo->prepare($sql);
+    $checkStmt = $pdo->prepare("
+        SELECT COUNT(*) FROM order_item_addons WHERE addon_id = :addon_id
+    ");
+    $checkStmt->execute([':addon_id' => $addon_id]);
+    $usageCount = (int) $checkStmt->fetchColumn();
+ 
+    if ($usageCount > 0) {
+        // Has order history — soft delete only
+        $stmt = $pdo->prepare("
+            UPDATE addons SET is_active = 0 WHERE addon_id = :addon_id
+        ");
+        return $stmt->execute([':addon_id' => $addon_id]);
+    }
+ 
+    // Never used in any order — safe to hard delete
+    $stmt = $pdo->prepare("DELETE FROM addons WHERE addon_id = :addon_id");
     return $stmt->execute([':addon_id' => $addon_id]);
 }

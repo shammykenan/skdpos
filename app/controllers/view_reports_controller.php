@@ -1,10 +1,10 @@
 <?php
 /**
- * reports_controller.php – v5 (variant-aware)
+ * reports_controller.php – v6 (waste-aware)
  *
  * RBAC:
- *   admin   → daily, monthly, yearly, products, staff, audit, consumption
- *   cashier → myshift, closeout, inventory
+ *   admin   → daily, monthly, yearly, products, staff, audit, consumption, waste
+ *   cashier → myshift, closeout, inventory, waste
  *   kitchen → blocked
  */
 
@@ -24,8 +24,8 @@ $session_uid = (int)($_SESSION['user_id'] ?? 0);
 
 // ── 2. Allowed tabs per role ──────────────────────────────────────────────────
 $allowed_tabs = $is_admin
-    ? ['daily', 'monthly', 'yearly', 'products', 'staff', 'audit', 'consumption']
-    : ['myshift', 'closeout', 'inventory'];
+    ? ['daily', 'monthly', 'yearly', 'products', 'staff', 'audit', 'consumption', 'waste']
+    : ['myshift', 'closeout', 'inventory', 'waste'];
 
 $default_tab = $is_admin ? 'daily' : 'myshift';
 
@@ -150,6 +150,15 @@ switch ($tab) {
     case 'consumption':
         $data['consumption'] = rpt_ingredient_consumption($pdo, $range_start, $range_end);
         $data['low_stock']   = rpt_low_stock($pdo);
+        break;
+
+    // ── ADMIN + CASHIER: Waste ────────────────────────────────────────────────
+    // Admin sees all cashiers' voided items.
+    // Cashier sees only their own orders' voided items.
+    case 'waste':
+        $waste_cid           = $is_admin ? null : $session_uid;
+        $data['summary']     = rpt_waste_summary($pdo, $range_start, $range_end, $waste_cid);
+        $data['waste_items'] = rpt_waste_report($pdo,  $range_start, $range_end, $waste_cid);
         break;
 }
 
