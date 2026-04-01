@@ -87,24 +87,52 @@ try {
     $itemsStmt->execute([$order_id]);
     $readyItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // ── Pre-fetch addon costs for all ready items in one query ────────────────
+    // Addons were prepared alongside the item — their cost is also waste.
+    $addonCostStmt = $pdo->prepare("
+        SELECT
+            oia.order_item_id,
+            COALESCE(SUM(a.price * oia.quantity), 0) AS addon_cost
+        FROM order_item_addons oia
+        JOIN addons a ON oia.addon_id = a.addon_id
+        WHERE oia.order_item_id IN (
+            SELECT order_item_id FROM order_items
+            WHERE order_id = ? AND status = 'ready'
+        )
+        GROUP BY oia.order_item_id
+    ");
+    $addonCostStmt->execute([$order_id]);
+    $addonCosts = [];
+    foreach ($addonCostStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $addonCosts[$row['order_item_id']] = (float) $row['addon_cost'];
+    }
+
     $totalWasteCost = 0;
     $itemSummary    = [];
     foreach ($readyItems as $ri) {
-        $itemCost        = round((float) $ri['unit_cost'] * (int) $ri['quantity'], 2);
+        $baseCost  = round((float) $ri['unit_cost'] * (int) $ri['quantity'], 2);
+        $addonCost = round($addonCosts[$ri['order_item_id']] ?? 0, 2);
+        $itemCost  = $baseCost + $addonCost;
+
         $totalWasteCost += $itemCost;
         $itemSummary[]   = [
             'item'       => $ri['item_name_snapshot'] ?? ('Item #' . $ri['order_item_id']),
             'qty'        => (int) $ri['quantity'],
+            'base_cost'  => $baseCost,
+            'addon_cost' => $addonCost,
             'waste_cost' => $itemCost,
         ];
     }
 
     // ── Mark ready items as voided ────────────────────────────────────────────
-    // Write void_reason and waste_cost per item.
+    // Write void_reason and waste_cost per item (base + addon cost combined).
     // cancel_reason stays NULL — this is a void, not a cancel.
     // waste_cost is stored per item for granular audit.
     foreach ($readyItems as $ri) {
-        $itemCost = round((float) $ri['unit_cost'] * (int) $ri['quantity'], 2);
+        $baseCost  = round((float) $ri['unit_cost'] * (int) $ri['quantity'], 2);
+        $addonCost = round($addonCosts[$ri['order_item_id']] ?? 0, 2);
+        $itemCost  = $baseCost + $addonCost;
+
         $pdo->prepare("
             UPDATE order_items
             SET status = 'voided', void_reason = ?, waste_cost = ?
@@ -120,9 +148,9 @@ try {
     $pdo->prepare("
         UPDATE orders
         SET
-            status      = 'voided',
-            void_reason = ?,
-            subtotal    = 0,
+            status       = 'voided',
+            void_reason  = ?,
+            subtotal     = 0,
             total_amount = 0,
             waste_total  = ?
         WHERE order_id = ?

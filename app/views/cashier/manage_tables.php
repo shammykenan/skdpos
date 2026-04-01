@@ -1527,7 +1527,19 @@
 <script>
 
 
+const baseUrl        = '<?= $baseUrl ?>';
 
+const POLL_INTERVAL   = 2000;
+
+const GET_TABLES_URL  = `/dinewithdinpos/app/ajax/get_tables.php`;
+
+const userRole        = '<?= $_SESSION['role'] ?? '' ?>';
+
+const isAdmin         = userRole === 'admin';
+
+let   pollTimer       = null;
+
+let   lastTableStates = {}; // table_id → status, for change detection
 // ── Sidebar ──────────────────────────────────────────────────────────
 
 document.getElementById('menuToggle')?.addEventListener('click', () => {
@@ -1768,7 +1780,7 @@ function viewTableOrder(orderId, orderNumber) {
 
     // Fetch — same endpoint used by manage_orders.js
 
-    fetch(`/coffee_shop/app/ajax/get_order_details.php?order_id=${orderId}`)
+    fetch(`/dinewithdinpos/app/ajax/get_order_details.php?order_id=${orderId}`)
 
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
 
@@ -1916,7 +1928,7 @@ function populateTodModal(order, items, payment) {
 
             (item.addons || []).forEach(addon => {
 
-                const aSub = (parseFloat(addon.unit_price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
+                const aSub = (parseFloat(addon.price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
 
                 const atr  = document.createElement('tr');
 
@@ -1928,7 +1940,7 @@ function populateTodModal(order, items, payment) {
 
                     <td class="od-td od-td-center od-muted">${addon.quantity || 1}</td>
 
-                    <td class="od-td od-td-right od-muted">₱${fmt(addon.unit_price)}</td>
+                    <td class="od-td od-td-right od-muted">₱${fmt(addon.price)}</td>
 
                     <td class="od-td od-td-right od-muted">₱${aSub}</td>`;
 
@@ -2028,17 +2040,6 @@ function fmt(v) {
 
 // ════════════════════════════════════════════════════════════════════
 
-const POLL_INTERVAL   = 2000;
-
-const GET_TABLES_URL  = '/coffee_shop/app/ajax/get_tables.php';
-
-const userRole        = '<?= $_SESSION['role'] ?? '' ?>';
-
-const isAdmin         = userRole === 'admin';
-
-let   pollTimer       = null;
-
-let   lastTableStates = {}; // table_id → status, for change detection
 
 
 
@@ -2422,7 +2423,7 @@ function refreshOpenModal(table) {
 
     // Silently re-fetch and re-populate without showing the spinner
 
-    fetch(`/coffee_shop/app/ajax/get_order_details.php?order_id=${openModalOrderId}`)
+    fetch(`/dinewithdinpos/app/ajax/get_order_details.php?order_id=${openModalOrderId}`)
 
         .then(r => r.json())
 

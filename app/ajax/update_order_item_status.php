@@ -1,9 +1,16 @@
 <?php
+ini_set('display_errors', 1); 
+ini_set('display_startup_errors', 0);
+error_reporting(E_ALL);
+ob_start(); // buffer ANY stray output
+
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
+require_once __DIR__ . '/../core/addonsHelper.php';
 
+ob_clean(); // discard any HTML that snuck out from the requires above
 header('Content-Type: application/json');
 
 if (!hasRole('kitchen') && !hasRole('admin')) {
@@ -89,8 +96,14 @@ try {
 
             $addonStmt = $pdo->prepare("SELECT addon_id, quantity FROM order_item_addons WHERE order_item_id = ?");
             $addonStmt->execute([$order_item_id]);
+            $itemQty = (int) $orderItem['quantity'];
             foreach ($addonStmt->fetchAll(PDO::FETCH_ASSOC) as $ad) {
-                deductIngredientsForAddon($pdo, (int) $ad['addon_id'], (int) $ad['quantity']);
+                try {
+                    deductIngredientsForAddon($pdo, (int) $ad['addon_id'], (int) $ad['quantity'] * $itemQty);
+                } catch (Exception $e) {
+                    error_log('Addon deduction failed: addon_id=' . $ad['addon_id'] . ' err=' . $e->getMessage());
+                    throw $e; // re-throw so the transaction still rolls back properly
+                }
             }
         }
     }

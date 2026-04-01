@@ -6,7 +6,7 @@
 
 const REFRESH_INTERVAL     = 2000;
 const PAGE_LIMIT           = 10;
-const BASE_URL             = '/coffee_shop';
+const BASE_URL             = '/dinewithdinpos'; // Set by server-side config; adjust if your setup differs
 const AJAX_URL             = `${BASE_URL}/app/ajax/get_orders.php`;
 const ITEM_STATUS_URL      = `${BASE_URL}/app/ajax/update_order_item_status.php`;
 const ORDER_DETAILS_URL    = `${BASE_URL}/app/ajax/get_order_details.php`;
@@ -714,39 +714,67 @@ function getOrderActionsHTML(order) {
 // ITEM STATUS UPDATE (kitchen progress)
 // ============================================
 async function updateItemStatus(orderItemId, nextStatus, btn) {
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating…</span>'; }
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating…</span>';
+    }
+
     try {
         const formData = new FormData();
         formData.append('order_item_id', orderItemId);
         formData.append('status', nextStatus);
-        const res  = await fetch(ITEM_STATUS_URL, { method: 'POST', body: formData });
+
+        const res = await fetch(ITEM_STATUS_URL, { method: 'POST', body: formData });
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+
+        // ── Safely parse JSON, expose raw response if PHP returned HTML ──
+        const rawText = await res.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseErr) {
+            console.error('Server returned non-JSON response:');
+            console.error(rawText); // ← this will show the actual PHP error HTML
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';
+            }
+            return;
+        }
+
         if (!data.success) throw new Error(data.error || 'Update failed');
+
         if (kitchenModalOrderId) await refreshKitchenModal(kitchenModalOrderId);
+
         const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
+
             const statusCell  = row.querySelector('td[data-label="Status"]');
             const actionsCell = row.querySelector('td[data-label="Actions"]');
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
-            if (statusCell) statusCell.innerHTML = getOrderStatusBadge(data.order_status);
-            if (totalSpan)  totalSpan.className  = data.order_status === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
-            if (actionsCell) {
-                actionsCell.innerHTML = getOrderActionsHTML({
-                    order_id: data.order_id,
-                    order_number: row.getAttribute('data-order-number'),
-                    total_amount: row.getAttribute('data-order-total'),
-                    status: data.order_status,
-                });
-            }
+
+            if (statusCell)  statusCell.innerHTML = getOrderStatusBadge(data.order_status);
+            if (totalSpan)   totalSpan.className  = data.order_status === 'completed'
+                                                        ? 'price-total-paid'
+                                                        : 'price-total-unpaid';
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({
+                order_id:     data.order_id,
+                order_number: row.getAttribute('data-order-number'),
+                total_amount: row.getAttribute('data-order-total'),
+                status:       data.order_status,
+            });
         }
+
     } catch (err) {
-        console.error('Item status update error:', err);
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; }
+        console.error('Item status update error:', err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';
+        }
     }
 }
-
 // ============================================
 // CANCEL / VOID ITEM — show confirm modal
 // ============================================
@@ -1194,13 +1222,13 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
             itemsBody.appendChild(tr);
 
             (item.addons || []).forEach(addon => {
-                const addonSubtotal = (parseFloat(addon.unit_price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
+                const addonSubtotal = (parseFloat(addon.price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
                 const addonTr = document.createElement('tr');
                 addonTr.className = 'od-addon-row';
                 addonTr.innerHTML = `
                     <td class="od-td od-td-addon"><i class="fas fa-corner-down-right od-addon-icon"></i>${escapeHtml(addon.addon_name)}</td>
                     <td class="od-td od-td-center od-muted">${addon.quantity || 1}</td>
-                    <td class="od-td od-td-right od-muted">₱${formatPrice(addon.unit_price)}</td>
+                    <td class="od-td od-td-right od-muted">₱${formatPrice(addon.price)}</td>
                     <td class="od-td od-td-right od-muted">₱${addonSubtotal}</td>`;
                 itemsBody.appendChild(addonTr);
             });
