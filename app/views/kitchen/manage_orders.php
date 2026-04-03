@@ -11,6 +11,17 @@
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/manage_orders.css">
 </head>
+<style>
+@media print {
+    @page { size: 58mm auto; margin: 3mm 2mm; }
+    body > *               { display: none !important; }
+    #finalReceiptPrintArea { display: block !important; visibility: visible !important;
+                             position: fixed; top: 0; left: 0;
+                             font-family: 'Courier New', Courier, monospace;
+                             font-size: 10px; line-height: 1.5; color: #000;
+                             width: 54mm; padding: 0; background: white; }
+}
+</style>
 <body>
 
 <!-- TOPBAR -->
@@ -247,80 +258,6 @@
 </div><!-- /.main-content -->
 
 
-<!-- ══════════════════════════════════════════
-     PAYMENT MODAL
-══════════════════════════════════════════ -->
-<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content pm-modal-content">
-            <div class="pm-header">
-                <div class="pm-header-left">
-                    <div class="pm-header-icon"><i class="fas fa-cash-register"></i></div>
-                    <div>
-                        <div class="pm-header-title">Process Payment</div>
-                        <div class="pm-header-sub">Order #<span id="paymentOrderNumber"></span></div>
-                    </div>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" action="" id="paymentForm">
-                <div class="modal-body pm-body">
-                    <div class="pm-total-row">
-                        <span class="pm-total-label">Total Due</span>
-                        <span class="pm-total-amount">₱<span id="paymentTotalAmount">0.00</span></span>
-                    </div>
-                    <div class="pm-fields">
-                        <div class="pm-field">
-                            <label class="pm-label" for="paymentMethod">
-                                <i class="fas fa-money-bill-wave"></i> Payment Method
-                            </label>
-                            <select class="form-select" id="paymentMethod" name="payment_method" required>
-                                <option value="cash" selected>Cash</option>
-                            </select>
-                        </div>
-                        <div class="pm-field">
-                            <label class="pm-label" for="amountPaid">
-                                <i class="fas fa-coins"></i> Amount Received
-                            </label>
-                            <div class="input-group">
-                                <span class="input-group-text">₱</span>
-                                <input type="number" class="form-control" id="amountPaid"
-                                       name="amount_paid" step="0.01" min="0"
-                                       required placeholder="0.00" autocomplete="off">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="pm-feedback pm-feedback-change pm-hidden" id="changeAlert" role="alert">
-                        <div class="pm-feedback-icon pm-feedback-icon-change"><i class="fas fa-check-circle"></i></div>
-                        <div>
-                            <div class="pm-feedback-label">Change to return</div>
-                            <div class="pm-feedback-amount">₱<span id="changeAmount">0.00</span></div>
-                        </div>
-                    </div>
-                    <div class="pm-feedback pm-feedback-warn pm-hidden" id="insufficientAlert" role="alert">
-                        <div class="pm-feedback-icon pm-feedback-icon-warn"><i class="fas fa-exclamation-triangle"></i></div>
-                        <div>
-                            <div class="pm-feedback-label">Insufficient amount</div>
-                            <div class="pm-feedback-sub">Enter an amount equal to or greater than the total.</div>
-                        </div>
-                    </div>
-                    <input type="hidden" name="order_id"      id="paymentOrderId">
-                    <input type="hidden" name="status"        value="completed">
-                    <input type="hidden" name="change_amount" id="changeAmountHidden">
-                </div>
-                <div class="modal-footer pm-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i> Cancel
-                    </button>
-                    <button type="submit" name="update_status" class="btn btn-primary"
-                            id="confirmPaymentBtn" disabled>
-                        <i class="fas fa-check-circle me-1"></i> Confirm & Complete
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 
 <!-- ══════════════════════════════════════════
@@ -630,7 +567,45 @@
 <?php unset($_SESSION['success']); ?>
 <?php endif; ?>
 
-
+<div class="modal fade" id="finalReceiptModal" tabindex="-1" aria-labelledby="finalReceiptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:420px;">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;">
+            <div class="modal-header"
+                 style="background:linear-gradient(135deg,#1a202c,#2d3748);border-radius:20px 20px 0 0;padding:1.1rem 1.4rem;">
+                <h5 class="modal-title" id="finalReceiptModalLabel"
+                    style="color:white;display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fas fa-receipt" style="color:#fbbf24;"></i>
+                    Official Receipt
+                    <span id="finalReceiptOrderNumber"
+                          style="font-weight:500;opacity:0.7;font-size:0.88rem;margin-left:4px;"></span>
+                </h5>
+                <button type="button" class="btn-close"
+                        style="filter:brightness(0) invert(1);"
+                        data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:1.2rem;background:#f5f5f0;">
+                <!-- 58mm receipt paper -->
+                <div id="finalReceiptPrintArea"
+                     style="background:white;font-family:'Courier New',Courier,monospace;
+                            font-size:11px;line-height:1.55;color:#000;
+                            padding:1rem;border:1px dashed #ccc;border-radius:8px;
+                            max-height:480px;overflow-y:auto;">
+                    <!-- Populated by printFinalReceipt() in manage_orders.js -->
+                </div>
+                <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:1rem;">
+                    <button class="btn btn-primary" onclick="window.print()"
+                            style="border-radius:12px;font-weight:700;display:flex;align-items:center;gap:0.5rem;">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal"
+                            style="border-radius:12px;font-weight:600;">
+                        <i class="fas fa-times me-1"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- ══════════════════════════════════════════
      VOID ORDER MODAL
      PATCH D — reason <select> now empty;

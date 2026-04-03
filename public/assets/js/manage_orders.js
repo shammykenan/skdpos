@@ -6,7 +6,7 @@
 
 const REFRESH_INTERVAL     = 2000;
 const PAGE_LIMIT           = 10;
-const BASE_URL             = '/dinewithdinpos'; // Set by server-side config; adjust if your setup differs
+const BASE_URL             = '/dinewithdinpos';
 const AJAX_URL             = `${BASE_URL}/app/ajax/get_orders.php`;
 const ITEM_STATUS_URL      = `${BASE_URL}/app/ajax/update_order_item_status.php`;
 const ORDER_DETAILS_URL    = `${BASE_URL}/app/ajax/get_order_details.php`;
@@ -15,6 +15,7 @@ const ORDER_ITEMS_URL      = `${BASE_URL}/app/ajax/get_order_items.php`;
 const CANCEL_VOID_ITEM_URL = `${BASE_URL}/app/ajax/cancel_items.php`;
 const VOID_ORDER_URL       = `${BASE_URL}/app/ajax/void_order.php`;
 const GET_REASONS_URL      = `${BASE_URL}/app/ajax/get_reasons.php`;
+const MARK_SERVED_URL      = `${BASE_URL}/app/ajax/mark_served.php`;
 
 let currentFilter      = 'all';
 let currentSearch      = '';
@@ -28,13 +29,13 @@ let filteredTotal      = 0;
 let isLoading          = false;
 let isRefreshing       = false;
 let refreshTimer       = null;
-let currentOrderTotal  = 0;
 let currentOrdersCache = {};
 let openDetailsOrderId = null;
 let kitchenModalOrderId = null;
 
-let paymentModal, cancelOrderModal, orderDetailsModal, kitchenItemsModal,
-    voidOrderModal, cancelVoidItemModal;
+// Modal instances — paymentModal removed; payment lives in POS now
+let cancelOrderModal, orderDetailsModal, kitchenItemsModal,
+    voidOrderModal, cancelVoidItemModal, finalReceiptModal;
 
 // Pending cancel/void item action (set before modal confirms)
 let pendingItemAction = { orderItemId: null, action: null, itemName: null, btn: null };
@@ -43,21 +44,14 @@ let pendingItemAction = { orderItemId: null, action: null, itemName: null, btn: 
 // REASON DROPDOWN HELPERS
 // ============================================
 
-/**
- * Fetch reasons from the DB for a given type and populate a <select>.
- * Adds an "Other" option at the end that reveals a free-text textarea.
- * Returns a promise that resolves when done.
- */
 async function loadReasons(type, selectId) {
     const sel = document.getElementById(selectId);
     if (!sel) return;
-
     sel.innerHTML = '<option value="">— Loading… —</option>';
     try {
         const res  = await fetch(`${GET_REASONS_URL}?type=${encodeURIComponent(type)}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Failed to load reasons');
-
         sel.innerHTML = '<option value="">— Select a reason —</option>';
         data.data.forEach(r => {
             const opt       = document.createElement('option');
@@ -71,54 +65,38 @@ async function loadReasons(type, selectId) {
     }
 }
 
-/**
- * Wire a reason <select> + optional free-text <textarea>.
- *
- * - When "Other" is selected the textarea slides into view.
- * - getReason() returns the selected value, or the textarea content when "Other".
- * - reset()     clears both controls and hides the textarea.
- * - showError() highlights the select and shows the error <div>.
- *
- * NOTE: This function is defined ONCE here. Do not redefine it below.
- */
 function wireReasonDropdown(selectId, textareaId, errorId) {
     const sel = document.getElementById(selectId);
     const ta  = document.getElementById(textareaId);
     const err = document.getElementById(errorId);
 
     if (!sel) {
-        return {
-            getReason: () => '',
-            reset:     () => {},
-            showError: () => {},
-        };
+        return { getReason: () => '', reset: () => {}, showError: () => {} };
     }
 
     sel.addEventListener('change', function () {
         const isOther = this.value === 'Other';
-        if (ta)  ta.style.display    = isOther ? '' : 'none';
-        if (err) err.style.display   = 'none';
-        sel.style.borderColor        = '';
+        if (ta)  ta.style.display  = isOther ? '' : 'none';
+        if (err) err.style.display = 'none';
+        sel.style.borderColor = '';
     });
 
     return {
         getReason() {
             const selected = sel.value;
             if (!selected) return '';
-            if (selected === 'Other') {
-                return ta ? ta.value.trim() : '';
-            }
+            if (selected === 'Other') return ta ? ta.value.trim() : '';
             return selected;
         },
         reset() {
-            sel.value          = '';
+            sel.value = '';
             sel.style.borderColor = '';
             if (ta)  { ta.value = ''; ta.style.display = 'none'; ta.style.borderColor = ''; }
             if (err) err.style.display = 'none';
         },
         showError() {
             if (err) err.style.display = 'block';
-            sel.style.borderColor      = 'var(--danger)';
+            sel.style.borderColor = 'var(--danger)';
             sel.focus();
         },
     };
@@ -178,24 +156,24 @@ function showErrorModal(title, message) {
 // ============================================
 document.addEventListener('DOMContentLoaded', function () {
 
-    // ── Bootstrap modal instances ─────────────────────────────────────────────
+    // Bootstrap modal instances — no paymentModal here (payment is in POS)
     try {
         if (typeof bootstrap !== 'undefined') {
-            paymentModal        = new bootstrap.Modal(document.getElementById('paymentModal'));
             cancelOrderModal    = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
             orderDetailsModal   = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
             kitchenItemsModal   = new bootstrap.Modal(document.getElementById('kitchenItemsModal'));
             voidOrderModal      = new bootstrap.Modal(document.getElementById('voidOrderModal'));
             cancelVoidItemModal = new bootstrap.Modal(document.getElementById('cancelVoidItemModal'));
+            finalReceiptModal   = new bootstrap.Modal(document.getElementById('finalReceiptModal'));
         }
     } catch (e) { console.error('Modal init error:', e); }
 
-    // ── Wire reason dropdowns (defined once above, called once here) ──────────
+    // Wire reason dropdowns
     window._cancelOrderReason    = wireReasonDropdown('cancelOrderReasonSelect',    'cancelOrderReasonText',    'cancelOrderReasonError');
     window._voidOrderReason      = wireReasonDropdown('voidOrderReasonSelect',      'voidOrderReasonText',      'voidOrderReasonError');
     window._cancelVoidItemReason = wireReasonDropdown('cancelVoidItemReasonSelect', 'cancelVoidItemReasonText', 'cancelVoidItemReasonError');
 
-    // ── Modal cleanup hooks ───────────────────────────────────────────────────
+    // Modal cleanup hooks
     document.getElementById('orderDetailsModal')?.addEventListener('hidden.bs.modal', () => {
         openDetailsOrderId = null;
     });
@@ -210,53 +188,40 @@ document.addEventListener('DOMContentLoaded', function () {
         this.removeAttribute('aria-hidden');
     });
 
-    // ── Cancel order: reset dropdown when modal opens ─────────────────────────
     document.getElementById('cancelOrderModal')?.addEventListener('show.bs.modal', function () {
         window._cancelOrderReason?.reset();
     });
 
-    // ── Void order: reset dropdown when modal opens ───────────────────────────
     document.getElementById('voidOrderModal')?.addEventListener('show.bs.modal', function () {
         window._voidOrderReason?.reset();
     });
 
-    // ── Cancel item/void item: reset when modal opens ─────────────────────────
     document.getElementById('cancelVoidItemModal')?.addEventListener('show.bs.modal', function () {
         window._cancelVoidItemReason?.reset();
     });
 
-    // ── Cancel Order submit ───────────────────────────────────────────────────
+    // Cancel Order submit
     document.getElementById('cancelOrderSubmitBtn')?.addEventListener('click', function () {
         const reason = window._cancelOrderReason?.getReason() || '';
-        if (!reason) {
-            window._cancelOrderReason?.showError();
-            return;
-        }
+        if (!reason) { window._cancelOrderReason?.showError(); return; }
         document.getElementById('cancelOrderReasonHidden').value = reason;
         document.getElementById('cancelOrderForm')?.submit();
     });
 
-    // ── Void Order confirm ────────────────────────────────────────────────────
+    // Void Order confirm
     document.getElementById('confirmVoidOrderBtn')?.addEventListener('click', async function () {
         const reason = window._voidOrderReason?.getReason() || '';
-        if (!reason) {
-            window._voidOrderReason?.showError();
-            return;
-        }
+        if (!reason) { window._voidOrderReason?.showError(); return; }
         const orderId     = this.getAttribute('data-order-id');
         const orderNumber = this.getAttribute('data-order-number');
-
         voidOrderModal?.hide();
         await executeVoidOrder(orderId, orderNumber, reason, this);
     });
 
-    // ── Cancel/Void Item confirm (wired ONCE) ─────────────────────────────────
+    // Cancel/Void Item confirm
     document.getElementById('confirmCancelVoidItemBtn')?.addEventListener('click', async function () {
         const reason = window._cancelVoidItemReason?.getReason() || '';
-        if (!reason) {
-            window._cancelVoidItemReason?.showError();
-            return;
-        }
+        if (!reason) { window._cancelVoidItemReason?.showError(); return; }
         cancelVoidItemModal?.hide();
         if (pendingItemAction.orderItemId) {
             await executeCancelVoidItem(
@@ -275,7 +240,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (window.userRole === 'admin') loadAdminUsers();
 
-    // Auto-show flash modals
     ['successModal', 'errorModal'].forEach(id => {
         const el = document.getElementById(id);
         if (el && typeof bootstrap !== 'undefined') {
@@ -314,8 +278,8 @@ function syncProcessedByVisibility() {
     if (currentFilter === 'completed' && window.userRole === 'admin') {
         wrapper.style.display = 'flex';
     } else {
-        wrapper.style.display  = 'none';
-        currentProcessedBy     = 0;
+        wrapper.style.display = 'none';
+        currentProcessedBy    = 0;
         const select = document.getElementById('processedByFilter');
         if (select) select.value = '0';
     }
@@ -425,9 +389,6 @@ function renderTableRows(orders) {
     tbody.innerHTML = orders.map(order => createOrderRowHTML(order)).join('');
 }
 
-// FIX 4: patchTableRows — always sync price cells on every refresh pass,
-// not only when status changes. Ensures subtotal/total update in real-time
-// after a void zeroes the order total.
 function patchTableRows(orders) {
     const tbody = document.getElementById('ordersTableBody');
     if (!tbody) return;
@@ -438,8 +399,7 @@ function patchTableRows(orders) {
         const currentStatus = row.getAttribute('data-status');
         const newStatus     = (order.status || 'pending').toLowerCase();
 
-        // Always sync price cells on every refresh pass — not only on status change.
-        // Ensures subtotal/total update immediately after void zeroes the order total.
+        // Always sync price cells on every refresh
         const newTotal      = parseFloat(order.total_amount || 0);
         const newSubtotalEx = newTotal / 1.12;
         const newVat        = newTotal - newSubtotalEx;
@@ -538,7 +498,7 @@ function getPageRange(current, total) {
 // FILTER COUNTS & LABEL
 // ============================================
 function updateFilterCounts(counts, total) {
-    const isAdmin  = window.userRole === 'admin';
+    const isAdmin   = window.userRole === 'admin';
     const isCashier = window.userRole === 'cashier';
     const data = {
         all:       total ?? 0,
@@ -548,9 +508,7 @@ function updateFilterCounts(counts, total) {
         completed: counts?.completed ?? 0,
         cancelled: counts?.cancelled ?? 0,
     };
-    // Admin sees all voided; cashiers see only their own voided (handled server-side)
     if (isAdmin || isCashier) data.voided = counts?.voided ?? 0;
-
     Object.keys(data).forEach(status => {
         const span = document.querySelector(`.filter-tab[data-status="${status}"] .filter-count`);
         if (span) span.textContent = data[status];
@@ -646,7 +604,7 @@ function getOrderItemsHTML(items, orderStatus, orderId) {
         { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
         { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
     ];
-    const dotsHTML = dotsCfg.filter(d => tally[d.key] > 0)
+    const dotsHTML    = dotsCfg.filter(d => tally[d.key] > 0)
         .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`)
         .join('');
     const namePreview = items.slice(0, 2).map(i => {
@@ -668,6 +626,9 @@ function getOrderItemsHTML(items, orderStatus, orderId) {
     </div>`;
 }
 
+// ============================================
+// ACTIONS HTML — "Collect Payment" → "Mark as Served"
+// ============================================
 function getOrderActionsHTML(order) {
     const userRole  = window.userRole || '';
     const isAdmin   = userRole === 'admin';
@@ -683,9 +644,10 @@ function getOrderActionsHTML(order) {
         </button>`;
 
     if (status === 'ready' && (isAdmin || isCashier)) {
-        html += `<button type="button" class="btn btn-success btn-sm collect-payment-btn"
-                         data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}" data-order-total="${order.total_amount || 0}">
-                     <i class="fas fa-cash-register"></i> Collect Payment</button>`;
+        // "Mark as Served" replaces the old "Collect Payment" button
+        html += `<button type="button" class="btn btn-success btn-sm mark-served-btn"
+                         data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
+                     <i class="fas fa-concierge-bell"></i> Mark as Served</button>`;
         if (isAdmin) {
             html += `<button type="button" class="btn btn-sm void-order-btn"
                              style="background:rgba(15,76,92,0.07);color:var(--primary-dark);border:1.5px solid rgba(15,76,92,0.28);border-radius:8px;font-size:0.78rem;font-weight:600;"
@@ -699,7 +661,7 @@ function getOrderActionsHTML(order) {
     } else if ((status === 'pending' || status === 'preparing') && isCashier && !isAdmin) {
         html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(94,155,158,0.12);color:var(--info);border:1px solid rgba(94,155,158,0.3);">In Kitchen</span>`;
     } else if (status === 'completed') {
-        html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(44,122,90,0.12);color:var(--success);border:1px solid rgba(44,122,90,0.25);">Paid</span>`;
+        html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(44,122,90,0.12);color:var(--success);border:1px solid rgba(44,122,90,0.25);">Served</span>`;
     } else if (status === 'cancelled') {
         html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(214,64,69,0.10);color:var(--danger);border:1px solid rgba(214,64,69,0.25);">Cancelled</span>`;
     } else if (status === 'voided') {
@@ -708,6 +670,59 @@ function getOrderActionsHTML(order) {
 
     html += '</div>';
     return html;
+}
+
+// ============================================
+// MARK AS SERVED
+// ============================================
+async function markAsServed(orderId, orderNumber, btn) {
+    if (!confirm(`Mark Order #${orderNumber} as Served?\n\nThis will complete the order. Payment was already collected at the POS.`)) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Serving…';
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('order_id', orderId);
+
+        const res  = await fetch(MARK_SERVED_URL, { method: 'POST', body: formData });
+        const data = await safeJSONParse(res);
+
+        if (!data.success) throw new Error(data.error || 'Failed to mark as served.');
+
+        // Update the row immediately
+        const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+        if (row) {
+            row.setAttribute('data-status', 'completed');
+            const statusCell  = row.querySelector('td[data-label="Status"]');
+            const actionsCell = row.querySelector('td[data-label="Actions"]');
+            const totalSpan   = row.querySelector('td[data-label="Total"] span');
+            if (statusCell)  statusCell.innerHTML  = getOrderStatusBadge('completed');
+            if (totalSpan)   totalSpan.className   = 'price-total-paid';
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({
+                order_id:     orderId,
+                order_number: orderNumber,
+                total_amount: row.getAttribute('data-order-total'),
+                status:       'completed',
+            });
+        }
+
+        // If kitchen items modal is open for this order, close it
+        if (kitchenModalOrderId && String(kitchenModalOrderId) === String(orderId)) {
+            kitchenItemsModal?.hide();
+            kitchenModalOrderId = null;
+        }
+
+    } catch (err) {
+        console.error('Mark as served error:', err);
+        showErrorModal('Mark as Served Failed', err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-concierge-bell"></i> Mark as Served';
+        }
+    }
 }
 
 // ============================================
@@ -724,22 +739,15 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
         formData.append('order_item_id', orderItemId);
         formData.append('status', nextStatus);
 
-        const res = await fetch(ITEM_STATUS_URL, { method: 'POST', body: formData });
-
+        const res     = await fetch(ITEM_STATUS_URL, { method: 'POST', body: formData });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        // ── Safely parse JSON, expose raw response if PHP returned HTML ──
         const rawText = await res.text();
         let data;
-        try {
-            data = JSON.parse(rawText);
-        } catch (parseErr) {
-            console.error('Server returned non-JSON response:');
-            console.error(rawText); // ← this will show the actual PHP error HTML
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';
-            }
+        try { data = JSON.parse(rawText); }
+        catch (parseErr) {
+            console.error('Server returned non-JSON:', rawText);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; }
             return;
         }
 
@@ -750,15 +758,11 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
         const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
-
             const statusCell  = row.querySelector('td[data-label="Status"]');
             const actionsCell = row.querySelector('td[data-label="Actions"]');
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
-
             if (statusCell)  statusCell.innerHTML = getOrderStatusBadge(data.order_status);
-            if (totalSpan)   totalSpan.className  = data.order_status === 'completed'
-                                                        ? 'price-total-paid'
-                                                        : 'price-total-unpaid';
+            if (totalSpan)   totalSpan.className  = data.order_status === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({
                 order_id:     data.order_id,
                 order_number: row.getAttribute('data-order-number'),
@@ -769,14 +773,12 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 
     } catch (err) {
         console.error('Item status update error:', err.message);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';
-        }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; }
     }
 }
+
 // ============================================
-// CANCEL / VOID ITEM — show confirm modal
+// CANCEL / VOID ITEM
 // ============================================
 async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
     const isCancel = action === 'cancel_item';
@@ -789,10 +791,8 @@ async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
     const confirmEl = document.getElementById('confirmCancelVoidItemBtn');
     const selEl     = document.getElementById('cancelVoidItemReasonSelect');
 
-    // Reset first
     window._cancelVoidItemReason?.reset();
 
-    // Configure modal appearance
     if (isCancel) {
         if (titleEl)   titleEl.innerHTML  = `<i class="fas fa-times-circle me-2" style="color:var(--danger);"></i> Cancel Item`;
         if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-times-circle"></i>`; iconEl.style.background = 'rgba(214,64,69,0.10)'; iconEl.style.color = 'var(--danger)'; }
@@ -807,7 +807,6 @@ async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
         if (confirmEl) { confirmEl.className = 'btn'; confirmEl.style.cssText = 'background:var(--primary);color:white;'; confirmEl.innerHTML = '<i class="fas fa-ban me-1"></i> Yes, Void Item'; }
     }
 
-    // Load reasons from DB dynamically
     if (selEl) {
         selEl.innerHTML = '<option value="">— Loading reasons… —</option>';
         await loadReasons(action === 'cancel_item' ? 'cancel_item' : 'void_item', 'cancelVoidItemReasonSelect');
@@ -816,7 +815,6 @@ async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
     cancelVoidItemModal?.show();
 }
 
-// Execute after modal confirms
 async function executeCancelVoidItem(orderItemId, action, btn, reason) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Processing…</span>'; }
     try {
@@ -860,7 +858,7 @@ async function executeCancelVoidItem(orderItemId, action, btn, reason) {
 }
 
 // ============================================
-// VOID ORDER — show confirm modal
+// VOID ORDER
 // ============================================
 async function voidOrder(orderId, orderNumber, btn) {
     const numEl  = document.getElementById('voidOrderNumber');
@@ -871,7 +869,6 @@ async function voidOrder(orderId, orderNumber, btn) {
         confEl.setAttribute('data-order-number', orderNumber);
     }
 
-    // Load void order reasons from DB
     const sel = document.getElementById('voidOrderReasonSelect');
     if (sel) {
         sel.innerHTML = '<option value="">— Loading reasons… —</option>';
@@ -948,8 +945,6 @@ async function refreshKitchenModal(orderId) {
     } catch (err) { console.error('Kitchen modal refresh error:', err); }
 }
 
-// FIX 1: Compute activeItemCount and pass to buildItemCardHTML.
-// Active = not cancelled, voided, or completed.
 function renderKitchenModal(order, items) {
     const modal = document.getElementById('kitchenItemsModal');
     if (!modal || !modal.classList.contains('show')) return;
@@ -975,9 +970,6 @@ function renderKitchenModal(order, items) {
     }
     const bodyEl = document.getElementById('kitchenModalBody');
     if (bodyEl) {
-        // Count items that are still active (not cancelled, voided, or completed).
-        // If only 1 active item remains, individual cancel/void buttons are hidden —
-        // the user must use the order-level Cancel/Void instead.
         const activeItemCount = items.filter(
             i => !['cancelled', 'voided', 'completed'].includes(i.item_status || 'pending')
         ).length;
@@ -988,12 +980,6 @@ function renderKitchenModal(order, items) {
     }
 }
 
-// ============================================
-// ITEM CARD HTML
-// ============================================
-// FIX 2: Accept activeItemCount (default 99 so existing call-sites without the
-// argument are unaffected). When only 1 active item remains, hide the individual
-// cancel/void button — force use of the order-level cancel/void instead.
 function buildItemCardHTML(item, orderStatus, activeItemCount = 99) {
     const userRole   = window.userRole || '';
     const isAdmin    = userRole === 'admin';
@@ -1031,8 +1017,6 @@ function buildItemCardHTML(item, orderStatus, activeItemCount = 99) {
     }
 
     let adminActionBtn = '';
-    // If only 1 active item remains on the order, hide individual cancel/void —
-    // user must cancel/void the whole order instead.
     const onlyOneLeft = activeItemCount <= 1;
     const canCancel = (isAdmin || isCashier) && !orderDone && !isTerminal && itemStatus === 'pending' && !onlyOneLeft;
     const canVoid   = isAdmin && !orderDone && !isTerminal && itemStatus === 'ready' && !onlyOneLeft;
@@ -1100,6 +1084,7 @@ function viewOrderDetails(orderId, orderNumber) {
     if (errorEl)   errorEl.style.display   = 'none';
     const numEl = document.getElementById('detailOrderNumber');
     if (numEl) numEl.textContent = '#' + (orderNumber || '');
+    // Hide print button until data loads
     const printBtn = document.getElementById('printReceiptBtn');
     if (printBtn) printBtn.style.display = 'none';
     orderDetailsModal.show();
@@ -1181,9 +1166,6 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
                 itemStatusBit = ` <span class="item-status-badge item-status-${item.item_status}" style="font-size:0.68rem;padding:0.12rem 0.45rem;vertical-align:middle;">${capitalize(item.item_status)}</span>`;
             }
 
-            // FIX 3: Only show per-item reason pill for item-level cancel/void.
-            // Order-level cancel/void writes the same reason to all items — that
-            // reason is shown once in #detailCancelSection / #detailVoidSection.
             let reasonPill = '';
             if (item.item_status === 'cancelled' && item.cancel_reason && order.status !== 'cancelled') {
                 reasonPill = `<div class="od-note-pill" style="background:rgba(214,64,69,0.08);border-color:rgba(214,64,69,0.3);color:#9e3a34;">
@@ -1289,41 +1271,154 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
             ? '₱' + formatPrice(voidAudit.total_waste_cost) : '—';
     }
 
-    // Print button
+    // ── Print Final Receipt button — only for completed orders ────────────────
     const printBtn = document.getElementById('printReceiptBtn');
     if (printBtn) {
-        if (order.status === 'completed' && order.order_id) {
-            printBtn.href          = `${window.location.pathname}?page=print_receipt&order_id=${order.order_id}`;
+        if (order.status === 'completed') {
             printBtn.style.display = '';
+            // Store order data on the button for the receipt builder
+            printBtn._orderData   = order;
+            printBtn._itemsData   = items;
+            printBtn._paymentData = payment;
+            // Swap href-based navigation to in-page receipt modal
+            printBtn.removeAttribute('href');
+            printBtn.setAttribute('target', '');
+            printBtn.onclick = function () {
+                printFinalReceipt(order, items, payment);
+                return false;
+            };
         } else {
             printBtn.style.display = 'none';
+            printBtn.onclick = null;
         }
     }
 }
 
 // ============================================
-// PAYMENT + CANCEL ORDER MODALS
+// BIR FINAL RECEIPT — demo print
 // ============================================
-function showPaymentModal(orderId, orderNumber, orderTotal) {
-    if (!paymentModal) return;
-    currentOrderTotal = parseFloat(orderTotal) || 0;
-    document.getElementById('paymentOrderNumber').textContent = orderNumber || '';
-    document.getElementById('paymentTotalAmount').textContent = currentOrderTotal.toFixed(2);
-    document.getElementById('paymentOrderId').value           = orderId || '';
-    document.getElementById('amountPaid').value               = '';
-    document.getElementById('changeAmountHidden').value       = '0';
-    document.getElementById('changeAlert')?.classList.add('pm-hidden');
-    document.getElementById('insufficientAlert')?.classList.add('pm-hidden');
-    document.getElementById('confirmPaymentBtn').disabled     = true;
-    paymentModal.show();
+function printFinalReceipt(order, items, payment) {
+    const orderNumber  = order.order_number || '—';
+    const customer     = order.customer_name || 'Walk-in Customer';
+    const cashier      = order.cashier_name  || '—';
+    const tableName    = order.table_name    || null;
+    const orderType    = order.order_type === 'dine_in' ? 'Dine In' : 'Take Out';
+    const total        = parseFloat(order.total_amount || 0);
+    const vatable      = total / 1.12;
+    const vatAmount    = total - vatable;
+    const amountPaid   = parseFloat(payment?.amount_paid   || total);
+    const changeAmt    = parseFloat(payment?.change_amount || 0);
+    const payMethod    = (payment?.payment_method || 'cash').toUpperCase();
+
+    const now      = order.completed_at ? new Date(order.completed_at) : new Date();
+    const dateStr  = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr  = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+    // Build items HTML
+    let itemsHTML = '';
+    items.forEach(item => {
+        if (['cancelled', 'voided'].includes(item.item_status)) return; // skip terminal items
+        const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
+        const lineTotal   = (parseFloat(item.unit_price || 0) + addonsTotal) * parseInt(item.quantity || 1);
+        const label       = item.variant_name_snapshot
+            ? `${item.item_name_snapshot || item.item_name} (${item.variant_name_snapshot})`
+            : (item.item_name_snapshot || item.item_name || '');
+        itemsHTML += `
+            <div style="display:flex;margin-bottom:3px;">
+                <span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span>
+                <span style="flex:0.5;text-align:center;">${item.quantity || 1}</span>
+                <span style="flex:1;text-align:right;">${parseFloat(item.unit_price || 0).toFixed(2)}</span>
+                <span style="flex:1;text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</span>
+            </div>`;
+        (item.addons || []).forEach(a => {
+            const aTotal = parseFloat(a.price || 0) * parseInt(a.quantity || 1);
+            itemsHTML += `
+                <div style="display:flex;font-size:10px;padding:1px 0 1px 10px;opacity:0.8;">
+                    <span style="flex:1;">+ ${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>
+                    <span style="flex:0;text-align:right;">${aTotal.toFixed(2)}</span>
+                </div>`;
+        });
+    });
+
+    const html = `
+        <div style="text-align:center;">
+            <div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div>
+            <div style="font-size:10px;">Karuhatan, Valenzuela City</div>
+            <div style="font-size:10px;">TIN: 000-000-000-000 (DEMO)</div>
+            <div style="font-size:10px;">MIN: 00000000000 (DEMO)</div>
+            <div style="font-size:10px;">S/N: DWD-POS-001</div>
+        </div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;">
+            Official Receipt
+        </div>
+        <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px;">
+            ** FOR DEMONSTRATION PURPOSES ONLY **
+        </div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>OR No.:</span><span style="font-weight:bold;">${escapeHtml(orderNumber)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Date:</span><span>${dateStr}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Time:</span><span>${timeStr}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Cashier:</span><span>${escapeHtml(cashier)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Type:</span><span>${orderType}</span></div>
+        ${tableName ? `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>` : ''}
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="display:flex;font-size:10px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase;">
+            <span style="flex:2.5;">Item</span>
+            <span style="flex:0.5;text-align:center;">Qty</span>
+            <span style="flex:1;text-align:right;">Price</span>
+            <span style="flex:1;text-align:right;">Total</span>
+        </div>
+        ${itemsHTML}
+        <hr style="border:none;border-top:3px double #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Vatable Sales:</span><span>₱${vatable.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT (12%):</span><span>₱${vatAmount.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT Exempt:</span><span>₱0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Zero-Rated:</span><span>₱0.00</span></div>
+        <hr style="border:none;border-top:1px solid #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;">
+            <span>TOTAL:</span><span>₱${total.toFixed(2)}</span>
+        </div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="border:1px solid #000;padding:5px 6px;font-size:11px;">
+            <div style="display:flex;justify-content:space-between;"><span>Method:</span><span>${payMethod}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Cash Tendered:</span><span>₱${amountPaid.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Change:</span><span>₱${changeAmt.toFixed(2)}</span></div>
+        </div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="text-align:center;font-size:10px;line-height:1.7;">
+            <div style="font-size:12px;font-weight:bold;text-transform:uppercase;">Thank you for dining with us!</div>
+            <div>Please come again.</div>
+            <div style="margin-top:4px;">This serves as your official receipt.</div>
+            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">
+                OR: ${escapeHtml(orderNumber)}<br>
+                Printed: ${dateStr} ${timeStr}
+            </div>
+            <div style="margin-top:6px;font-size:9px;color:#888;">
+                ** THIS IS A DEMO RECEIPT — NOT BIR REGISTERED **
+            </div>
+        </div>`;
+
+    // Populate and show the final receipt modal
+    const printArea = document.getElementById('finalReceiptPrintArea');
+    const numEl     = document.getElementById('finalReceiptOrderNumber');
+    if (printArea) printArea.innerHTML = html;
+    if (numEl)     numEl.textContent   = '#' + orderNumber;
+
+    // Close order details modal first, then show receipt
+    orderDetailsModal?.hide();
+    setTimeout(() => { finalReceiptModal?.show(); }, 250);
 }
 
+// ============================================
+// CANCEL ORDER MODAL
+// ============================================
 async function showCancelOrderModal(orderId, orderNumber) {
     if (!cancelOrderModal) return;
     document.getElementById('cancelOrderNumber').textContent = orderNumber || '';
     document.getElementById('cancelOrderId').value           = orderId || '';
 
-    // Load cancel order reasons from DB
     const sel = document.getElementById('cancelOrderReasonSelect');
     if (sel) {
         sel.innerHTML = '<option value="">— Loading reasons… —</option>';
@@ -1464,6 +1559,7 @@ function setupEventListeners() {
         });
     });
 
+    // Delegated click handler — paymentModal removed; markAsServed added
     document.addEventListener('click', function (e) {
         if (e.target.closest('.items-manage-btn')) {
             const btn = e.target.closest('.items-manage-btn');
@@ -1475,9 +1571,10 @@ function setupEventListeners() {
             const btn = e.target.closest('.view-order-btn');
             viewOrderDetails(btn.dataset.orderId, btn.dataset.orderNumber);
         }
-        if (e.target.closest('.collect-payment-btn')) {
-            const btn = e.target.closest('.collect-payment-btn');
-            showPaymentModal(btn.dataset.orderId, btn.dataset.orderNumber, btn.dataset.orderTotal);
+        if (e.target.closest('.mark-served-btn')) {
+            const btn = e.target.closest('.mark-served-btn');
+            if (btn.disabled) return;
+            markAsServed(btn.dataset.orderId, btn.dataset.orderNumber, btn);
         }
         if (e.target.closest('.cancel-order-btn')) {
             const btn = e.target.closest('.cancel-order-btn');
@@ -1503,29 +1600,6 @@ function setupEventListeners() {
             updateItemStatus(btn.getAttribute('data-order-item-id'), btn.getAttribute('data-next-status'), btn);
         }
     });
-
-    const amountPaid = document.getElementById('amountPaid');
-    if (amountPaid) {
-        amountPaid.addEventListener('input', function () {
-            const amount      = parseFloat(this.value) || 0;
-            const changeAlert = document.getElementById('changeAlert');
-            const insufAlert  = document.getElementById('insufficientAlert');
-            const confirmBtn  = document.getElementById('confirmPaymentBtn');
-            if (amount >= currentOrderTotal && amount > 0) {
-                const change = amount - currentOrderTotal;
-                document.getElementById('changeAmount').textContent = change.toFixed(2);
-                document.getElementById('changeAmountHidden').value = change.toFixed(2);
-                changeAlert?.classList.remove('pm-hidden');
-                insufAlert?.classList.add('pm-hidden');
-                if (confirmBtn) confirmBtn.disabled = false;
-            } else {
-                changeAlert?.classList.add('pm-hidden');
-                if (amount > 0) insufAlert?.classList.remove('pm-hidden');
-                else            insufAlert?.classList.add('pm-hidden');
-                if (confirmBtn) confirmBtn.disabled = true;
-            }
-        });
-    }
 
     document.addEventListener('visibilitychange', () => {
         document.hidden ? stopAutoRefresh() : startAutoRefresh();

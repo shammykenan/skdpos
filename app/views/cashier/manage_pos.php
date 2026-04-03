@@ -226,9 +226,23 @@
         .cart-total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; }
         .cart-total-label { font-size: 0.82rem; color: var(--warm-gray); font-weight: 500; }
         .cart-total-amount { font-size: 1.25rem; font-weight: 800; color: var(--navy); }
-        .submit-order-btn { width: 100%; padding: 0.85rem; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 0.92rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
-        .submit-order-btn:hover:not(:disabled) { background: #1f5d43; transform: translateY(-1px); box-shadow: 0 6px 14px rgba(44,122,90,0.3); }
-        .submit-order-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* ─── COLLECT PAYMENT BUTTON ─── */
+        .collect-payment-btn {
+            width: 100%; padding: 0.9rem; border: none; border-radius: 14px; font-size: 0.95rem;
+            font-weight: 700; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+            background: linear-gradient(135deg, #2c7a5a 0%, #1f5d43 100%);
+            color: white; box-shadow: 0 4px 14px rgba(44,122,90,0.3);
+            font-family: inherit;
+        }
+        .collect-payment-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(44,122,90,0.4);
+        }
+        .collect-payment-btn:active:not(:disabled) { transform: translateY(0); }
+        .collect-payment-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+        .collect-payment-btn i { font-size: 1rem; }
         .submit-disabled-msg { display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.72rem; color: var(--danger); margin-top: 0.5rem; }
 
         /* ─── ALERTS ─── */
@@ -236,7 +250,7 @@
         .alert-success { background: rgba(44,122,90,0.1); color: #1e4a3b; border-left: 4px solid var(--success); }
         .alert-danger { background: rgba(214,64,69,0.07); color: #9e3a34; border-left: 4px solid var(--danger); }
 
-        /* ─── MODALS ─── */
+        /* ─── MODALS (shared base) ─── */
         .modal { padding-right: 0 !important; }
         .modal-content { border-radius: 20px; border: none; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
         .modal-header { border-bottom: 1px solid var(--border); padding: 1.2rem 1.4rem; border-radius: 20px 20px 0 0; }
@@ -247,6 +261,7 @@
         .modal-icon.danger { background: rgba(214,64,69,0.1); color: var(--danger); }
         .modal-icon.primary { background: rgba(15,76,92,0.1); color: var(--primary); }
         .modal-icon.warning { background: rgba(244,185,66,0.15); color: #b87a1a; }
+        .modal-icon.success { background: rgba(44,122,90,0.12); color: var(--success); }
         .btn { padding: 0.55rem 1.3rem; border-radius: 40px; font-weight: 600; font-size: 0.83rem; transition: all 0.18s; }
         .btn-primary { background: var(--primary); border: none; color: white; }
         .btn-primary:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,76,92,0.25); }
@@ -255,6 +270,171 @@
         .btn-danger:hover { background: #b83038; transform: translateY(-1px); }
         .btn-outline-secondary { border: 1.5px solid var(--border); color: var(--warm-gray); background: white; }
         .btn-outline-secondary:hover { background: var(--lavender); }
+
+        /* ═══════════════════════════════════════════════════
+           PAYMENT MODAL — full redesign
+        ═══════════════════════════════════════════════════ */
+        #paymentModal .modal-content { border-radius: 24px; overflow: hidden; }
+        .pm-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 1.5rem 1.6rem; display: flex; align-items: center; gap: 1rem;
+            flex-shrink: 0;
+        }
+        .pm-header-icon {
+            width: 52px; height: 52px; background: rgba(255,255,255,0.15); border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; color: white; flex-shrink: 0;
+        }
+        .pm-header-text { flex: 1; }
+        .pm-header-title { font-size: 1.1rem; font-weight: 700; color: white; line-height: 1.2; }
+        .pm-header-sub { font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 0.2rem; }
+        .pm-header .btn-close-white { filter: brightness(0) invert(1); opacity: 0.7; }
+        .pm-header .btn-close-white:hover { opacity: 1; }
+
+        .pm-body { padding: 1.6rem; }
+
+        /* Order summary strip */
+        .pm-summary {
+            background: var(--light-bg); border-radius: 14px; padding: 1rem 1.2rem;
+            margin-bottom: 1.4rem; border: 1px solid var(--border);
+        }
+        .pm-summary-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--warm-gray); letter-spacing: 0.8px; margin-bottom: 0.6rem; }
+        .pm-summary-items { font-size: 0.82rem; color: var(--navy); max-height: 100px; overflow-y: auto; scrollbar-width: thin; }
+        .pm-summary-item-row { display: flex; justify-content: space-between; padding: 0.2rem 0; }
+        .pm-summary-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 0.5rem; }
+        .pm-summary-item-price { font-weight: 600; flex-shrink: 0; }
+        .pm-summary-divider { border: none; border-top: 1px dashed var(--border); margin: 0.6rem 0; }
+
+        /* Total display */
+        .pm-total-card {
+            background: var(--primary); border-radius: 16px; padding: 1.2rem 1.4rem;
+            margin-bottom: 1.4rem; display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 6px 16px rgba(15,76,92,0.2);
+        }
+        .pm-total-label { font-size: 0.82rem; color: rgba(255,255,255,0.75); font-weight: 600; }
+        .pm-total-amount { font-size: 2rem; font-weight: 800; color: white; letter-spacing: -1px; }
+
+        /* Amount input */
+        .pm-input-section { margin-bottom: 1rem; }
+        .pm-input-label { font-size: 0.78rem; font-weight: 700; color: var(--navy); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+        .pm-cash-input-wrap { position: relative; }
+        .pm-currency-prefix {
+            position: absolute; left: 0; top: 0; bottom: 0; width: 48px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; font-weight: 700; color: var(--warm-gray);
+            background: var(--light-bg); border-radius: 14px 0 0 14px;
+            border: 2px solid var(--border); border-right: none;
+        }
+        .pm-cash-input {
+            width: 100%; padding: 0.85rem 1rem 0.85rem 3.5rem;
+            border: 2px solid var(--border); border-radius: 14px; font-size: 1.6rem;
+            font-weight: 800; color: var(--navy); font-family: inherit;
+            transition: all 0.2s; background: white; outline: none;
+        }
+        .pm-cash-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(15,76,92,0.1); }
+        .pm-cash-input.valid   { border-color: var(--success); }
+        .pm-cash-input.invalid { border-color: var(--danger); }
+
+        /* Quick amount pills */
+        .pm-quick-amounts { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+        .pm-quick-btn {
+            padding: 0.35rem 0.85rem; border: 1.5px solid var(--border); background: white;
+            border-radius: 40px; font-size: 0.78rem; font-weight: 700; color: var(--warm-gray);
+            cursor: pointer; transition: all 0.15s; font-family: inherit;
+        }
+        .pm-quick-btn:hover { border-color: var(--primary); color: var(--primary); background: rgba(15,76,92,0.05); }
+        .pm-quick-btn.exact { border-color: var(--success); color: var(--success); background: rgba(44,122,90,0.06); }
+
+        /* Change display */
+        .pm-change-card {
+            border-radius: 14px; padding: 1rem 1.2rem; margin-top: 1rem;
+            display: flex; align-items: center; gap: 0.8rem; transition: all 0.25s;
+        }
+        .pm-change-card.change-ok    { background: rgba(44,122,90,0.08); border: 1.5px solid rgba(44,122,90,0.3); }
+        .pm-change-card.change-exact { background: rgba(15,76,92,0.06); border: 1.5px solid rgba(15,76,92,0.25); }
+        .pm-change-card.change-err   { background: rgba(214,64,69,0.07); border: 1.5px solid rgba(214,64,69,0.3); }
+        .pm-change-card.change-none  { background: var(--light-bg); border: 1.5px solid var(--border); }
+        .pm-change-icon { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+        .change-ok   .pm-change-icon { background: rgba(44,122,90,0.15); color: var(--success); }
+        .change-exact .pm-change-icon { background: rgba(15,76,92,0.1); color: var(--primary); }
+        .change-err  .pm-change-icon { background: rgba(214,64,69,0.1); color: var(--danger); }
+        .change-none .pm-change-icon { background: white; color: #a0aec0; }
+        .pm-change-info { flex: 1; }
+        .pm-change-sublabel { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--warm-gray); letter-spacing: 0.6px; }
+        .pm-change-value { font-size: 1.3rem; font-weight: 800; margin-top: 0.1rem; }
+        .change-ok   .pm-change-value { color: var(--success); }
+        .change-exact .pm-change-value { color: var(--primary); }
+        .change-err  .pm-change-value { color: var(--danger); }
+        .change-none .pm-change-value { color: #a0aec0; }
+
+        .pm-footer { padding: 1.2rem 1.6rem; background: white; border-top: 1px solid var(--border); border-radius: 0 0 24px 24px; gap: 0.6rem; }
+        .pm-confirm-btn {
+            flex: 1; padding: 0.9rem 1.5rem; border: none; border-radius: 14px; font-size: 0.95rem;
+            font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit;
+            background: linear-gradient(135deg, var(--success) 0%, #1f5d43 100%);
+            color: white; box-shadow: 0 4px 14px rgba(44,122,90,0.3);
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        }
+        .pm-confirm-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(44,122,90,0.4); }
+        .pm-confirm-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .pm-cancel-btn {
+            padding: 0.9rem 1.2rem; border: 1.5px solid var(--border); background: white;
+            border-radius: 14px; font-size: 0.88rem; font-weight: 600; color: var(--warm-gray);
+            cursor: pointer; transition: all 0.18s; font-family: inherit;
+        }
+        .pm-cancel-btn:hover { background: var(--lavender); border-color: #a0aec0; }
+
+        /* ═══════════════════════════════════════════════════
+           RECEIPT MODAL (58mm inline)
+        ═══════════════════════════════════════════════════ */
+        #receiptModal .modal-dialog { max-width: 420px; }
+        #receiptModal .modal-content { border-radius: 20px; }
+        #receiptModal .modal-header { background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); border-radius: 20px 20px 0 0; padding: 1.1rem 1.4rem; }
+        #receiptModal .modal-title { color: white; }
+        #receiptModal .btn-close { filter: brightness(0) invert(1); }
+        .receipt-paper {
+            background: white; font-family: 'Courier New', Courier, monospace;
+            font-size: 11px; line-height: 1.55; color: #000;
+            padding: 1rem; border: 1px dashed #ccc; border-radius: 8px;
+            max-height: 420px; overflow-y: auto;
+        }
+        .receipt-paper::-webkit-scrollbar { width: 4px; }
+        .receipt-paper::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        .rcpt-center { text-align: center; }
+        .rcpt-bold   { font-weight: bold; }
+        .rcpt-large  { font-size: 13px; font-weight: bold; }
+        .rcpt-small  { font-size: 10px; }
+        .rcpt-divider-dash   { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+        .rcpt-divider-solid  { border: none; border-top: 1px solid #000; margin: 5px 0; }
+        .rcpt-divider-double { border: none; border-top: 3px double #000; margin: 5px 0; }
+        .rcpt-row { display: flex; justify-content: space-between; padding: 1px 0; }
+        .rcpt-row .rcpt-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 4px; }
+        .rcpt-row .rcpt-right { flex-shrink: 0; font-weight: bold; }
+        .rcpt-item-row { display: flex; margin-bottom: 4px; }
+        .rcpt-col-name  { flex: 2.5; word-break: break-word; padding-right: 4px; }
+        .rcpt-col-qty   { flex: 0.5; text-align: center; }
+        .rcpt-col-price { flex: 1; text-align: right; }
+        .rcpt-col-total { flex: 1; text-align: right; font-weight: bold; }
+        .rcpt-addon-row { display: flex; justify-content: space-between; font-size: 10px; padding: 1px 0 1px 10px; }
+        .rcpt-note-row  { font-size: 10px; font-style: italic; padding: 1px 0 3px 10px; border-left: 1px solid #999; margin-bottom: 2px; }
+        .rcpt-total-row { display: flex; justify-content: space-between; padding: 2px 0; }
+        .rcpt-total-grand { font-weight: bold; font-size: 13px; }
+        .rcpt-pay-row { display: flex; justify-content: space-between; padding: 2px 0; }
+        .rcpt-footer-txt { text-align: center; font-size: 10px; line-height: 1.7; }
+
+        .receipt-actions { display: flex; gap: 0.6rem; justify-content: center; margin-top: 1rem; }
+        .rcpt-print-btn {
+            padding: 0.7rem 1.5rem; background: var(--primary); color: white; border: none;
+            border-radius: 12px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; font-family: inherit;
+        }
+        .rcpt-print-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .rcpt-new-order-btn {
+            padding: 0.7rem 1.5rem; background: var(--success); color: white; border: none;
+            border-radius: 12px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; font-family: inherit;
+        }
+        .rcpt-new-order-btn:hover { background: #1f5d43; transform: translateY(-1px); }
 
         /* ─── ADDON CHECKBOXES ─── */
         .addon-checkbox { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.9rem 1rem; border: 1.5px solid var(--border); border-radius: 14px; margin-bottom: 0.6rem; transition: all 0.2s; cursor: pointer; }
@@ -288,7 +468,12 @@
             .cart-preview-info { flex: 1; }
             .cart-preview-label { font-size: 0.7rem; color: var(--warm-gray); font-weight: 500; line-height: 1; margin-bottom: 2px; }
             .cart-preview-total { font-size: 0.95rem; font-weight: 700; color: var(--navy); line-height: 1; }
-            .mobile-place-btn { background: var(--success); color: white; border: none; border-radius: 12px; padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.83rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; }
+            .mobile-place-btn {
+                background: linear-gradient(135deg, var(--success), #1f5d43);
+                color: white; border: none; border-radius: 12px; padding: 0.65rem 1.2rem;
+                font-weight: 700; font-size: 0.83rem; cursor: pointer; transition: all 0.2s;
+                white-space: nowrap; display: flex; align-items: center; gap: 0.4rem;
+            }
             .mobile-place-btn:disabled { opacity: 0.5; cursor: not-allowed; }
             .mobile-cart-drawer { display: flex !important; flex-direction: column; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 22px 22px 0 0; box-shadow: 0 -8px 30px rgba(15,76,92,0.12); z-index: 1060; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); max-height: 92vh; overflow: hidden; }
             .mobile-cart-drawer.open { transform: translateY(0); }
@@ -306,6 +491,8 @@
             .menu-item-image, .menu-item-placeholder { height: 105px; }
             .menu-item-body { padding: 0.65rem; }
             .menu-item-name { font-size: 0.8rem; }
+            #paymentModal .modal-dialog { margin: 0; max-width: 100%; }
+            #paymentModal .modal-content { border-radius: 20px 20px 0 0; }
         }
         @media (max-width: 767.98px) {
             .main-content { padding: 1rem; padding-bottom: calc(var(--mobile-bottom-bar) + 1rem); }
@@ -324,6 +511,20 @@
 
         .fade-in { animation: fadeUp 0.3s ease forwards; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Print styles for 58mm receipt */
+        @media print {
+            @page { size: 58mm auto; margin: 3mm 2mm; }
+            body * { visibility: hidden; }
+            #receiptPrintArea, #receiptPrintArea * { visibility: visible; }
+            #receiptPrintArea {
+                position: fixed; top: 0; left: 0;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 10px; line-height: 1.5; color: #000;
+                width: 54mm; padding: 0; background: white;
+            }
+            .receipt-actions, .modal-header, .modal-footer { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -453,11 +654,10 @@
             <div class="menu-grid-wrapper">
                 <div class="menu-grid" id="menuGrid">
                     <?php foreach ($menu_items as $item):
-    $hasAddons = !empty((array)($addons_map[$item['item_id']] ?? []));
-    $itemStock = $stock_data[$item['item_id']] ?? null;
-    // ✅ FIX: use the pre-computed has_stock from the controller, not base directly
-    $hasStock  = $item['has_stock'] ?? false;
-?>
+                        $hasAddons = !empty((array)($addons_map[$item['item_id']] ?? []));
+                        $itemStock = $stock_data[$item['item_id']] ?? null;
+                        $hasStock  = $item['has_stock'] ?? false;
+                    ?>
                     <div class="menu-item-card <?= !$hasStock ? 'out-of-stock' : '' ?>"
                          data-category="<?= $item['category_id'] ?>"
                          data-item-id="<?= $item['item_id'] ?>"
@@ -483,19 +683,19 @@
                         <div class="menu-item-body">
                             <div class="menu-item-name"><?= htmlspecialchars($item['item_name']) ?></div>
                             <?php
-$itemVariants = $variants_map[$item['item_id']] ?? [];
-if (!empty($itemVariants)) {
-    $prices   = array_column($itemVariants, 'price');
-    $minPrice = min($prices);
-    $maxPrice = max($prices);
-    $priceDisplay = ($minPrice === $maxPrice)
-        ? '₱' . number_format($minPrice, 2)
-        : '₱' . number_format($minPrice, 2) . ' – ₱' . number_format($maxPrice, 2);
-} else {
-    $priceDisplay = '₱' . number_format($item['base_price'], 2);
-}
-?>
-<div class="menu-item-price"><?= $priceDisplay ?></div>
+                            $itemVariants = $variants_map[$item['item_id']] ?? [];
+                            if (!empty($itemVariants)) {
+                                $prices   = array_column($itemVariants, 'price');
+                                $minPrice = min($prices);
+                                $maxPrice = max($prices);
+                                $priceDisplay = ($minPrice === $maxPrice)
+                                    ? '₱' . number_format($minPrice, 2)
+                                    : '₱' . number_format($minPrice, 2) . ' – ₱' . number_format($maxPrice, 2);
+                            } else {
+                                $priceDisplay = '₱' . number_format($item['base_price'], 2);
+                            }
+                            ?>
+                            <div class="menu-item-price"><?= $priceDisplay ?></div>
                             <?php if (!empty($item['ingredients'])): ?>
                                 <div class="menu-item-desc"><?php
                                     $ingNames = array_map(fn($i) => $i['ingredient_name'], $item['ingredients']);
@@ -529,7 +729,7 @@ if (!empty($itemVariants)) {
                     <span class="cart-item-count-pill" id="cartCountPill" style="display:none">0</span>
                 </div>
                 <button class="clear-cart-btn d-none" id="clearCartBtn" onclick="confirmClearCart()">
-                    <i class="fas fa-trash-alt"></i> Clear Cart
+                    <i class="fas fa-trash-alt"></i> Clear
                 </button>
             </div>
 
@@ -585,14 +785,14 @@ if (!empty($itemVariants)) {
 
             <div class="cart-footer d-none" id="cartFooter">
                 <div class="cart-total-row">
-                    <span class="cart-total-label">Total</span>
+                    <span class="cart-total-label">Order Total</span>
                     <span class="cart-total-amount" id="total">₱0.00</span>
                 </div>
-                <button type="button" class="submit-order-btn" id="submitOrderBtn" disabled>
-                    <i class="fas fa-check-circle"></i> Place Order
+                <button type="button" class="collect-payment-btn" id="collectPaymentBtn" disabled onclick="openPaymentModal()">
+                    <i class="fas fa-credit-card"></i> Collect Payment
                 </button>
                 <div class="submit-disabled-msg d-none" id="submitDisabledMessage">
-                    <i class="fas fa-exclamation-circle"></i> Fix stock issues before placing
+                    <i class="fas fa-exclamation-circle"></i> Fix stock issues before proceeding
                 </div>
             </div>
         </div>
@@ -612,8 +812,8 @@ if (!empty($itemVariants)) {
             <div class="cart-preview-total" id="mobileCartTotal">₱0.00</div>
         </div>
     </button>
-    <button class="mobile-place-btn" id="mobileSubmitBtn" onclick="submitOrderMobile()" disabled>
-        <i class="fas fa-check"></i> Place Order
+    <button class="mobile-place-btn" id="mobileSubmitBtn" onclick="openPaymentModal()" disabled>
+        <i class="fas fa-credit-card"></i> Pay
     </button>
 </div>
 
@@ -630,7 +830,7 @@ if (!empty($itemVariants)) {
         </div>
         <div class="d-flex align-items-center gap-2">
             <button class="clear-cart-btn d-none" id="clearCartBtnM" onclick="confirmClearCart()">
-                <i class="fas fa-trash-alt"></i> Clear Cart
+                <i class="fas fa-trash-alt"></i> Clear
             </button>
             <button class="drawer-close" onclick="closeCartDrawer()"><i class="fas fa-times"></i></button>
         </div>
@@ -663,7 +863,7 @@ if (!empty($itemVariants)) {
                     </select>
                     <div class="table-count-hint"><i class="fas fa-circle-check"></i><?= count($available_tables) ?> table<?= count($available_tables) !== 1 ? 's' : '' ?> available</div>
                 <?php else: ?>
-                    <div class="table-unavailable-notice"><i class="fas fa-exclamation-triangle me-1"></i>No tables available — free a table first.</div>
+                    <div class="table-unavailable-notice"><i class="fas fa-exclamation-triangle me-1"></i>No tables available.</div>
                     <input type="hidden" id="table_id_m" value="">
                 <?php endif; ?>
             </div>
@@ -684,14 +884,14 @@ if (!empty($itemVariants)) {
     </div>
     <div class="drawer-footer">
         <div class="cart-total-row d-none" id="mobileTotalRow">
-            <span class="cart-total-label">Total</span>
+            <span class="cart-total-label">Order Total</span>
             <span class="cart-total-amount" id="totalM">₱0.00</span>
         </div>
-        <button type="button" class="submit-order-btn d-none mt-2" id="submitOrderBtnM" disabled>
-            <i class="fas fa-check-circle"></i> Place Order
+        <button type="button" class="collect-payment-btn d-none mt-2" id="collectPaymentBtnM" disabled onclick="openPaymentModal()">
+            <i class="fas fa-credit-card"></i> Collect Payment
         </button>
         <div class="submit-disabled-msg d-none" id="submitDisabledMessageM">
-            <i class="fas fa-exclamation-circle"></i> Fix stock issues before placing
+            <i class="fas fa-exclamation-circle"></i> Fix stock issues before proceeding
         </div>
     </div>
 </div>
@@ -804,6 +1004,108 @@ if (!empty($itemVariants)) {
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════
+     PAYMENT MODAL — Pay-first flow
+══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content" style="border-radius:24px;overflow:hidden;border:none;">
+
+            <!-- Gradient header -->
+            <div class="pm-header">
+                <div class="pm-header-icon"><i class="fas fa-cash-register"></i></div>
+                <div class="pm-header-text">
+                    <div class="pm-header-title">Collect Payment</div>
+                    <div class="pm-header-sub" id="pmOrderSummaryLine">Building order…</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="pm-body">
+
+                <!-- Order summary -->
+                <div class="pm-summary">
+                    <div class="pm-summary-label"><i class="fas fa-list me-1"></i> Order Summary</div>
+                    <div class="pm-summary-items" id="pmSummaryItems">—</div>
+                </div>
+
+                <!-- Total due -->
+                <div class="pm-total-card">
+                    <div>
+                        <div class="pm-total-label">Total Due</div>
+                    </div>
+                    <div class="pm-total-amount">₱<span id="pmTotalAmount">0.00</span></div>
+                </div>
+
+                <!-- Cash input -->
+                <div class="pm-input-section">
+                    <div class="pm-input-label">
+                        <i class="fas fa-money-bill-wave" style="color:var(--success)"></i>
+                        Cash Tendered
+                    </div>
+                    <div class="pm-cash-input-wrap">
+                        <div class="pm-currency-prefix">₱</div>
+                        <input type="number" id="pmCashInput" class="pm-cash-input"
+                               placeholder="0.00" min="0" step="0.01" autocomplete="off">
+                    </div>
+                    <!-- Quick amount buttons — rendered by JS -->
+                    <div class="pm-quick-amounts" id="pmQuickAmounts"></div>
+                </div>
+
+                <!-- Change display -->
+                <div class="pm-change-card change-none" id="pmChangeCard">
+                    <div class="pm-change-icon"><i class="fas fa-coins"></i></div>
+                    <div class="pm-change-info">
+                        <div class="pm-change-sublabel">Change</div>
+                        <div class="pm-change-value" id="pmChangeValue">—</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer pm-footer d-flex">
+                <button type="button" class="pm-cancel-btn" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </button>
+                <button type="button" class="pm-confirm-btn" id="pmConfirmBtn" disabled onclick="confirmPaymentAndSubmit()">
+                    <i class="fas fa-check-circle me-1"></i> Confirm & Place Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     RECEIPT MODAL — 58mm inline
+══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="receiptModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:400px;">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a202c,#2d3748);border-radius:20px 20px 0 0;padding:1.1rem 1.4rem;">
+                <h5 class="modal-title" style="color:white;display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fas fa-receipt" style="color:#fbbf24;"></i> Receipt
+                    <span id="receiptOrderNumber" style="font-weight:500;opacity:0.7;font-size:0.88rem;"></span>
+                </h5>
+                <button type="button" class="btn-close" style="filter:brightness(0) invert(1);" data-bs-dismiss="modal" onclick="afterReceiptClose()"></button>
+            </div>
+            <div class="modal-body" style="padding:1.2rem;background:#f5f5f0;">
+                <!-- 58mm receipt paper -->
+                <div class="receipt-paper" id="receiptPrintArea">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="receipt-actions">
+                    <button class="rcpt-print-btn" onclick="printReceipt()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button class="rcpt-new-order-btn" onclick="afterReceiptClose()" data-bs-dismiss="modal">
+                        <i class="fas fa-plus-circle"></i> New Order
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const stockData      = <?= json_encode($stock_data      ?? []) ?>;
@@ -812,6 +1114,8 @@ const addonsMap      = <?= json_encode($addons_map       ?? []) ?>;
 const variantsMap    = <?= json_encode($variants_map     ?? []) ?>;
 const DB_DRAFT_CART  = <?= json_encode($draft_cart      ?? []) ?>;
 const DB_DRAFT_META  = <?= json_encode($draft_meta      ?? null) ?>;
+const BASE_URL       = <?= json_encode($baseUrl) ?>;
+const CASHIER_NAME   = <?= json_encode($_SESSION['full_name'] ?? 'Cashier') ?>;
 
 let cart               = [];
 let currentItem        = null;
@@ -819,6 +1123,9 @@ let currentVariantId   = null;
 let currentVariantName = null;
 let currentOrderType   = 'dine_in';
 let hasStockIssues     = false;
+
+// Tracks last completed order for receipt
+let lastOrderData      = null;
 
 const isMobile = () => window.innerWidth < 992;
 
@@ -948,14 +1255,11 @@ function buildDemandMap(rows) {
     for (const row of rows) {
         const itemStock = stockData[row.id];
         let ingredients;
-
-        // ✅ Use variant ingredients if variant selected, else base
         if (row.variant_id && itemStock?.variants?.[row.variant_id]?.ingredients?.length) {
             ingredients = itemStock.variants[row.variant_id].ingredients;
         } else {
             ingredients = itemStock?.base?.ingredients || [];
         }
-
         ingredients.forEach(ing => {
             if (!ing.quantity_required || ing.quantity_required <= 0) return;
             if (!d[ing.ingredient_id]) {
@@ -963,7 +1267,6 @@ function buildDemandMap(rows) {
             }
             d[ing.ingredient_id].needed += ing.quantity_required * row.quantity;
         });
-
         (row.addons || []).forEach(a => {
             (addonStockData[a.id]?.ingredients || []).forEach(ing => {
                 if (!ing.quantity_required || ing.quantity_required <= 0) return;
@@ -1010,10 +1313,7 @@ function addToCartWithQuantity(item, addons, quantity, note, variantId, variantN
         if (ei > -1) {
             const mq = cart[ei].quantity + quantity;
             const mc = checkCanChangeQty(ei, mq);
-            if (!mc.success) {
-                showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients);
-                return;
-            }
+            if (!mc.success) { showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients); return; }
             cart[ei].quantity = mq;
             validateAndRender(); saveCart(); return;
         }
@@ -1067,7 +1367,6 @@ function showNoteEditor(key, idx) {
     document.querySelectorAll('[data-note-display]').forEach(el => {
         if (el.getAttribute('data-note-display') !== key) el.style.display = '';
     });
-
     const display = document.querySelector(`[data-note-display="${key}"]`);
     const editor  = document.querySelector(`[data-note-editor="${key}"]`);
     if (display) display.style.display = 'none';
@@ -1157,11 +1456,7 @@ function renderCart() {
     const total      = cart.reduce((s, r) => s + (r.price + r.addons.reduce((a, b) => a + b.price * b.quantity, 0)) * r.quantity, 0);
     const emptyHTML  = `<div class="empty-cart"><div class="empty-cart-icon"><i class="fas fa-shopping-cart"></i></div><p>Cart is empty</p><small>Tap a menu item to add it</small></div>`;
 
-    const containers = [
-        { id: 'cartItems',       key: 'desk' },
-        { id: 'cartItemsMobile', key: 'mob'  },
-    ];
-    containers.forEach(({ id, key }) => {
+    [{ id: 'cartItems', key: 'desk' }, { id: 'cartItemsMobile', key: 'mob' }].forEach(({ id, key }) => {
         const el = document.getElementById(id);
         if (!el) return;
         el.innerHTML = cart.length ? cart.map((r, i) => buildCartItemHTML(r, i, key)).join('') : emptyHTML;
@@ -1179,12 +1474,12 @@ function renderCart() {
     ['clearCartBtn', 'clearCartBtnM'].forEach(id => { upd(id, el => el.classList.toggle('d-none', !showCart)); });
 
     upd('cartFooter',            el => el.classList.toggle('d-none', !showCart));
-    upd('submitOrderBtn',        el => { el.disabled = hasStockIssues || !showCart; });
+    upd('collectPaymentBtn',     el => { el.disabled = hasStockIssues || !showCart; });
     upd('submitDisabledMessage', el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
     if (showCart) upd('total', el => el.textContent = `₱${total.toFixed(2)}`);
 
     upd('mobileTotalRow',         el => el.classList.toggle('d-none', !showCart));
-    upd('submitOrderBtnM',        el => { el.classList.toggle('d-none', !showCart); el.disabled = hasStockIssues; });
+    upd('collectPaymentBtnM',     el => { el.classList.toggle('d-none', !showCart); el.disabled = hasStockIssues; });
     upd('submitDisabledMessageM', el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
     if (showCart) upd('totalM', el => el.textContent = `₱${total.toFixed(2)}`);
 
@@ -1203,17 +1498,14 @@ function renderCart() {
     }
     if (mBtn) mBtn.disabled = hasStockIssues || !showCart;
 
-    // Update in-cart badges on menu cards
+    // In-cart badges
     const cartCounts = {};
     cart.forEach(r => { cartCounts[r.id] = (cartCounts[r.id] || 0) + r.quantity; });
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const id    = card.dataset.itemId;
         const cnt   = cartCounts[id] || 0;
         const badge = document.getElementById(`cartBadge_${id}`);
-        if (badge) {
-            badge.textContent  = cnt > 0 ? cnt : '';
-            badge.style.display = cnt > 0 ? 'flex' : 'none';
-        }
+        if (badge) { badge.textContent = cnt > 0 ? cnt : ''; badge.style.display = cnt > 0 ? 'flex' : 'none'; }
         card.classList.toggle('in-cart', cnt > 0);
     });
 }
@@ -1224,24 +1516,16 @@ function validateAndRender() {
         const conflictNames = new Set(check.missingIngredients.map(i => i.name));
         cart.forEach(row => {
             const itemStock = stockData[row.id];
-
-            // ✅ Get the RIGHT ingredient list for this row's variant
             let ingredients;
             if (row.variant_id && itemStock?.variants?.[row.variant_id]?.ingredients?.length) {
                 ingredients = itemStock.variants[row.variant_id].ingredients;
             } else {
                 ingredients = itemStock?.base?.ingredients || [];
             }
-
             const addonIngredients = (row.addons || []).flatMap(a =>
                 (addonStockData[a.id]?.ingredients || []).map(i => i.ingredient_name)
             );
-
-            const allIngredientNames = new Set([
-                ...ingredients.map(i => i.ingredient_name),
-                ...addonIngredients
-            ]);
-
+            const allIngredientNames = new Set([...ingredients.map(i => i.ingredient_name), ...addonIngredients]);
             row.hasStockIssue = [...allIngredientNames].some(n => conflictNames.has(n));
         });
         hasStockIssues = true;
@@ -1251,6 +1535,7 @@ function validateAndRender() {
     }
     renderCart();
 }
+
 // ─────────────────────────────────────────────────────────────────
 // ORDER TYPE
 // ─────────────────────────────────────────────────────────────────
@@ -1275,13 +1560,12 @@ function setOrderType(type, context) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SEARCH
+// SEARCH & CATEGORIES
 // ─────────────────────────────────────────────────────────────────
 function filterMenu() {
     const query    = document.getElementById('menuSearch').value.trim().toLowerCase();
     const clearBtn = document.getElementById('searchClear');
     if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
-
     const activeCat = document.querySelector('.category-tab.active')?.dataset.category || 'all';
     let visible = 0;
     document.querySelectorAll('.menu-item-card').forEach(card => {
@@ -1303,9 +1587,6 @@ function clearSearch() {
 
 document.getElementById('menuSearch')?.addEventListener('input', filterMenu);
 
-// ─────────────────────────────────────────────────────────────────
-// CATEGORY TABS
-// ─────────────────────────────────────────────────────────────────
 document.querySelectorAll('.category-tab').forEach(tab => {
     tab.addEventListener('click', function () {
         document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
@@ -1322,40 +1603,25 @@ const _variantPickerData = new Map();
 function openVariantModal(item, variants) {
     document.getElementById('variantModalItemName').textContent = item.name;
     _variantPickerData.clear();
- 
     let html = '';
     variants.forEach((v, idx) => {
         _variantPickerData.set(idx, { item, variant: v });
- 
-        const vStock    = stockData[item.id]?.variants?.[v.variant_id];
-        const hasStock  = vStock?.has_stock   ?? false;
-        const noRecipe  = vStock?.no_recipe   ?? false;   // NEW — recipe not configured
-        const maxQty    = vStock?.max_quantity ?? 0;
- 
-        // A variant is clickable only if it has stock AND has a recipe
+        const vStock   = stockData[item.id]?.variants?.[v.variant_id];
+        const hasStock = vStock?.has_stock  ?? false;
+        const noRecipe = vStock?.no_recipe  ?? false;
+        const maxQty   = vStock?.max_quantity ?? 0;
         const isAvailable = hasStock && !noRecipe;
-        const outCls      = isAvailable ? '' : 'out-of-stock-variant';
-        const clickAttr   = isAvailable ? `onclick="selectVariant(${idx})"` : '';
- 
-        // Choose the right badge
+        const outCls   = isAvailable ? '' : 'out-of-stock-variant';
+        const clickAttr = isAvailable ? `onclick="selectVariant(${idx})"` : '';
         let badge = '';
-        if (noRecipe) {
-            badge = '<span class="badge bg-secondary ms-2">Unavailable</span>';
-        } else if (!hasStock) {
-            badge = '<span class="badge bg-danger ms-2">Out of Stock</span>';
-        } else if (maxQty < 10) {
-            badge = `<span class="badge bg-warning text-dark ms-2">Only ${maxQty} left</span>`;
-        }
- 
+        if (noRecipe)       badge = '<span class="badge bg-secondary ms-2">Unavailable</span>';
+        else if (!hasStock) badge = '<span class="badge bg-danger ms-2">Out of Stock</span>';
+        else if (maxQty < 10) badge = `<span class="badge bg-warning text-dark ms-2">Only ${maxQty} left</span>`;
         html += `<div class="variant-option ${outCls}" ${clickAttr}>
-            <div class="variant-info">
-                <span class="variant-name">${escHtml(v.variant_name)}</span>
-                ${badge}
-            </div>
+            <div class="variant-info"><span class="variant-name">${escHtml(v.variant_name)}</span>${badge}</div>
             <span class="variant-price">₱${parseFloat(v.price).toFixed(2)}</span>
         </div>`;
     });
- 
     document.getElementById('variantList').innerHTML = html;
     showModal('variantModal');
 }
@@ -1378,19 +1644,16 @@ function openAddonsModal(item, variantId, variantName) {
     currentVariantName = variantName ?? null;
 
     const activeAddons = (addonsMap[item.id] || []).filter(a => a.is_active);
-
     const stockKey = (variantId !== null && variantId !== undefined)
         ? stockData[item.id]?.variants?.[variantId]
         : stockData[item.id]?.base;
     const maxQty = stockKey?.max_quantity ?? 0;
 
     let html = '';
-
     if (activeAddons.length > 0) {
         document.getElementById('addonsModalLabel').innerHTML =
             `<i class="fas fa-plus-circle" style="color:var(--secondary)"></i> Customize: ${escHtml(item.name)}` +
             (variantName ? ` <small class="text-muted">(${escHtml(variantName)})</small>` : '');
-
         html += `<div class="mb-3"><h6 class="fw-bold mb-2 small text-uppercase text-muted">Available Add-ons</h6>`;
         activeAddons.forEach(addon => {
             const as     = addonStockData[addon.addon_id] || {};
@@ -1403,15 +1666,10 @@ function openAddonsModal(item, variantId, variantName) {
                 <label for="addon_${addon.addon_id}">
                     <span class="addon-name ${!hasStk ? 'text-muted' : ''}">${escHtml(addon.addon_name)}</span>
                     <span class="addon-price">+₱${parseFloat(addon.price).toFixed(2)}</span>
-                    <span class="addon-status">
-                        ${!hasStk ? '<span class="badge bg-danger">Out of Stock</span>' : ''}
-                        ${hasStk && maxA < 10 ? `<span class="badge bg-warning text-dark">Only ${maxA} left</span>` : ''}
-                    </span>
+                    <span class="addon-status">${!hasStk ? '<span class="badge bg-danger">Out of Stock</span>' : ''}${hasStk && maxA < 10 ? `<span class="badge bg-warning text-dark">Only ${maxA} left</span>` : ''}</span>
                 </label>
                 <div class="addon-qty-control" id="qty_${addon.addon_id}" style="display:none">
-                    <input type="number" min="1" max="${maxA}" value="1"
-                           id="qty_input_${addon.addon_id}" class="form-control form-control-sm"
-                           ${!hasStk ? 'disabled' : ''}>
+                    <input type="number" min="1" max="${maxA}" value="1" id="qty_input_${addon.addon_id}" class="form-control form-control-sm" ${!hasStk ? 'disabled' : ''}>
                 </div>
             </div>`;
         });
@@ -1420,7 +1678,6 @@ function openAddonsModal(item, variantId, variantName) {
         document.getElementById('addonsModalLabel').innerHTML =
             `<i class="fas fa-utensils" style="color:var(--secondary)"></i> ${escHtml(item.name)}` +
             (variantName ? ` <small class="text-muted">(${escHtml(variantName)})</small>` : '');
-
         html += `<div class="text-center py-2">
             <div class="modal-icon primary mb-2"><i class="fas fa-utensils"></i></div>
             <p class="fw-bold mb-1">${escHtml(item.name)}</p>
@@ -1433,8 +1690,7 @@ function openAddonsModal(item, variantId, variantName) {
         <label class="form-label fw-bold small">Quantity</label>
         <div class="d-flex align-items-center gap-3">
             <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="decModalQty()">−</button>
-            <input type="number" id="modalItemQty" class="form-control text-center fw-bold"
-                   value="1" min="1" max="${maxQty}" style="width:75px">
+            <input type="number" id="modalItemQty" class="form-control text-center fw-bold" value="1" min="1" max="${maxQty}" style="width:75px">
             <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="incModalQty()">+</button>
         </div>
         <div class="text-muted mt-1" style="font-size:0.72rem">Max available: ${maxQty}</div>
@@ -1455,14 +1711,12 @@ function openAddonsModal(item, variantId, variantName) {
 document.querySelectorAll('.menu-item-card').forEach(card => {
     card.addEventListener('click', function () {
         if (this.classList.contains('out-of-stock')) return;
-
         const itemId    = this.dataset.itemId;
         const itemName  = this.dataset.itemName;
         const basePrice = parseFloat(this.dataset.itemPrice);
         const catId     = parseInt(this.dataset.categoryId);
         const variants  = variantsMap[itemId] || [];
         const item      = { id: itemId, name: itemName, price: basePrice, categoryId: catId };
-
         if (variants.length > 0) {
             openVariantModal(item, variants);
         } else {
@@ -1487,19 +1741,15 @@ document.getElementById('addToCartBtn').addEventListener('click', () => {
             price:    parseFloat(cb.dataset.price),
             quantity: parseInt(document.getElementById(`qty_input_${cb.value}`)?.value) || 1
         }));
-
     const c = checkCanAdd(currentItem.id, qty, adds, currentVariantId);
-    if (!c.success) {
-        showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients);
-        return;
-    }
+    if (!c.success) { showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients); return; }
     addToCartWithQuantity(currentItem, adds, qty, note, currentVariantId, currentVariantName);
     hideModal('addonsModal');
     if (isMobile() && cart.length === 1) setTimeout(openCartDrawer, 300);
 });
 
 // ─────────────────────────────────────────────────────────────────
-// SUBMIT
+// COLLECT ORDER DATA
 // ─────────────────────────────────────────────────────────────────
 function collectOrderData() {
     const mobile       = isMobile();
@@ -1513,38 +1763,281 @@ function collectOrderData() {
     return { orderType, customerName, tableId: tableIdEl?.value || '' };
 }
 
-function doSubmitOrder() {
-    if (!cart.length)        { showErrorModal('Empty Cart', 'Please add items before submitting.'); return; }
+// ─────────────────────────────────────────────────────────────────
+// PAYMENT MODAL
+// ─────────────────────────────────────────────────────────────────
+let _pmTotal = 0;
+
+function openPaymentModal() {
+    if (!cart.length) { showErrorModal('Empty Cart', 'Please add items before collecting payment.'); return; }
     const fc = validateCumulative(cart);
-    if (!fc.success)         { showStockErrorModal('Order cannot be submitted — stock exceeded', fc.missingIngredients); return; }
-    const { orderType, customerName, tableId } = collectOrderData();
-    if (!orderType)          { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
+    if (!fc.success) { showStockErrorModal('Cannot proceed — stock exceeded', fc.missingIngredients); return; }
+    const { orderType, tableId } = collectOrderData();
+    if (!orderType) { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
     if (orderType === 'dine_in' && !tableId) { showErrorModal('Table Required', 'Please select a table for dine-in orders.'); return; }
 
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'index.php?page=manage_pos';
-    [
-        ['customer_name', customerName],
-        ['table_id',      orderType === 'dine_in' ? tableId : ''],
-        ['order_type',    orderType],
-        ['submit_order',  '1'],
-        ['cart_data',     JSON.stringify(cart)]
-    ].forEach(([n, v]) => {
-        const i = document.createElement('input');
-        i.type = 'hidden'; i.name = n; i.value = v;
-        form.appendChild(i);
+    // Compute total
+    _pmTotal = cart.reduce((s, r) => s + (r.price + r.addons.reduce((a, b) => a + b.price * b.quantity, 0)) * r.quantity, 0);
+    const totalItems = cart.reduce((s, r) => s + r.quantity, 0);
+
+    // Header line
+    document.getElementById('pmOrderSummaryLine').textContent =
+        `${totalItems} item${totalItems !== 1 ? 's' : ''} · ${orderType === 'dine_in' ? 'Dine In' : 'Take Out'}`;
+
+    // Summary list
+    const summaryEl = document.getElementById('pmSummaryItems');
+    let summaryHTML = '';
+    cart.forEach(row => {
+        const lineTotal = (row.price + row.addons.reduce((a, b) => a + b.price * b.quantity, 0)) * row.quantity;
+        const label = row.variantName ? `${row.name} (${row.variantName})` : row.name;
+        summaryHTML += `<div class="pm-summary-item-row">
+            <span class="pm-summary-item-name">${escHtml(label)} ×${row.quantity}</span>
+            <span class="pm-summary-item-price">₱${lineTotal.toFixed(2)}</span>
+        </div>`;
+        row.addons.forEach(a => {
+            summaryHTML += `<div class="pm-summary-item-row" style="padding-left:12px;opacity:0.7;">
+                <span class="pm-summary-item-name">+ ${escHtml(a.name)}</span>
+                <span class="pm-summary-item-price">₱${(a.price * a.quantity).toFixed(2)}</span>
+            </div>`;
+        });
     });
-    document.body.appendChild(form);
-    form.submit();
-    cart = [];
-    localStorage.removeItem('pos_cart');
-    sessionStorage.removeItem('draft_banner_shown');
+    summaryHTML += `<hr class="pm-summary-divider"><div class="pm-summary-item-row" style="font-weight:700;">
+        <span>Total</span><span>₱${_pmTotal.toFixed(2)}</span></div>`;
+    summaryEl.innerHTML = summaryHTML;
+
+    // Total display
+    document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
+
+    // Reset input & change
+    const cashInput = document.getElementById('pmCashInput');
+    cashInput.value = '';
+    cashInput.className = 'pm-cash-input';
+    updateChangeDisplay(0, false);
+    document.getElementById('pmConfirmBtn').disabled = true;
+
+    // Quick amounts
+    buildQuickAmounts(_pmTotal);
+
+    showModal('paymentModal');
+    setTimeout(() => cashInput.focus(), 350);
 }
 
-function submitOrderMobile() { doSubmitOrder(); }
-document.getElementById('submitOrderBtn')?.addEventListener('click',  doSubmitOrder);
-document.getElementById('submitOrderBtnM')?.addEventListener('click', doSubmitOrder);
+function buildQuickAmounts(total) {
+    const roundUp = (n, to) => Math.ceil(n / to) * to;
+    const suggestions = new Set();
+    suggestions.add(total); // exact
+    [20, 50, 100, 200, 500, 1000].forEach(d => {
+        const rounded = roundUp(total, d);
+        if (rounded >= total && rounded <= total * 3) suggestions.add(rounded);
+    });
+    const sorted = [...suggestions].sort((a, b) => a - b).slice(0, 5);
+
+    const container = document.getElementById('pmQuickAmounts');
+    container.innerHTML = sorted.map(amt => {
+        const isExact = amt === total;
+        return `<button class="pm-quick-btn ${isExact ? 'exact' : ''}"
+                        onclick="setQuickAmount(${amt})">
+            ${isExact ? '<i class="fas fa-equals me-1"></i>Exact' : ''}₱${amt.toFixed(amt % 1 === 0 ? 0 : 2)}
+        </button>`;
+    }).join('');
+}
+
+function setQuickAmount(amt) {
+    const cashInput = document.getElementById('pmCashInput');
+    cashInput.value = amt.toFixed(2);
+    cashInput.dispatchEvent(new Event('input'));
+}
+
+document.getElementById('pmCashInput')?.addEventListener('input', function () {
+    const val  = parseFloat(this.value) || 0;
+    const valid = val >= _pmTotal && _pmTotal > 0;
+    this.className = 'pm-cash-input' + (this.value === '' ? '' : (valid ? ' valid' : ' invalid'));
+    updateChangeDisplay(val, this.value !== '');
+    document.getElementById('pmConfirmBtn').disabled = !valid;
+});
+
+function updateChangeDisplay(amountPaid, hasInput) {
+    const card     = document.getElementById('pmChangeCard');
+    const valueEl  = document.getElementById('pmChangeValue');
+    const iconEl   = card.querySelector('.pm-change-icon i');
+
+    if (!hasInput || _pmTotal <= 0) {
+        card.className  = 'pm-change-card change-none';
+        valueEl.textContent = '—';
+        iconEl.className    = 'fas fa-coins';
+        return;
+    }
+
+    const change = amountPaid - _pmTotal;
+    if (change < 0) {
+        card.className  = 'pm-change-card change-err';
+        valueEl.textContent = `₱${Math.abs(change).toFixed(2)} short`;
+        iconEl.className    = 'fas fa-exclamation-triangle';
+    } else if (change === 0) {
+        card.className  = 'pm-change-card change-exact';
+        valueEl.textContent = 'No change — exact amount';
+        iconEl.className    = 'fas fa-check-circle';
+    } else {
+        card.className  = 'pm-change-card change-ok';
+        valueEl.textContent = `₱${change.toFixed(2)}`;
+        iconEl.className    = 'fas fa-hand-holding-dollar';
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CONFIRM PAYMENT & SUBMIT ORDER (AJAX)
+// ─────────────────────────────────────────────────────────────────
+async function confirmPaymentAndSubmit() {
+    const amountPaid  = parseFloat(document.getElementById('pmCashInput').value) || 0;
+    const changeAmt   = Math.max(0, amountPaid - _pmTotal);
+
+    if (amountPaid < _pmTotal) { showErrorModal('Insufficient Amount', 'Cash tendered must be ≥ the order total.'); return; }
+
+    const { orderType, customerName, tableId } = collectOrderData();
+    const btn = document.getElementById('pmConfirmBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing…';
+
+    const payload = new URLSearchParams({
+        action:        'pay_and_submit',
+        customer_name: customerName || '',
+        table_id:      orderType === 'dine_in' ? tableId : '',
+        order_type:    orderType,
+        cart_data:     JSON.stringify(cart),
+        amount_paid:   amountPaid.toFixed(2),
+        change_amount: changeAmt.toFixed(2),
+    });
+
+    try {
+        const resp = await fetch('index.php?page=manage_pos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body:    payload,
+        });
+        const data = await resp.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Unknown error from server.');
+        }
+
+        // Store for receipt
+        lastOrderData = {
+            orderNumber:  data.order_number,
+            orderType,
+            customerName,
+            tableName:    data.table_name || '',
+            items:        [...cart],
+            total:        _pmTotal,
+            amountPaid,
+            changeAmt,
+            cashierName:  CASHIER_NAME,
+            createdAt:    data.created_at || new Date().toLocaleString('en-PH'),
+        };
+
+        // Clear cart
+        cart = [];
+        localStorage.removeItem('pos_cart');
+        sessionStorage.removeItem('draft_banner_shown');
+        validateAndRender();
+
+        // Close payment modal, show receipt
+        hideModal('paymentModal');
+        setTimeout(() => showReceiptModal(lastOrderData), 250);
+
+    } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirm & Place Order';
+        showErrorModal('Order Failed', err.message);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RECEIPT MODAL — 58mm inline
+// ─────────────────────────────────────────────────────────────────
+function showReceiptModal(d) {
+    document.getElementById('receiptOrderNumber').textContent = '#' + d.orderNumber;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    let itemsHTML = '';
+    d.items.forEach(row => {
+        const addonsTotal = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
+        const lineTotal   = (row.price + addonsTotal) * row.quantity;
+        const label       = row.variantName ? `${row.name} · ${row.variantName}` : row.name;
+        itemsHTML += `<div class="rcpt-item-row">
+            <span class="rcpt-col-name">${escHtml(label)}</span>
+            <span class="rcpt-col-qty">${row.quantity}</span>
+            <span class="rcpt-col-price">${row.price.toFixed(2)}</span>
+            <span class="rcpt-col-total">${lineTotal.toFixed(2)}</span>
+        </div>`;
+        row.addons.forEach(a => {
+            itemsHTML += `<div class="rcpt-addon-row">
+                <span>+ ${escHtml(a.name)} ×${a.quantity}</span>
+                <span>${(a.price * a.quantity).toFixed(2)}</span>
+            </div>`;
+        });
+        if (row.note) {
+            itemsHTML += `<div class="rcpt-note-row">Note: ${escHtml(row.note)}</div>`;
+        }
+    });
+
+    const receiptHTML = `
+        <div class="rcpt-center">
+            <div class="rcpt-large">DINE WITH DIN CAFETERIA</div>
+            <div class="rcpt-small">Karuhatan, Valenzuela City</div>
+            <div class="rcpt-small">(123) 456-7890</div>
+            <div class="rcpt-small rcpt-bold" style="margin-top:4px;text-transform:uppercase;">Sales Receipt</div>
+            <div class="rcpt-small">[ PAID ]</div>
+        </div>
+        <hr class="rcpt-divider-dash">
+        <div class="rcpt-row"><span class="rcpt-name">Receipt No.:</span><span class="rcpt-right">${escHtml(d.orderNumber)}</span></div>
+        <div class="rcpt-row"><span class="rcpt-name">Date:</span><span class="rcpt-right">${dateStr}</span></div>
+        <div class="rcpt-row"><span class="rcpt-name">Time:</span><span class="rcpt-right">${timeStr}</span></div>
+        <div class="rcpt-row"><span class="rcpt-name">Cashier:</span><span class="rcpt-right">${escHtml(d.cashierName)}</span></div>
+        ${d.customerName ? `<div class="rcpt-row"><span class="rcpt-name">Customer:</span><span class="rcpt-right">${escHtml(d.customerName)}</span></div>` : ''}
+        <div class="rcpt-row"><span class="rcpt-name">Order Type:</span><span class="rcpt-right">${d.orderType === 'dine_in' ? 'Dine In' : 'Take Out'}</span></div>
+        ${d.tableName ? `<div class="rcpt-row"><span class="rcpt-name">Table:</span><span class="rcpt-right">${escHtml(d.tableName)}</span></div>` : ''}
+        <hr class="rcpt-divider-dash">
+        <div class="rcpt-item-row rcpt-bold" style="border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;font-size:10px;text-transform:uppercase;">
+            <span class="rcpt-col-name">Item</span>
+            <span class="rcpt-col-qty">Qty</span>
+            <span class="rcpt-col-price">Price</span>
+            <span class="rcpt-col-total">Total</span>
+        </div>
+        ${itemsHTML}
+        <hr class="rcpt-divider-double">
+        <div class="rcpt-total-row"><span>Subtotal:</span><span>PHP ${d.total.toFixed(2)}</span></div>
+        <div class="rcpt-total-row rcpt-total-grand"><span>TOTAL:</span><span>PHP ${d.total.toFixed(2)}</span></div>
+        <div style="border:1px solid #000;padding:5px 6px;margin:6px 0;font-size:11px;">
+            <div class="rcpt-pay-row"><span>Method:</span><span>CASH</span></div>
+            <div class="rcpt-pay-row"><span>Cash tendered:</span><span>PHP ${d.amountPaid.toFixed(2)}</span></div>
+            <div class="rcpt-pay-row"><span>Change:</span><span>PHP ${d.changeAmt.toFixed(2)}</span></div>
+        </div>
+        <hr class="rcpt-divider-dash">
+        <div class="rcpt-footer-txt">
+            <div class="rcpt-bold" style="font-size:12px;text-transform:uppercase;">Thank you for dining with us!</div>
+            <div>Please come again.</div>
+            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">
+                Transaction: ${escHtml(d.orderNumber)}<br>
+                Printed: ${dateStr} ${timeStr}
+            </div>
+        </div>
+    `;
+
+    document.getElementById('receiptPrintArea').innerHTML = receiptHTML;
+    showModal('receiptModal');
+}
+
+function printReceipt() {
+    window.print();
+}
+
+function afterReceiptClose() {
+    validateAndRender();
+    closeCartDrawer();
+}
 
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
@@ -1556,7 +2049,7 @@ function setSidebarOpen(open) {
     if (open) { s.classList.add('show'); o.classList.add('show'); if (b) b.style.visibility = 'hidden'; closeCartDrawer(); }
     else       { s.classList.remove('show'); o.classList.remove('show'); if (b) b.style.visibility = ''; }
 }
-document.getElementById('menuToggle')?.addEventListener('click',     () => setSidebarOpen(!document.getElementById('sidebar').classList.contains('show')));
+document.getElementById('menuToggle')?.addEventListener('click', () => setSidebarOpen(!document.getElementById('sidebar').classList.contains('show')));
 document.getElementById('sidebarOverlay')?.addEventListener('click', () => setSidebarOpen(false));
 
 document.getElementById('customer_name')?.addEventListener('input',   saveDraftToServer);
@@ -1570,18 +2063,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DB_DRAFT_CART?.length > 0) {
         cart = DB_DRAFT_CART;
         localStorage.setItem('pos_cart', JSON.stringify(cart));
-
         const bannerKey = 'draft_banner_shown';
         if (!sessionStorage.getItem(bannerKey)) {
             document.getElementById('draftBanner')?.classList.remove('d-none');
             document.getElementById('draftBannerM')?.classList.remove('d-none');
             sessionStorage.setItem(bannerKey, '1');
         }
-
         const ot = DB_DRAFT_META?.order_type || 'dine_in';
         setOrderType(ot, 'desktop');
         setOrderType(ot, 'mobile');
-
         if (DB_DRAFT_META?.customer_name) {
             ['customer_name', 'customer_name_m'].forEach(id => {
                 const el = document.getElementById(id);
@@ -1601,35 +2091,29 @@ document.addEventListener('DOMContentLoaded', () => {
         setOrderType('dine_in', 'mobile');
     }
 
-    // Mark out-of-stock cards using new nested stock structure
     document.querySelectorAll('.menu-item-card').forEach(card => {
-    const id       = card.dataset.itemId;
-    const itemData = stockData[id];
-    const variants = variantsMap[id] || [];
-    const noPrice  = card.dataset.noPrice === 'true';
-
-    let hasStock;
-    if (variants.length > 0) {
-        hasStock = variants.some(v =>
-            itemData?.variants?.[v.variant_id]?.has_stock ?? false
-        );
-    } else {
-        hasStock = !noPrice && (itemData?.base?.has_stock ?? false);
-    }
-
-    if (!hasStock) {
-        card.classList.add('out-of-stock');
-        card.dataset.hasStock = 'false';
-        if (!card.querySelector('.out-of-stock-badge')) {
-            const b = document.createElement('div');
-            b.className   = 'out-of-stock-badge';
-            b.textContent = noPrice ? 'Unavailable' : 'Out of Stock';
-            // Grey badge for no-price, red for out-of-stock
-            if (noPrice) b.style.background = 'var(--warm-gray)';
-            card.prepend(b);
+        const id       = card.dataset.itemId;
+        const itemData = stockData[id];
+        const variants = variantsMap[id] || [];
+        const noPrice  = card.dataset.noPrice === 'true';
+        let hasStock;
+        if (variants.length > 0) {
+            hasStock = variants.some(v => itemData?.variants?.[v.variant_id]?.has_stock ?? false);
+        } else {
+            hasStock = !noPrice && (itemData?.base?.has_stock ?? false);
         }
-    }
-});
+        if (!hasStock) {
+            card.classList.add('out-of-stock');
+            card.dataset.hasStock = 'false';
+            if (!card.querySelector('.out-of-stock-badge')) {
+                const b = document.createElement('div');
+                b.className   = 'out-of-stock-badge';
+                b.textContent = noPrice ? 'Unavailable' : 'Out of Stock';
+                if (noPrice) b.style.background = 'var(--warm-gray)';
+                card.prepend(b);
+            }
+        }
+    });
 
     validateAndRender();
 
