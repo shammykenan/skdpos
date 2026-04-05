@@ -385,20 +385,37 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         echo '</tbody></table></div>';
     }
 
-    // Net profit card — reused across daily/monthly/yearly/myshift
+    // Gross profit card — Net Revenue minus COGS of kept items
+    function render_gross_profit_card(array $s): void {
+        $net_revenue = (float)($s['net_revenue'] ?? 0);
+        $gross_profit = (float)($s['gross_profit'] ?? 0);
+        $cls = $gross_profit >= 0 ? 'positive' : 'negative';
+        echo '
+        <div class="stat-card c-grossprofit">
+            <div class="s-icon" style="color:var(--primary);"><i class="fas fa-chart-bar"></i></div>
+            <div class="s-label">Gross Profit</div>
+            <div class="s-value ' . $cls . '">' . peso($gross_profit) . '</div>
+            <div class="profit-breakdown">
+                Net Revenue: <span class="pos">' . peso($net_revenue) . '</span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg">' . peso($net_revenue - $gross_profit) . '</span>
+            </div>
+        </div>';
+    }
+
+    // Net profit card — Gross Profit minus additional expenses/waste
     function render_net_profit_card(array $s): void {
-        $gross  = (float)($s['gross_profit']     ?? 0);
-        $waste  = (float)($s['total_waste_cost'] ?? 0);
-        $net    = (float)($s['net_profit']        ?? ($gross - $waste));
-        $cls    = $net >= 0 ? 'positive' : 'negative';
+        $gross_profit = (float)($s['gross_profit'] ?? 0);
+        $waste_cost = (float)($s['total_waste_cost'] ?? 0);
+        $net_profit = (float)($s['net_profit'] ?? ($gross_profit - $waste_cost));
+        $cls = $net_profit >= 0 ? 'positive' : 'negative';
         echo '
         <div class="stat-card c-netprofit">
             <div class="s-icon" style="color:var(--success);"><i class="fas fa-chart-line"></i></div>
             <div class="s-label">Net Profit</div>
-            <div class="s-value ' . $cls . '">' . peso($net) . '</div>
+            <div class="s-value ' . $cls . '">' . peso($net_profit) . '</div>
             <div class="profit-breakdown">
-                Gross: <span class="pos">' . peso($gross) . '</span>
-                &nbsp;&minus;&nbsp; Waste: <span class="neg">' . peso($waste) . '</span>
+                Gross Profit: <span class="pos">' . peso($gross_profit) . '</span>
+                &nbsp;&minus;&nbsp; Waste: <span class="neg">' . peso($waste_cost) . '</span>
             </div>
         </div>';
     }
@@ -456,6 +473,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-sub">Discounts: <?= peso((float)($s['total_discounts']??0)) ?></div>
         </div>
         <?php render_waste_card($s); ?>
+
         <?php render_net_profit_card($s); ?>
         <div class="stat-card c-warning">
             <div class="s-icon"><i class="fas fa-cash-register"></i></div>
@@ -638,7 +656,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
             <div class="s-label">Gross Revenue</div>
-            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+            <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
             <div class="vat-breakdown">
                 <div class="vat-label">Excl. VAT:</div>
                 <div class="vat-amount"><?= peso((float)($s['net_revenue_excl_vat']??0)) ?></div>
@@ -673,10 +691,11 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card c-green">
             <div class="s-icon"><i class="fas fa-user-tie"></i></div>
             <div class="s-label">Active Cashiers</div>
-            <div class="s-value"><?= $s['active_cashiers']??0 ?></div>
+            <div class="s-value"><?=$s['active_cashiers']??0?></div>
             <div class="s-sub"><?= date('M d, Y',strtotime($filter_date)) ?></div>
         </div>
         <?php render_waste_card($s); ?>
+
         <?php render_net_profit_card($s); ?>
     </div>
 
@@ -790,7 +809,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
             <div class="s-label">Gross Revenue</div>
-            <div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div>
+            <div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div>
             <div class="vat-breakdown">
                 Excl. VAT: <span><?=peso((float)($s['net_revenue_excl_vat']??0))?></span>
                 &nbsp;|&nbsp; VAT: <span><?=peso((float)($s['total_vat_collected']??0))?></span>
@@ -827,6 +846,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-sub"><?=$months_list[$filter_month]?> <?=$filter_year?></div>
         </div>
         <?php render_waste_card($s); ?>
+
         <?php render_net_profit_card($s); ?>
     </div>
 
@@ -916,7 +936,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <script>(function(){
         const dd=<?=json_encode(array_column($data['daily_chart']??[],'sale_date'))?>;
         const dr=<?=json_encode(array_column($data['daily_chart']??[],'revenue'))?>;
-        if(dd.length) new Chart(document.getElementById('monthlyTrend').getContext('2d'),{type:'line',data:{labels:dd.map(d=>{const p=d.split('-');return p[2]+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1];}),datasets:[{label:'Revenue',data:dr,backgroundColor:'rgba(15,76,92,.07)',borderColor:'#0f4c5c',borderWidth:2.5,tension:.35,fill:true,pointBackgroundColor:'#ff6b4a',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'₱'+v.toLocaleString()}},x:{grid:{display:false}}}}});
+        if(dd.length) new Chart(document.getElementById('monthlyTrend').getContext('2d'),{type:'line',data:{labels:dd.map(d=>{const p=d.split('-');return p[2]+' '+(p[1]=='01'?'Jan':(p[1]=='02'?'Feb':(p[1]=='03'?'Mar':(p[1]=='04'?'Apr':(p[1]=='05'?'May':(p[1]=='06'?'Jun':(p[1]=='07'?'Jul':(p[1]=='08'?'Aug':(p[1]=='09'?'Sep':(p[1]=='10'?'Oct':(p[1]=='11'?'Nov':'Dec')))))))))))),datasets:[{label:'Revenue',data:dr,backgroundColor:'rgba(15,76,92,.07)',borderColor:'#0f4c5c',borderWidth:2.5,tension:.35,fill:true,pointBackgroundColor:'#ff6b4a',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'₱'+v.toLocaleString()}},x:{grid:{display:false}}}}});
         const cl=<?=json_encode(array_column($data['categories']??[],'category_name'))?>;
         const cv=<?=json_encode(array_column($data['categories']??[],'revenue'))?>;
         if(cl.length) new Chart(document.getElementById('monthlyCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': ₱'+parseFloat(ctx.raw).toLocaleString()}}}}});
@@ -948,7 +968,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
             <div class="s-label">Gross Revenue <?=$filter_year?></div>
-            <div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div>
+            <div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div>
             <div class="vat-breakdown">
                 Excl. VAT: <span><?=peso((float)($s['net_revenue_excl_vat']??0))?></span>
                 &nbsp;|&nbsp; VAT: <span><?=peso((float)($s['total_vat_collected']??0))?></span>
@@ -969,6 +989,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card c-coral"><div class="s-icon"><i class="fas fa-shopping-cart"></i></div><div class="s-label">Total Orders</div><div class="s-value"><?=number_format($s['total_orders']??0)?></div><div class="s-sub">Discounts: <?=peso((float)($s['total_discounts']??0))?></div></div>
         <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-receipt"></i></div><div class="s-label">Avg Order Value</div><div class="s-value"><?=peso((float)($s['avg_order_value']??0))?></div></div>
         <?php render_waste_card($s); ?>
+
         <?php render_net_profit_card($s); ?>
     </div>
 
