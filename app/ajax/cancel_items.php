@@ -19,9 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$order_item_id = (int) ($_POST['order_item_id'] ?? 0);
-$action        = trim($_POST['action'] ?? '');   // 'cancel_item' | 'void_item'
-$reason        = trim($_POST['reason'] ?? '');
+$order_item_id = (int)   ($_POST['order_item_id'] ?? 0);
+$action        = trim(        $_POST['action']         ?? '');  // 'cancel_item' | 'void_item'
+$reason        = trim(        $_POST['reason']         ?? '');
+$refund_amount = (float) ($_POST['refund_amount']  ?? 0);       // optional, void_item only
+$refund_method = trim(        $_POST['refund_method']  ?? 'cash');
+$refund_note   = trim(        $_POST['refund_note']    ?? '');
 
 if (!$order_item_id || !in_array($action, ['cancel_item', 'void_item'])) {
     echo json_encode(['success' => false, 'error' => 'Invalid parameters.']);
@@ -35,6 +38,11 @@ if ($action === 'void_item' && !$isAdmin) {
 
 if ($reason === '') {
     echo json_encode(['success' => false, 'error' => 'A reason is required.']);
+    exit;
+}
+
+if ($refund_amount < 0) {
+    echo json_encode(['success' => false, 'error' => 'Refund amount cannot be negative.']);
     exit;
 }
 
@@ -53,7 +61,8 @@ try {
             oi.status          AS item_status,
             oi.item_name_snapshot,
             o.status           AS order_status,
-            o.discount         AS order_discount
+            o.discount         AS order_discount,
+            o.cashier_id
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
         WHERE oi.order_item_id = ?
@@ -97,9 +106,7 @@ try {
     $itemLabel       = $item['item_name_snapshot'] ?? ('Item #' . $order_item_id);
 
     // ── 1. Calculate waste cost (void only) ───────────────────────────────────
-    // Cancelled items were never prepared — no ingredients were used, no waste.
-    // Voided items were ready (prepared) — ingredients consumed, cost is waste.
-    $wasteCost = null; // NULL for cancelled items — explicitly not applicable
+    $wasteCost = null;
 
     if ($action === 'void_item') {
         $costStmt = $pdo->prepare("
@@ -112,29 +119,61 @@ try {
             WHERE oi.order_item_id = ?
         ");
         $costStmt->execute([$order_item_id]);
-        $costRow   = $costStmt->fetch(PDO::FETCH_ASSOC);
+        $costRow = $costStmt->fetch(PDO::FETCH_ASSOC);
 
-        // Item cost = ingredient cost * quantity
         $itemCost = $costRow ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2) : 0.00;
 
-        // Addon cost = sum of addon prices on this item
         $addonStmt = $pdo->prepare("
             SELECT COALESCE(SUM(price * quantity), 0) AS addon_total
             FROM order_item_addons
             WHERE order_item_id = ?
         ");
         $addonStmt->execute([$order_item_id]);
-        $addonCost = (float)($addonStmt->fetchColumn() ?? 0);
+        $addonCost = (float) ($addonStmt->fetchColumn() ?? 0);
 
-        // Total waste cost = item cost + addon cost
         $wasteCost = round($itemCost + $addonCost, 2);
+
+        // ── Validate refund cap ───────────────────────────────────────────────
+        if ($refund_amount > 0) {
+            $sellingSubtotal = (float) $item['subtotal'];
+
+            $addonSellingStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(oia.price * oia.quantity), 0) AS addon_selling
+                FROM order_item_addons oia
+                WHERE oia.order_item_id = ?
+            ");
+            $addonSellingStmt->execute([$order_item_id]);
+            $addonSelling     = (float) $addonSellingStmt->fetchColumn();
+            $itemSellingTotal = round($sellingSubtotal + $addonSelling, 2);
+
+            // All remaining payments rows are 'paid' — no status filter needed post-migration
+            $paidStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(amount_paid), 0)
+                FROM payments
+                WHERE order_id = ?
+            ");
+            $paidStmt->execute([$order_id]);
+            $totalPaid = (float) $paidStmt->fetchColumn();
+            $refundCap = $totalPaid > 0 ? min($itemSellingTotal, $totalPaid) : $itemSellingTotal;
+
+            if ($refund_amount > $refundCap + 0.01) {
+                $pdo->rollBack();
+                echo json_encode([
+                    'success'    => false,
+                    'error'      => sprintf(
+                        'Refund amount (₱%.2f) exceeds the maximum allowed refund of ₱%.2f.',
+                        $refund_amount,
+                        $refundCap
+                    ),
+                    'refund_cap' => $refundCap,
+                    'total_paid' => $totalPaid,
+                ]);
+                exit;
+            }
+        }
     }
 
-    // ── 2. Update item status + write reason + waste_cost ─────────────────────
-    //
-    // cancel_item → cancel_reason column, void_reason stays NULL, waste_cost stays NULL
-    // void_item   → void_reason column,   cancel_reason stays NULL, waste_cost set
-
+    // ── 2. Update item status ─────────────────────────────────────────────────
     if ($action === 'cancel_item') {
         $pdo->prepare("
             UPDATE order_items
@@ -143,7 +182,6 @@ try {
         ")->execute([$reason, $order_item_id]);
 
     } else {
-        // void_item — write waste_cost directly to the row
         $pdo->prepare("
             UPDATE order_items
             SET status = 'voided', void_reason = ?, waste_cost = ?
@@ -152,8 +190,6 @@ try {
     }
 
     // ── 3. Recalculate orders.waste_total ─────────────────────────────────────
-    // Sum waste_cost from all voided items on this order.
-    // Only voided items have a non-NULL waste_cost.
     $wasteTotalStmt = $pdo->prepare("
         SELECT COALESCE(SUM(waste_cost), 0)
         FROM order_items
@@ -168,7 +204,28 @@ try {
         UPDATE orders SET waste_total = ? WHERE order_id = ?
     ")->execute([$newWasteTotal, $order_id]);
 
-    // ── 4. Audit log ──────────────────────────────────────────────────────────
+    // ── 4. Record refund in refunds table if amount > 0 (void_item only) ──────
+    // refund_type = 'void_item' distinguishes from void_order and post_sale.
+    $refundId = null;
+    if ($action === 'void_item' && $refund_amount > 0) {
+        $refStmt = $pdo->prepare("
+            INSERT INTO refunds
+                (refund_type, order_id, order_item_id, amount, reason, refund_method, note, processed_by)
+            VALUES ('void_item', ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $refStmt->execute([
+            $order_id,
+            $order_item_id,
+            $refund_amount,
+            $reason,
+            $refund_method,
+            $refund_note ?: null,
+            (int) $_SESSION['user_id'],
+        ]);
+        $refundId = (int) $pdo->lastInsertId();
+    }
+
+    // ── 5. Audit log ──────────────────────────────────────────────────────────
     $logAction  = $action === 'cancel_item' ? 'cancel_order_item' : 'void_order_item';
     $logDetails = [
         'order_item_id' => $order_item_id,
@@ -181,8 +238,12 @@ try {
     if ($action === 'cancel_item') {
         $logDetails['stock_note'] = 'Item was pending — no stock had been deducted. Nothing restored. No waste.';
     } else {
-        $logDetails['waste_cost'] = $wasteCost;
-        $logDetails['stock_note'] = 'Item was ready — ingredients already consumed. Stock NOT restored. Cost written off as waste.';
+        $logDetails['waste_cost']    = $wasteCost;
+        $logDetails['stock_note']    = 'Item was ready — ingredients already consumed. Stock NOT restored. Cost written off as waste.';
+        $logDetails['refund_amount'] = $refund_amount;
+        $logDetails['refund_method'] = $refund_amount > 0 ? $refund_method : null;
+        $logDetails['refund_note']   = $refund_note ?: null;
+        $logDetails['refund_id']     = $refundId;
     }
 
     $pdo->prepare("
@@ -195,7 +256,7 @@ try {
         $_SERVER['REMOTE_ADDR'] ?? null,
     ]);
 
-    // ── 5. Recalculate order totals ───────────────────────────────────────────
+    // ── 6. Recalculate order totals ───────────────────────────────────────────
     $totalsStmt = $pdo->prepare("
         SELECT COALESCE(SUM(subtotal), 0) AS active_subtotal
         FROM order_items
@@ -223,7 +284,7 @@ try {
         UPDATE orders SET subtotal = ?, total_amount = ? WHERE order_id = ?
     ")->execute([$newSubtotal, $newTotalAmount, $order_id]);
 
-    // ── 6. Recalculate order status ───────────────────────────────────────────
+    // ── 7. Recalculate order status ───────────────────────────────────────────
     $statusCountStmt = $pdo->prepare("
         SELECT status, COUNT(*) AS cnt
         FROM order_items
@@ -297,11 +358,14 @@ try {
         'order_status'  => $newOrderStatus,
         'new_total'     => $newTotalAmount,
         'new_subtotal'  => $newSubtotal,
-        'waste_cost'    => $wasteCost,      // null for cancel, float for void
-        'waste_total'   => $newWasteTotal,  // cumulative for this order
+        'waste_cost'    => $wasteCost,
+        'waste_total'   => $newWasteTotal,
+        'refund_amount' => $action === 'void_item' ? $refund_amount : null,
+        'refund_method' => ($action === 'void_item' && $refund_amount > 0) ? $refund_method : null,
+        'refund_id'     => $refundId,
     ]);
 
 } catch (Exception $e) {
     $pdo->rollBack();
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-}   
+}

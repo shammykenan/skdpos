@@ -4725,3 +4725,22 @@ body {
 #detailVoidSection .od-payment-row span:last-child {
     color: var(--primary-dark);
 }
+/* ── Refund modal ── */
+.refund-type-btn.active[data-type="full"]    { background:var(--success);color:white;border-color:var(--success); }
+.refund-type-btn.active[data-type="partial"] { background:var(--primary);color:white;border-color:var(--primary); }
+.refund-item-row {
+    display:flex;align-items:center;gap:0.75rem;
+    padding:0.65rem 0.85rem;
+    border-bottom:1px solid var(--border);
+    font-size:0.83rem;
+    transition:background 0.1s;
+}
+.refund-item-row:last-child { border-bottom:none; }
+.refund-item-row:hover      { background:var(--light-bg); }
+.refund-item-row input[type="checkbox"] { accent-color:var(--primary);width:16px;height:16px;cursor:pointer;flex-shrink:0; }
+.refund-item-amount {
+    margin-left:auto;padding:0.25rem 0.5rem;width:90px;
+    border:1.5px solid var(--border);border-radius:8px;
+    font-size:0.82rem;font-family:inherit;text-align:right;outline:none;
+}
+.refund-item-amount:focus { border-color:var(--primary); }

@@ -16,6 +16,7 @@ const CANCEL_VOID_ITEM_URL = `${BASE_URL}/app/ajax/cancel_items.php`;
 const VOID_ORDER_URL       = `${BASE_URL}/app/ajax/void_order.php`;
 const GET_REASONS_URL      = `${BASE_URL}/app/ajax/get_reasons.php`;
 const MARK_SERVED_URL      = `${BASE_URL}/app/ajax/mark_served.php`;
+const PROCESS_REFUND_URL   = `${BASE_URL}/app/ajax/process_refund.php`;
 
 let currentFilter      = 'all';
 let currentSearch      = '';
@@ -33,17 +34,61 @@ let currentOrdersCache = {};
 let openDetailsOrderId = null;
 let kitchenModalOrderId = null;
 
-// Modal instances — paymentModal removed; payment lives in POS now
 let cancelOrderModal, orderDetailsModal, kitchenItemsModal,
-    voidOrderModal, cancelVoidItemModal, finalReceiptModal;
+    voidOrderModal, cancelVoidItemModal, finalReceiptModal,
+    markServedModal, refundModal;
 
-// Pending cancel/void item action (set before modal confirms)
-let pendingItemAction = { orderItemId: null, action: null, itemName: null, btn: null };
+// pendingItemAction carries refund fields for void_item
+let pendingItemAction = {
+    orderItemId: null, action: null, itemName: null, btn: null,
+    refundAmount: 0, refundMethod: 'cash', refundNote: '',
+};
+
+// Void ORDER modal state
+let _voidOrderTotalPaid = 0;
+let _voidOrderRefundCap = 0;
+let _voidRefundOpen     = false;
+
+// Void ITEM modal state
+let _voidItemTotalPaid  = 0;
+let _voidItemRefundCap  = 0;
+let _voidItemRefundOpen = false;
+
+// Post-completion refund modal state
+let _refundOrderId     = null;
+let _refundOrderNumber = '';
+let _refundOrderTotal  = 0;
+let _refundAlready     = 0;
+let _refundRemaining   = 0;
+let _refundItems       = [];
+let _refundType        = 'full';
+
+// Shared last-fetched refunds (all types) for receipt printing
+window._lastOrderRefunds = null;
+
+// ============================================
+// VOID REFUND DROPDOWN TOGGLE (order-level)
+// ============================================
+function toggleVoidRefund() {
+    _voidRefundOpen = !_voidRefundOpen;
+    const panel   = document.getElementById('voidRefundPanel');
+    const chevron = document.getElementById('voidRefundChevron');
+    if (panel)   panel.style.display = _voidRefundOpen ? 'block' : 'none';
+    if (chevron) chevron.className   = `fas fa-chevron-down${_voidRefundOpen ? ' open' : ''}`;
+    if (!_voidRefundOpen) {
+        const refAmt = document.getElementById('voidRefundAmount');
+        if (refAmt) { refAmt.value = ''; refAmt.classList.remove('inp-invalid', 'inp-valid'); }
+        const fb  = document.getElementById('voidRefundFeedback');
+        const err = document.getElementById('voidRefundError');
+        if (fb)  fb.style.display  = 'none';
+        if (err) err.textContent   = '';
+    }
+}
+window.toggleVoidRefund = toggleVoidRefund;
 
 // ============================================
 // REASON DROPDOWN HELPERS
 // ============================================
-
 async function loadReasons(type, selectId) {
     const sel = document.getElementById(selectId);
     if (!sel) return;
@@ -54,9 +99,8 @@ async function loadReasons(type, selectId) {
         if (!data.success) throw new Error(data.error || 'Failed to load reasons');
         sel.innerHTML = '<option value="">— Select a reason —</option>';
         data.data.forEach(r => {
-            const opt       = document.createElement('option');
-            opt.value       = r.reason_text;
-            opt.textContent = r.reason_text;
+            const opt = document.createElement('option');
+            opt.value = r.reason_text; opt.textContent = r.reason_text;
             sel.appendChild(opt);
         });
     } catch (err) {
@@ -69,35 +113,26 @@ function wireReasonDropdown(selectId, textareaId, errorId) {
     const sel = document.getElementById(selectId);
     const ta  = document.getElementById(textareaId);
     const err = document.getElementById(errorId);
-
-    if (!sel) {
-        return { getReason: () => '', reset: () => {}, showError: () => {} };
-    }
-
+    if (!sel) return { getReason: () => '', reset: () => {}, showError: () => {} };
     sel.addEventListener('change', function () {
-        const isOther = this.value === 'Other';
-        if (ta)  ta.style.display  = isOther ? '' : 'none';
+        if (ta)  ta.style.display  = this.value === 'Other' ? '' : 'none';
         if (err) err.style.display = 'none';
         sel.style.borderColor = '';
     });
-
     return {
         getReason() {
-            const selected = sel.value;
-            if (!selected) return '';
-            if (selected === 'Other') return ta ? ta.value.trim() : '';
-            return selected;
+            const v = sel.value;
+            if (!v) return '';
+            return v === 'Other' ? (ta ? ta.value.trim() : '') : v;
         },
         reset() {
-            sel.value = '';
-            sel.style.borderColor = '';
-            if (ta)  { ta.value = ''; ta.style.display = 'none'; ta.style.borderColor = ''; }
+            sel.value = ''; sel.style.borderColor = '';
+            if (ta)  { ta.value = ''; ta.style.display = 'none'; }
             if (err) err.style.display = 'none';
         },
         showError() {
             if (err) err.style.display = 'block';
-            sel.style.borderColor = 'var(--danger)';
-            sel.focus();
+            sel.style.borderColor = 'var(--danger)'; sel.focus();
         },
     };
 }
@@ -109,10 +144,7 @@ async function safeJSONParse(response) {
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     const text = await response.text();
     try { return JSON.parse(text); }
-    catch (e) {
-        console.error('Invalid JSON response:', text);
-        throw new Error('Invalid JSON from server');
-    }
+    catch (e) { console.error('Invalid JSON:', text); throw new Error('Invalid JSON from server'); }
 }
 
 // ============================================
@@ -121,34 +153,299 @@ async function safeJSONParse(response) {
 function showErrorModal(title, message) {
     const existing = document.getElementById('dynamicErrorModal');
     if (existing) existing.remove();
-
-    const modalHtml = `
-        <div class="modal fade" id="dynamicErrorModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title">
-                            <i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(title)}
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-0">${escapeHtml(message)}</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
+    const html = `<div class="modal fade" id="dynamicErrorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(title)}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body"><p class="mb-0">${escapeHtml(message)}</p></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
-        </div>`;
-
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
     const el = document.getElementById('dynamicErrorModal');
     if (el && typeof bootstrap !== 'undefined') {
-        const m = new bootstrap.Modal(el);
-        m.show();
+        const m = new bootstrap.Modal(el); m.show();
         el.addEventListener('hidden.bs.modal', () => el.remove());
     }
+}
+
+// ============================================
+// VOID REFUND PANEL HELPERS (order-level)
+// ============================================
+function resetVoidRefundPanel() {
+    _voidOrderTotalPaid = 0;
+    _voidOrderRefundCap = 0;
+    _voidRefundOpen     = false;
+
+    const panel     = document.getElementById('voidRefundPanel');
+    const chevron   = document.getElementById('voidRefundChevron');
+    const paidHint  = document.getElementById('voidRefundPaidHint');
+    const presetsEl = document.getElementById('voidRefundPresets');
+
+    if (panel)     panel.style.display  = 'none';
+    if (chevron)   chevron.className    = 'fas fa-chevron-down';
+    if (paidHint)  paidHint.textContent = 'Loading payment info…';
+    if (presetsEl) presetsEl.innerHTML  = '';
+
+    ['voidRefundAmount','voidRefundNote','voidRefundMethod','voidRefundFeedback','voidRefundError'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === 'voidRefundAmount')   { el.value = ''; el.disabled = false; el.classList.remove('inp-invalid','inp-valid'); }
+        else if (id === 'voidRefundFeedback') el.style.display = 'none';
+        else if (id === 'voidRefundError')    el.textContent   = '';
+        else el.value = id === 'voidRefundMethod' ? 'cash' : '';
+    });
+}
+
+function validateRefundInput() {
+    const input    = document.getElementById('voidRefundAmount');
+    const errEl    = document.getElementById('voidRefundError');
+    const feedback = document.getElementById('voidRefundFeedback');
+    if (!input) return true;
+
+    const val = parseFloat(input.value) || 0;
+    const cap = _voidOrderRefundCap > 0 ? _voidOrderRefundCap : _voidOrderTotalPaid;
+
+    input.classList.remove('inp-invalid', 'inp-valid');
+
+    if (val < 0) {
+        input.classList.add('inp-invalid');
+        if (errEl) errEl.textContent = 'Refund amount cannot be negative.';
+        if (feedback) feedback.style.display = 'none';
+        return false;
+    }
+    if (cap > 0 && val > cap + 0.005) {
+        input.classList.add('inp-invalid');
+        if (errEl) errEl.textContent = `Maximum refund is ₱${cap.toFixed(2)}.`;
+        if (feedback) feedback.style.display = 'none';
+        return false;
+    }
+
+    if (errEl) errEl.textContent = '';
+
+    if (val > 0) {
+        input.classList.add('inp-valid');
+        if (feedback && _voidOrderTotalPaid > 0) {
+            const keep = Math.max(0, _voidOrderTotalPaid - val);
+            feedback.style.display    = 'block';
+            feedback.style.background = keep > 0.005 ? 'rgba(44,122,90,0.10)' : 'rgba(15,76,92,0.07)';
+            feedback.style.color      = keep > 0.005 ? 'var(--success)' : 'var(--primary-dark)';
+            feedback.textContent      = keep > 0.005
+                ? `Customer keeps ₱${keep.toFixed(2)} of the ₱${_voidOrderTotalPaid.toFixed(2)} paid.`
+                : `Full refund of ₱${_voidOrderTotalPaid.toFixed(2)}.`;
+        } else if (feedback) {
+            feedback.style.display = 'none';
+        }
+    } else {
+        input.classList.remove('inp-valid');
+        if (feedback) feedback.style.display = 'none';
+    }
+
+    document.querySelectorAll('#voidRefundPresets .refund-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', Math.abs(parseFloat(btn.dataset.amount) - val) < 0.005);
+    });
+
+    return true;
+}
+
+function buildRefundPresets(items, totalPaid, refundCap) {
+    const presetsEl = document.getElementById('voidRefundPresets');
+    if (!presetsEl) return;
+    presetsEl.innerHTML = '';
+
+    if (refundCap <= 0) return;
+
+    const addPreset = (label, amount, extraClass = '') => {
+        const rounded = Math.round(amount * 100) / 100;
+        if (rounded <= 0) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `refund-preset-btn${extraClass ? ' ' + extraClass : ''}`;
+        btn.textContent = `${label}  ₱${rounded.toFixed(2)}`;
+        btn.dataset.amount = rounded.toFixed(2);
+        btn.addEventListener('click', function () {
+            const refAmt = document.getElementById('voidRefundAmount');
+            if (!refAmt) return;
+            refAmt.value = rounded.toFixed(2);
+            validateRefundInput();
+        });
+        presetsEl.appendChild(btn);
+    };
+
+    addPreset('Full', refundCap, 'full');
+    [75, 50, 25].forEach(pct => addPreset(`${pct}%`, refundCap * pct / 100));
+
+    // Per ready-item selling prices
+    if (items && items.length > 0) {
+        items.filter(i => i.item_status === 'ready').forEach(item => {
+            const addonsTotal = (item.addons || []).reduce(
+                (s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0
+            );
+            const lineTotal = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)) + addonsTotal;
+            if (lineTotal > 0 && lineTotal <= refundCap) {
+                const name = (item.item_name_snapshot || item.item_name || 'Item').substring(0, 14);
+                addPreset(name, lineTotal);
+            }
+        });
+    }
+}
+
+// ============================================
+// VOID ITEM REFUND PANEL (injected into modal)
+// ============================================
+function _injectVoidItemRefundPanel(state) {
+    document.getElementById('voidItemRefundSection')?.remove();
+
+    const modalBody = document.querySelector('#cancelVoidItemModal .modal-body');
+    if (!modalBody) return;
+
+    if (state === 'loading') {
+        const loadDiv = document.createElement('div');
+        loadDiv.id = 'voidItemRefundSection';
+        loadDiv.style.cssText = 'margin-top:1rem;padding:0.75rem 1rem;background:var(--light-bg);border-radius:12px;font-size:0.82rem;color:var(--warm-gray);text-align:center;';
+        loadDiv.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking payment info…';
+        modalBody.appendChild(loadDiv);
+        return;
+    }
+
+    if (state === 'error' || state === 'no-context') return;
+
+    const paidHint = _voidItemTotalPaid > 0
+        ? `Paid: ₱${_voidItemTotalPaid.toFixed(2)} · Max refund for this item: ₱${_voidItemRefundCap.toFixed(2)}`
+        : 'No payment recorded — refund not applicable.';
+    const disabled = _voidItemRefundCap <= 0;
+
+    const section = document.createElement('div');
+    section.id = 'voidItemRefundSection';
+    section.style.cssText = 'margin-top:1rem;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;';
+    section.innerHTML = `
+        <button type="button" id="voidItemRefundToggleBtn"
+                style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                       padding:0.7rem 1rem;background:var(--light-bg);border:none;
+                       cursor:pointer;font-family:inherit;transition:background 0.15s;">
+            <div style="display:flex;align-items:center;gap:0.6rem;">
+                <div style="width:28px;height:28px;background:rgba(214,64,69,0.10);border-radius:8px;
+                            display:flex;align-items:center;justify-content:center;color:var(--danger);font-size:0.82rem;">
+                    <i class="fas fa-rotate-left"></i>
+                </div>
+                <div style="text-align:left;">
+                    <div style="font-size:0.83rem;font-weight:700;color:var(--navy);">
+                        Issue a Refund
+                        <span style="font-size:0.73rem;font-weight:400;color:var(--warm-gray);margin-left:0.3rem;">(optional)</span>
+                    </div>
+                    <div style="font-size:0.71rem;color:var(--warm-gray);margin-top:1px;">${paidHint}</div>
+                </div>
+            </div>
+            <i class="fas fa-chevron-down" id="voidItemRefundChevron"
+               style="color:var(--warm-gray);font-size:0.78rem;transition:transform 0.2s;"></i>
+        </button>
+        <div id="voidItemRefundPanel"
+             style="display:none;padding:0.9rem 1rem;border-top:1.5px solid var(--border);background:white;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.6rem;">
+                <div>
+                    <label style="font-size:0.74rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.3rem;">Refund Amount</label>
+                    <div style="position:relative;">
+                        <span style="position:absolute;left:0;top:0;bottom:0;width:32px;display:flex;align-items:center;
+                                     justify-content:center;font-weight:700;color:var(--warm-gray);font-size:0.88rem;
+                                     background:var(--light-bg);border-radius:9px 0 0 9px;border:1.5px solid var(--border);border-right:none;">₱</span>
+                        <input type="number" id="voidItemRefundAmount" min="0" step="0.01"
+                               max="${_voidItemRefundCap > 0 ? _voidItemRefundCap.toFixed(2) : '0'}"
+                               placeholder="${disabled ? 'No payment on file' : `0.00 – ${_voidItemRefundCap.toFixed(2)}`}"
+                               ${disabled ? 'disabled' : ''}
+                               style="width:100%;padding:0.45rem 0.5rem 0.45rem 2rem;border:1.5px solid var(--border);
+                                      border-radius:9px;font-size:0.85rem;font-family:inherit;outline:none;transition:border-color 0.15s;">
+                    </div>
+                    <div id="voidItemRefundError" style="font-size:0.71rem;color:var(--danger);margin-top:3px;min-height:1rem;"></div>
+                </div>
+                <div>
+                    <label style="font-size:0.74rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.3rem;">Method</label>
+                    <select id="voidItemRefundMethod"
+                            style="width:100%;padding:0.45rem 0.6rem;border:1.5px solid var(--border);border-radius:9px;
+                                   font-size:0.83rem;font-family:inherit;background:white;color:var(--dark);outline:none;">
+                        <option value="cash">Cash</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:0.74rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.3rem;">
+                    Note <span style="font-weight:400;color:var(--warm-gray);">(optional)</span>
+                </label>
+                <input type="text" id="voidItemRefundNote" maxlength="200"
+                       placeholder="e.g. Item incorrect, customer refunded…"
+                       style="width:100%;padding:0.45rem 0.6rem;border:1.5px solid var(--border);
+                              border-radius:9px;font-size:0.81rem;font-family:inherit;outline:none;">
+            </div>
+            ${!disabled ? `
+            <div style="margin-top:0.65rem;">
+                <div style="font-size:0.71rem;font-weight:700;color:var(--warm-gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.35rem;">Quick select</div>
+                <div id="voidItemRefundPresets" style="display:flex;gap:0.35rem;flex-wrap:wrap;"></div>
+            </div>` : ''}
+        </div>`;
+
+    modalBody.appendChild(section);
+
+    if (!disabled) {
+        const presetsEl = document.getElementById('voidItemRefundPresets');
+        const addPreset = (label, amount, extraClass = '') => {
+            const rounded = Math.round(amount * 100) / 100;
+            if (rounded <= 0) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `refund-preset-btn${extraClass ? ' ' + extraClass : ''}`;
+            btn.textContent = `${label}  ₱${rounded.toFixed(2)}`;
+            btn.dataset.amount = rounded.toFixed(2);
+            btn.addEventListener('click', function () {
+                const inp = document.getElementById('voidItemRefundAmount');
+                if (inp) { inp.value = rounded.toFixed(2); _validateVoidItemRefund(); }
+                document.querySelectorAll('#voidItemRefundPresets .refund-preset-btn')
+                    .forEach(b => b.classList.toggle('active', b === btn));
+            });
+            presetsEl?.appendChild(btn);
+        };
+        addPreset('Full', _voidItemRefundCap, 'full');
+        [75, 50, 25].forEach(pct => addPreset(`${pct}%`, _voidItemRefundCap * pct / 100));
+    }
+
+    document.getElementById('voidItemRefundToggleBtn')?.addEventListener('click', function () {
+        _voidItemRefundOpen = !_voidItemRefundOpen;
+        const panel   = document.getElementById('voidItemRefundPanel');
+        const chevron = document.getElementById('voidItemRefundChevron');
+        if (panel)   panel.style.display     = _voidItemRefundOpen ? 'block' : 'none';
+        if (chevron) chevron.style.transform = _voidItemRefundOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    });
+
+    document.getElementById('voidItemRefundAmount')?.addEventListener('input', _validateVoidItemRefund);
+}
+
+function _validateVoidItemRefund() {
+    const inp   = document.getElementById('voidItemRefundAmount');
+    const errEl = document.getElementById('voidItemRefundError');
+    if (!inp) return true;
+    const val = parseFloat(inp.value) || 0;
+    const cap = _voidItemRefundCap;
+    inp.style.borderColor = '';
+    if (errEl) errEl.textContent = '';
+    if (val < 0) {
+        inp.style.borderColor = 'var(--danger)';
+        if (errEl) errEl.textContent = 'Cannot be negative.';
+        return false;
+    }
+    if (cap > 0 && val > cap + 0.005) {
+        inp.style.borderColor = 'var(--danger)';
+        if (errEl) errEl.textContent = `Max refund for this item is ₱${cap.toFixed(2)}.`;
+        return false;
+    }
+    if (val > 0) inp.style.borderColor = 'var(--success)';
+    document.querySelectorAll('#voidItemRefundPresets .refund-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', Math.abs(parseFloat(btn.dataset.amount) - val) < 0.005);
+    });
+    return true;
 }
 
 // ============================================
@@ -156,7 +453,6 @@ function showErrorModal(title, message) {
 // ============================================
 document.addEventListener('DOMContentLoaded', function () {
 
-    // Bootstrap modal instances — no paymentModal here (payment is in POS)
     try {
         if (typeof bootstrap !== 'undefined') {
             cancelOrderModal    = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
@@ -165,39 +461,34 @@ document.addEventListener('DOMContentLoaded', function () {
             voidOrderModal      = new bootstrap.Modal(document.getElementById('voidOrderModal'));
             cancelVoidItemModal = new bootstrap.Modal(document.getElementById('cancelVoidItemModal'));
             finalReceiptModal   = new bootstrap.Modal(document.getElementById('finalReceiptModal'));
+            const msEl = document.getElementById('markServedModal');
+            if (msEl) markServedModal = new bootstrap.Modal(msEl);
+            const rmEl = document.getElementById('refundModal');
+            if (rmEl) refundModal = new bootstrap.Modal(rmEl);
         }
     } catch (e) { console.error('Modal init error:', e); }
 
-    // Wire reason dropdowns
     window._cancelOrderReason    = wireReasonDropdown('cancelOrderReasonSelect',    'cancelOrderReasonText',    'cancelOrderReasonError');
     window._voidOrderReason      = wireReasonDropdown('voidOrderReasonSelect',      'voidOrderReasonText',      'voidOrderReasonError');
     window._cancelVoidItemReason = wireReasonDropdown('cancelVoidItemReasonSelect', 'cancelVoidItemReasonText', 'cancelVoidItemReasonError');
 
-    // Modal cleanup hooks
-    document.getElementById('orderDetailsModal')?.addEventListener('hidden.bs.modal', () => {
-        openDetailsOrderId = null;
-    });
+    document.getElementById('voidRefundAmount')?.addEventListener('input', validateRefundInput);
 
+    document.getElementById('orderDetailsModal')?.addEventListener('hidden.bs.modal', () => { openDetailsOrderId = null; });
     document.getElementById('kitchenItemsModal')?.addEventListener('hidden.bs.modal', function () {
         kitchenModalOrderId = null;
         const focused = document.activeElement;
         if (focused && this.contains(focused)) focused.blur();
     });
-
-    document.getElementById('kitchenItemsModal')?.addEventListener('show.bs.modal', function () {
-        this.removeAttribute('aria-hidden');
-    });
-
-    document.getElementById('cancelOrderModal')?.addEventListener('show.bs.modal', function () {
-        window._cancelOrderReason?.reset();
-    });
-
-    document.getElementById('voidOrderModal')?.addEventListener('show.bs.modal', function () {
-        window._voidOrderReason?.reset();
-    });
-
-    document.getElementById('cancelVoidItemModal')?.addEventListener('show.bs.modal', function () {
-        window._cancelVoidItemReason?.reset();
+    document.getElementById('kitchenItemsModal')?.addEventListener('show.bs.modal', function () { this.removeAttribute('aria-hidden'); });
+    document.getElementById('cancelOrderModal')?.addEventListener('show.bs.modal', () => { window._cancelOrderReason?.reset(); });
+    document.getElementById('voidOrderModal')?.addEventListener('show.bs.modal', () => { window._voidOrderReason?.reset(); resetVoidRefundPanel(); });
+    document.getElementById('cancelVoidItemModal')?.addEventListener('show.bs.modal', () => { window._cancelVoidItemReason?.reset(); });
+    document.getElementById('cancelVoidItemModal')?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('voidItemRefundSection')?.remove();
+        _voidItemTotalPaid  = 0;
+        _voidItemRefundCap  = 0;
+        _voidItemRefundOpen = false;
     });
 
     // Cancel Order submit
@@ -212,40 +503,91 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('confirmVoidOrderBtn')?.addEventListener('click', async function () {
         const reason = window._voidOrderReason?.getReason() || '';
         if (!reason) { window._voidOrderReason?.showError(); return; }
-        const orderId     = this.getAttribute('data-order-id');
-        const orderNumber = this.getAttribute('data-order-number');
+
+        let refAmt = 0, refMethod = 'cash', refNote = '';
+        if (_voidRefundOpen) {
+            if (!validateRefundInput()) return;
+            refAmt    = parseFloat(document.getElementById('voidRefundAmount')?.value || 0) || 0;
+            refMethod = document.getElementById('voidRefundMethod')?.value || 'cash';
+            refNote   = document.getElementById('voidRefundNote')?.value?.trim() || '';
+        }
+
+        const orderId  = this.getAttribute('data-order-id');
+        const orderNum = this.getAttribute('data-order-number');
         voidOrderModal?.hide();
-        await executeVoidOrder(orderId, orderNumber, reason, this);
+        await executeVoidOrder(orderId, orderNum, reason, refAmt, refMethod, refNote);
     });
 
     // Cancel/Void Item confirm
     document.getElementById('confirmCancelVoidItemBtn')?.addEventListener('click', async function () {
         const reason = window._cancelVoidItemReason?.getReason() || '';
         if (!reason) { window._cancelVoidItemReason?.showError(); return; }
+
+        let refundAmount = 0, refundMethod = 'cash', refundNote = '';
+        if (pendingItemAction.action === 'void_item' && _voidItemRefundOpen) {
+            if (!_validateVoidItemRefund()) return;
+            refundAmount = parseFloat(document.getElementById('voidItemRefundAmount')?.value || 0) || 0;
+            refundMethod = document.getElementById('voidItemRefundMethod')?.value || 'cash';
+            refundNote   = document.getElementById('voidItemRefundNote')?.value?.trim() || '';
+        }
+
+        pendingItemAction.refundAmount = refundAmount;
+        pendingItemAction.refundMethod = refundMethod;
+        pendingItemAction.refundNote   = refundNote;
         cancelVoidItemModal?.hide();
+
         if (pendingItemAction.orderItemId) {
             await executeCancelVoidItem(
-                pendingItemAction.orderItemId,
-                pendingItemAction.action,
-                pendingItemAction.btn,
-                reason
+                pendingItemAction.orderItemId, pendingItemAction.action,
+                pendingItemAction.btn, reason,
+                pendingItemAction.refundAmount, pendingItemAction.refundMethod, pendingItemAction.refundNote
             );
-            pendingItemAction = { orderItemId: null, action: null, itemName: null, btn: null };
+            pendingItemAction = { orderItemId: null, action: null, itemName: null, btn: null, refundAmount: 0, refundMethod: 'cash', refundNote: '' };
         }
     });
+
+    // Mark Served confirm
+    document.getElementById('confirmMarkServedBtn')?.addEventListener('click', async function () {
+        const orderId  = this.getAttribute('data-order-id');
+        const orderNum = this.getAttribute('data-order-number');
+        markServedModal?.hide();
+        await executeMarkAsServed(orderId, orderNum);
+    });
+
+    // Refund modal type toggle
+    document.querySelectorAll('.refund-type-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            _refundType = this.dataset.type;
+            document.querySelectorAll('.refund-type-btn').forEach(b => {
+                const active = b.dataset.type === _refundType;
+                const color  = _refundType === 'full' ? 'var(--success)' : 'var(--primary)';
+                b.classList.toggle('active', active);
+                b.style.background  = active ? color : 'white';
+                b.style.color       = active ? 'white' : 'var(--navy)';
+                b.style.borderColor = active ? color : 'var(--border)';
+            });
+            document.getElementById('refundFullPanel').style.display    = _refundType === 'full'    ? 'block' : 'none';
+            document.getElementById('refundPartialPanel').style.display = _refundType === 'partial' ? 'block' : 'none';
+        });
+    });
+
+    document.getElementById('refundReasonSelect')?.addEventListener('change', function () {
+        const ta = document.getElementById('refundReasonText');
+        if (ta) ta.style.display = this.value === 'Other' ? 'block' : 'none';
+        document.getElementById('refundReasonError').style.display = 'none';
+    });
+
+    document.getElementById('confirmRefundBtn')?.addEventListener('click', async function () { await executeRefund(); });
 
     setupEventListeners();
     loadPage(1);
     startAutoRefresh();
-
     if (window.userRole === 'admin') loadAdminUsers();
 
     ['successModal', 'errorModal'].forEach(id => {
         const el = document.getElementById(id);
         if (el && typeof bootstrap !== 'undefined') {
-            const m = new bootstrap.Modal(el);
-            m.show();
-            setTimeout(() => m.hide(), 3000);
+            const m = new bootstrap.Modal(el); m.show(); setTimeout(() => m.hide(), 3000);
         }
     });
 });
@@ -261,25 +603,20 @@ async function loadAdminUsers() {
         const select = document.getElementById('processedByFilter');
         if (!select) return;
         data.data.forEach(admin => {
-            const opt       = document.createElement('option');
-            opt.value       = admin.user_id;
-            opt.textContent = admin.full_name;
+            const opt = document.createElement('option');
+            opt.value = admin.user_id; opt.textContent = admin.full_name;
             select.appendChild(opt);
         });
     } catch (err) { console.error('Failed to load admin users:', err); }
 }
 
-// ============================================
-// SHOW / HIDE PROCESSED-BY FILTER
-// ============================================
 function syncProcessedByVisibility() {
     const wrapper = document.getElementById('processedByWrapper');
     if (!wrapper) return;
     if (currentFilter === 'completed' && window.userRole === 'admin') {
         wrapper.style.display = 'flex';
     } else {
-        wrapper.style.display = 'none';
-        currentProcessedBy    = 0;
+        wrapper.style.display = 'none'; currentProcessedBy = 0;
         const select = document.getElementById('processedByFilter');
         if (select) select.value = '0';
     }
@@ -290,28 +627,20 @@ function syncProcessedByVisibility() {
 // ============================================
 async function loadPage(page) {
     if (isLoading) return;
-    isLoading = true;
-    showTableSpinner(true);
+    isLoading = true; showTableSpinner(true);
     try {
         const offset = (page - 1) * PAGE_LIMIT;
         const res    = await fetch(buildURL(offset, PAGE_LIMIT), { headers: { 'Cache-Control': 'no-cache' } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Unknown error');
-        currentPage   = page;
-        filteredTotal = data.filtered_total || 0;
-        totalPages    = Math.max(1, Math.ceil(filteredTotal / PAGE_LIMIT));
+        currentPage = page; filteredTotal = data.filtered_total || 0;
+        totalPages  = Math.max(1, Math.ceil(filteredTotal / PAGE_LIMIT));
         renderTableRows(data.data || []);
         updateFilterCounts(data.counts, data.total);
-        renderPagination();
-        updateFilterLabel();
-    } catch (err) {
-        console.error('Load error:', err);
-        showError();
-    } finally {
-        showTableSpinner(false);
-        isLoading = false;
-    }
+        renderPagination(); updateFilterLabel();
+    } catch (err) { console.error('Load error:', err); showError(); }
+    finally { showTableSpinner(false); isLoading = false; }
 }
 
 // ============================================
@@ -327,45 +656,29 @@ async function refreshOrders() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Unknown error');
         updateFilterCounts(data.counts, data.total);
-        const newTotal      = data.filtered_total || 0;
-        const freshData     = data.data || [];
-        const tbody         = document.getElementById('ordersTableBody');
-        const existingCount = tbody ? tbody.querySelectorAll('tr[data-order-id]').length : 0;
-        if (newTotal !== filteredTotal || existingCount !== freshData.length) {
-            filteredTotal = newTotal;
-            totalPages    = Math.max(1, Math.ceil(filteredTotal / PAGE_LIMIT));
-            renderTableRows(freshData);
-            renderPagination();
-        } else {
-            patchTableRows(freshData);
-        }
+        const newTotal  = data.filtered_total || 0;
+        const freshData = data.data || [];
+        const tbody     = document.getElementById('ordersTableBody');
+        const existing  = tbody ? tbody.querySelectorAll('tr[data-order-id]').length : 0;
+        if (newTotal !== filteredTotal || existing !== freshData.length) {
+            filteredTotal = newTotal; totalPages = Math.max(1, Math.ceil(filteredTotal / PAGE_LIMIT));
+            renderTableRows(freshData); renderPagination();
+        } else { patchTableRows(freshData); }
         if (openDetailsOrderId)  refreshOrderDetailsModal(openDetailsOrderId);
         if (kitchenModalOrderId) refreshKitchenModal(kitchenModalOrderId);
-    } catch (err) {
-        console.error('Refresh error:', err);
-    } finally {
-        isRefreshing = false;
-    }
+    } catch (err) { console.error('Refresh error:', err); }
+    finally { isRefreshing = false; }
 }
 
 function startAutoRefresh() { stopAutoRefresh(); refreshTimer = setInterval(refreshOrders, REFRESH_INTERVAL); }
 function stopAutoRefresh()  { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
 
-// ============================================
-// URL BUILDER
-// ============================================
 function buildURL(offset, limit) {
-    const params = new URLSearchParams({
-        limit:  limit  ?? PAGE_LIMIT,
-        offset: offset ?? 0,
-        status: currentFilter,
-        search: currentSearch,
-    });
-    if (currentDateFrom)               params.set('date_from',    currentDateFrom);
-    if (currentDateTo)                 params.set('date_to',      currentDateTo);
+    const params = new URLSearchParams({ limit: limit ?? PAGE_LIMIT, offset: offset ?? 0, status: currentFilter, search: currentSearch });
+    if (currentDateFrom) params.set('date_from', currentDateFrom);
+    if (currentDateTo)   params.set('date_to',   currentDateTo);
     if (currentCashierView === 'mine') params.set('cashier_view', 'mine');
-    if (currentFilter === 'completed' && currentProcessedBy > 0)
-        params.set('processed_by', currentProcessedBy);
+    if (currentFilter === 'completed' && currentProcessedBy > 0) params.set('processed_by', currentProcessedBy);
     return `${AJAX_URL}?${params}`;
 }
 
@@ -373,18 +686,18 @@ function buildURL(offset, limit) {
 // TABLE RENDERING
 // ============================================
 function renderTableRows(orders) {
-    const tbody    = document.getElementById('ordersTableBody');
-    const table    = document.querySelector('.orders-table');
-    const noResult = document.getElementById('noResultsMessage');
+    const tbody = document.getElementById('ordersTableBody');
+    const table = document.querySelector('.orders-table');
+    const noRes = document.getElementById('noResultsMessage');
     if (!tbody) return;
     if (!orders || orders.length === 0) {
         tbody.innerHTML = '';
-        if (table)    table.style.display = 'none';
-        if (noResult) noResult.classList.remove('d-none');
+        if (table) table.style.display = 'none';
+        if (noRes) noRes.classList.remove('d-none');
         return;
     }
-    if (table)    table.style.display = '';
-    if (noResult) noResult.classList.add('d-none');
+    if (table) table.style.display = '';
+    if (noRes) noRes.classList.add('d-none');
     orders.forEach(o => { currentOrdersCache[String(o.order_id)] = o; });
     tbody.innerHTML = orders.map(order => createOrderRowHTML(order)).join('');
 }
@@ -395,21 +708,11 @@ function patchTableRows(orders) {
     orders.forEach(order => {
         const row = tbody.querySelector(`tr[data-order-id="${order.order_id}"]`);
         if (!row) return;
-
         const currentStatus = row.getAttribute('data-status');
         const newStatus     = (order.status || 'pending').toLowerCase();
-
-        // Always sync price cells on every refresh
         const newTotal      = parseFloat(order.total_amount || 0);
-        const newSubtotalEx = newTotal / 1.12;
-        const newVat        = newTotal - newSubtotalEx;
         const subtotalCell  = row.querySelector('td[data-label="Subtotal"]');
-        if (subtotalCell) {
-            subtotalCell.innerHTML = `
-                <span class="price-subtotal">₱${formatPrice(newSubtotalEx)}</span>
-                <div class="price-vat">+₱${formatPrice(newVat)} VAT (12%)</div>`;
-        }
-
+        if (subtotalCell) subtotalCell.innerHTML = `<span class="price-subtotal">₱${formatPrice(newTotal / 1.12)}</span><div class="price-vat">+₱${formatPrice(newTotal - newTotal / 1.12)} VAT (12%)</div>`;
         if (currentStatus !== newStatus) {
             row.setAttribute('data-status', newStatus);
             row.setAttribute('data-order-total', order.total_amount || 0);
@@ -418,32 +721,23 @@ function patchTableRows(orders) {
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
             if (statusCell)  statusCell.innerHTML  = getOrderStatusBadge(newStatus);
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML(order);
-            if (totalSpan) {
-                totalSpan.className   = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
-                totalSpan.textContent = '₱' + formatPrice(newTotal);
-            }
+            if (totalSpan)   { totalSpan.className = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid'; totalSpan.textContent = '₱' + formatPrice(newTotal); }
         }
-
         if (order.items) {
             const itemsCell = row.querySelector('.items-cell');
             if (itemsCell) {
                 const tally   = { pending: 0, preparing: 0, ready: 0 };
                 order.items.forEach(i => { const s = i.item_status || 'pending'; if (tally[s] !== undefined) tally[s]++; });
-                const dotsCfg = [
-                    { key: 'pending',   color: '#f59e0b', icon: 'fa-hourglass-half' },
-                    { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
-                    { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
-                ];
+                const dotsCfg = [{ key:'pending',color:'#f59e0b',icon:'fa-hourglass-half'},{key:'preparing',color:'#3b82f6',icon:'fa-bowl-food'},{key:'ready',color:'#10b981',icon:'fa-circle-check'}];
                 const summaryRow = itemsCell.querySelector('.items-summary-row');
                 if (summaryRow) {
                     const noteCount = order.items.filter(i => i.item_notes && i.item_notes.trim()).length;
                     const hasAddons = order.items.some(i => i.addons && i.addons.length > 0);
-                    const notesDot  = noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '';
-                    const addonsDot = hasAddons ? `<span class="items-has-addons-dot"><i class="fas fa-plus-circle"></i></span>` : '';
-                    summaryRow.innerHTML = dotsCfg
-                        .filter(d => tally[d.key] > 0)
+                    summaryRow.innerHTML = dotsCfg.filter(d => tally[d.key] > 0)
                         .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`)
-                        .join('') + notesDot + addonsDot;
+                        .join('')
+                        + (noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '')
+                        + (hasAddons ? `<span class="items-has-addons-dot"><i class="fas fa-plus-circle"></i></span>` : '');
                 }
             }
         }
@@ -457,33 +751,22 @@ function renderPagination() {
         container = document.createElement('div');
         container.id = 'paginationContainer';
         container.style.cssText = 'padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;';
-        const tc = document.querySelector('.table-container');
-        if (tc) tc.after(container);
+        const tc = document.querySelector('.table-container'); if (tc) tc.after(container);
     }
     if (totalPages <= 1 && filteredTotal <= PAGE_LIMIT) { container.style.display = 'none'; return; }
     container.style.display = 'flex';
     const from = filteredTotal === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
     const to   = Math.min(currentPage * PAGE_LIMIT, filteredTotal);
-    const info = `<span style="font-size:0.85rem;color:var(--warm-gray);">Showing <strong>${from}–${to}</strong> of <strong>${filteredTotal}</strong> orders</span>`;
-    let btns = '';
-    btns += pageBtn('<i class="fas fa-chevron-left"></i>', currentPage - 1, currentPage === 1, false);
-    getPageRange(currentPage, totalPages).forEach(p => {
-        btns += p === '...'
-            ? `<span style="padding:0 4px;color:var(--warm-gray);align-self:center;">…</span>`
-            : pageBtn(p, p, false, p === currentPage);
-    });
+    let btns = pageBtn('<i class="fas fa-chevron-left"></i>', currentPage - 1, currentPage === 1, false);
+    getPageRange(currentPage, totalPages).forEach(p => { btns += p === '...' ? `<span style="padding:0 4px;color:var(--warm-gray);align-self:center;">…</span>` : pageBtn(p, p, false, p === currentPage); });
     btns += pageBtn('<i class="fas fa-chevron-right"></i>', currentPage + 1, currentPage === totalPages, false);
-    container.innerHTML = `${info}<div style="display:flex;align-items:center;gap:0.35rem;">${btns}</div>`;
-    container.querySelectorAll('.page-btn:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', () => loadPage(parseInt(btn.dataset.page)));
-    });
+    container.innerHTML = `<span style="font-size:0.85rem;color:var(--warm-gray);">Showing <strong>${from}–${to}</strong> of <strong>${filteredTotal}</strong> orders</span><div style="display:flex;align-items:center;gap:0.35rem;">${btns}</div>`;
+    container.querySelectorAll('.page-btn:not([disabled])').forEach(btn => { btn.addEventListener('click', () => loadPage(parseInt(btn.dataset.page))); });
 }
 
 function pageBtn(label, page, disabled, active) {
     const base  = 'class="page-btn" style="border:none;border-radius:8px;width:34px;height:34px;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all .15s;';
-    const style = active   ? 'background:var(--primary);color:#fff;"'
-                : disabled ? 'background:#f0f0f0;color:#bbb;cursor:not-allowed;"'
-                           : 'background:var(--light-bg);color:var(--navy);"';
+    const style = active ? 'background:var(--primary);color:#fff;"' : disabled ? 'background:#f0f0f0;color:#bbb;cursor:not-allowed;"' : 'background:var(--light-bg);color:var(--navy);"';
     return `<button ${base}${style} data-page="${page}" ${(disabled || active) ? 'disabled' : ''}>${label}</button>`;
 }
 
@@ -494,100 +777,57 @@ function getPageRange(current, total) {
     return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
-// ============================================
-// FILTER COUNTS & LABEL
-// ============================================
 function updateFilterCounts(counts, total) {
-    const isAdmin   = window.userRole === 'admin';
-    const isCashier = window.userRole === 'cashier';
-    const data = {
-        all:       total ?? 0,
-        pending:   counts?.pending   ?? 0,
-        preparing: counts?.preparing ?? 0,
-        ready:     counts?.ready     ?? 0,
-        completed: counts?.completed ?? 0,
-        cancelled: counts?.cancelled ?? 0,
-    };
+    const isAdmin = window.userRole === 'admin', isCashier = window.userRole === 'cashier';
+    const data = { all: total ?? 0, pending: counts?.pending ?? 0, preparing: counts?.preparing ?? 0, ready: counts?.ready ?? 0, completed: counts?.completed ?? 0, cancelled: counts?.cancelled ?? 0 };
     if (isAdmin || isCashier) data.voided = counts?.voided ?? 0;
-    Object.keys(data).forEach(status => {
-        const span = document.querySelector(`.filter-tab[data-status="${status}"] .filter-count`);
-        if (span) span.textContent = data[status];
-    });
+    Object.keys(data).forEach(s => { const span = document.querySelector(`.filter-tab[data-status="${s}"] .filter-count`); if (span) span.textContent = data[s]; });
 }
 
 function updateFilterLabel() {
-    const map = {
-        all:       'All Orders',
-        pending:   'Pending Orders',
-        preparing: 'Preparing Orders',
-        ready:     'Ready Orders',
-        completed: 'Completed Orders',
-        cancelled: 'Cancelled Orders',
-        voided:    'Voided Orders',
-    };
-    const el = document.getElementById('currentFilterLabel');
-    if (el) el.textContent = map[currentFilter] || 'Orders';
+    const map = { all:'All Orders', pending:'Pending Orders', preparing:'Preparing Orders', ready:'Ready Orders', completed:'Completed Orders', cancelled:'Cancelled Orders', voided:'Voided Orders' };
+    const el  = document.getElementById('currentFilterLabel'); if (el) el.textContent = map[currentFilter] || 'Orders';
 }
 
-// ============================================
-// SPINNER / ERROR
-// ============================================
 function showTableSpinner(show) {
-    let spinner = document.getElementById('tableSpinner');
+    let s = document.getElementById('tableSpinner');
     if (show) {
-        if (!spinner) {
-            spinner = document.createElement('tr');
-            spinner.id = 'tableSpinner';
-            spinner.innerHTML = `<td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm me-2" style="color:var(--primary);" role="status"></div><span class="text-muted" style="font-size:0.875rem;">Loading orders…</span></td>`;
-            document.getElementById('ordersTableBody')?.appendChild(spinner);
-        }
-    } else {
-        spinner?.remove();
-    }
+        if (!s) { s = document.createElement('tr'); s.id = 'tableSpinner'; s.innerHTML = `<td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm me-2" style="color:var(--primary);" role="status"></div><span class="text-muted" style="font-size:0.875rem;">Loading orders…</span></td>`; document.getElementById('ordersTableBody')?.appendChild(s); }
+    } else { s?.remove(); }
 }
 
 function showError() {
-    const tbody = document.getElementById('ordersTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-2"></i>Failed to load orders. Please refresh the page.</td></tr>`;
+    const t = document.getElementById('ordersTableBody');
+    if (t) t.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-2"></i>Failed to load orders. Please refresh the page.</td></tr>`;
 }
 
 // ============================================
 // ROW HTML
 // ============================================
 function createOrderRowHTML(order) {
-    const total      = parseFloat(order.total_amount || 0);
-    const subtotalEx = total / 1.12;
-    const vat        = total - subtotalEx;
+    const total = parseFloat(order.total_amount || 0);
     const searchText = [order.order_number || '', order.customer_name || 'walk-in', order.table_name || ''].join(' ').toLowerCase();
-    return `
-        <tr data-status="${(order.status || 'pending').toLowerCase()}"
-            data-search-text="${escapeHtml(searchText)}"
-            data-order-total="${order.total_amount || 0}"
-            data-order-id="${order.order_id}"
-            data-order-number="${escapeHtml(order.order_number || '')}">
-            <td data-label="Order #"><span class="order-number">#${escapeHtml(order.order_number || '')}</span></td>
-            <td data-label="Customer">
-                <div class="fw-medium" style="color:var(--navy);">${escapeHtml(order.customer_name || 'Walk-in')}</div>
-                <small class="text-muted">${formatDate(order.created_at)}</small>
-                ${order.table_name ? `<div class="table-number-badge"><i class="fas fa-chair"></i>${escapeHtml(order.table_name)}</div>` : ''}
-            </td>
-            <td data-label="Order Type">${getOrderTypeBadge(order.order_type)}</td>
-            <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status, order.order_id)}</td>
-            <td data-label="Subtotal">
-                <span class="price-subtotal">₱${formatPrice(subtotalEx)}</span>
-                <div class="price-vat">+₱${formatPrice(vat)} VAT (12%)</div>
-            </td>
-            <td data-label="Total"><span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">₱${formatPrice(order.total_amount)}</span></td>
-            <td data-label="Status">${getOrderStatusBadge(order.status)}</td>
-            <td data-label="Actions">${getOrderActionsHTML(order)}</td>
-        </tr>`;
+    return `<tr data-status="${(order.status || 'pending').toLowerCase()}" data-search-text="${escapeHtml(searchText)}" data-order-total="${order.total_amount || 0}" data-order-id="${order.order_id}" data-order-number="${escapeHtml(order.order_number || '')}">
+        <td data-label="Order #"><span class="order-number">#${escapeHtml(order.order_number || '')}</span></td>
+        <td data-label="Customer">
+            <div class="fw-medium" style="color:var(--navy);">${escapeHtml(order.customer_name || 'Walk-in')}</div>
+            <small class="text-muted">${formatDate(order.created_at)}</small>
+            ${order.table_name ? `<div class="table-number-badge"><i class="fas fa-chair"></i>${escapeHtml(order.table_name)}</div>` : ''}
+        </td>
+        <td data-label="Order Type">${getOrderTypeBadge(order.order_type)}</td>
+        <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status, order.order_id)}</td>
+        <td data-label="Subtotal"><span class="price-subtotal">₱${formatPrice(total / 1.12)}</span><div class="price-vat">+₱${formatPrice(total - total / 1.12)} VAT (12%)</div></td>
+        <td data-label="Total"><span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">₱${formatPrice(order.total_amount)}</span></td>
+        <td data-label="Status">${getOrderStatusBadge(order.status)}</td>
+        <td data-label="Actions">${getOrderActionsHTML(order)}</td>
+    </tr>`;
 }
 
-function getOrderTypeBadge(orderType) {
-    if (!orderType) return '<span class="order-type-missing">—</span>';
-    const types = { dine_in: { icon: 'fa-utensils', label: 'Dine In' }, takeout: { icon: 'fa-bag-shopping', label: 'Takeout' } };
-    const t = types[orderType] || { icon: 'fa-question', label: orderType };
-    return `<span class="order-type-badge ${orderType}"><i class="fas ${t.icon}"></i> ${t.label}</span>`;
+function getOrderTypeBadge(t) {
+    if (!t) return '<span class="order-type-missing">—</span>';
+    const types = { dine_in: { icon:'fa-utensils', label:'Dine In' }, takeout: { icon:'fa-bag-shopping', label:'Takeout' } };
+    const cfg = types[t] || { icon:'fa-question', label:t };
+    return `<span class="order-type-badge ${t}"><i class="fas ${cfg.icon}"></i> ${cfg.label}</span>`;
 }
 
 function getOrderStatusBadge(status) {
@@ -597,102 +837,64 @@ function getOrderStatusBadge(status) {
 
 function getOrderItemsHTML(items, orderStatus, orderId) {
     if (!items || items.length === 0) return '<span class="text-muted fst-italic" style="font-size:0.8rem;">No items</span>';
-    const tally   = { pending: 0, preparing: 0, ready: 0 };
+    const tally = { pending:0, preparing:0, ready:0 };
     items.forEach(i => { const s = i.item_status || 'pending'; if (tally[s] !== undefined) tally[s]++; });
-    const dotsCfg = [
-        { key: 'pending',   color: '#f59e0b', icon: 'fa-hourglass-half' },
-        { key: 'preparing', color: '#3b82f6', icon: 'fa-bowl-food'      },
-        { key: 'ready',     color: '#10b981', icon: 'fa-circle-check'   },
-    ];
-    const dotsHTML    = dotsCfg.filter(d => tally[d.key] > 0)
-        .map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`)
-        .join('');
+    const dotsCfg = [{key:'pending',color:'#f59e0b',icon:'fa-hourglass-half'},{key:'preparing',color:'#3b82f6',icon:'fa-bowl-food'},{key:'ready',color:'#10b981',icon:'fa-circle-check'}];
+    const dotsHTML = dotsCfg.filter(d => tally[d.key] > 0).map(d => `<span class="item-tally-dot" style="background:${d.color}18;color:${d.color};border:1px solid ${d.color}44;"><i class="fas ${d.icon}" style="font-size:0.6rem;"></i> ${tally[d.key]}</span>`).join('');
     const namePreview = items.slice(0, 2).map(i => {
-        const baseName    = escapeHtml(i.item_name_snapshot || i.item_name || '');
-        const variantName = i.variant_name_snapshot || i.current_variant_name || i.variant_name || null;
-        const qty         = parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : '';
-        const variantBit  = variantName ? `<span style="opacity:0.65;font-weight:400;"> · ${escapeHtml(variantName)}</span>` : '';
-        return `<span class="item-name-chip">${baseName}${variantBit}${qty}</span>`;
+        const bn = escapeHtml(i.item_name_snapshot || i.item_name || '');
+        const vn = i.variant_name_snapshot || i.current_variant_name || null;
+        const qty = parseInt(i.quantity) > 1 ? ` ×${i.quantity}` : '';
+        return `<span class="item-name-chip">${bn}${vn ? `<span style="opacity:0.65;font-weight:400;"> · ${escapeHtml(vn)}</span>` : ''}${qty}</span>`;
     }).join('');
     const moreChip  = items.length > 2 ? `<span class="item-name-chip item-name-more">+${items.length - 2} more</span>` : '';
     const noteCount = items.filter(i => i.item_notes && i.item_notes.trim()).length;
     const hasAddons = items.some(i => i.addons && i.addons.length > 0);
-    const notesDot  = noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : '';
-    const addonsDot = hasAddons ? `<span class="items-has-addons-dot" title="Has add-ons"><i class="fas fa-plus-circle"></i></span>` : '';
     return `<div class="items-cell" data-order-id="${orderId}">
-        <div class="items-summary-row">${dotsHTML}${notesDot}${addonsDot}</div>
+        <div class="items-summary-row">${dotsHTML}${noteCount > 0 ? `<span class="items-has-notes-dot">&#9998; ${noteCount} note${noteCount > 1 ? 's' : ''}</span>` : ''}${hasAddons ? `<span class="items-has-addons-dot"><i class="fas fa-plus-circle"></i></span>` : ''}</div>
         <div class="items-name-row">${namePreview}${moreChip}</div>
         <button type="button" class="items-manage-btn" data-order-id="${orderId}"><i class="fas fa-chevron-right"></i> Manage items</button>
     </div>`;
 }
 
-// ============================================
-// ACTIONS HTML — "Collect Payment" → "Mark as Served"
-// ============================================
 function getOrderActionsHTML(order) {
-    const userRole  = window.userRole || '';
-    const isAdmin   = userRole === 'admin';
-    const isCashier = userRole === 'cashier';
-    const status    = order.status || 'pending';
-    const orderId   = order.order_id;
-    const orderNum  = order.order_number || '';
-
-    let html = `<div class="action-buttons">
-        <button type="button" class="btn btn-sm view-order-btn" style="background:var(--lavender);color:var(--navy);"
-                data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
-            <i class="fas fa-eye"></i> View
-        </button>`;
-
+    const isAdmin = window.userRole === 'admin', isCashier = window.userRole === 'cashier';
+    const status = order.status || 'pending', orderId = order.order_id, orderNum = order.order_number || '';
+    let html = `<div class="action-buttons"><button type="button" class="btn btn-sm view-order-btn" style="background:var(--lavender);color:var(--navy);" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-eye"></i> View</button>`;
     if (status === 'ready' && (isAdmin || isCashier)) {
-        // "Mark as Served" replaces the old "Collect Payment" button
-        html += `<button type="button" class="btn btn-success btn-sm mark-served-btn"
-                         data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
-                     <i class="fas fa-concierge-bell"></i> Mark as Served</button>`;
-        if (isAdmin) {
-            html += `<button type="button" class="btn btn-sm void-order-btn"
-                             style="background:rgba(15,76,92,0.07);color:var(--primary-dark);border:1.5px solid rgba(15,76,92,0.28);border-radius:8px;font-size:0.78rem;font-weight:600;"
-                             data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
-                         <i class="fas fa-ban"></i> Void Order</button>`;
-        }
+        html += `<button type="button" class="btn btn-success btn-sm mark-served-btn" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-concierge-bell"></i> Mark as Served</button>`;
+        if (isAdmin) html += `<button type="button" class="btn btn-sm void-order-btn" style="background:rgba(15,76,92,0.07);color:var(--primary-dark);border:1.5px solid rgba(15,76,92,0.28);border-radius:8px;font-size:0.78rem;font-weight:600;" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-ban"></i> Void Order</button>`;
     } else if (status === 'pending' && (isAdmin || isCashier)) {
-        html += `<button type="button" class="btn btn-danger btn-sm cancel-order-btn"
-                         data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}">
-                     <i class="fas fa-times"></i> Cancel</button>`;
+        html += `<button type="button" class="btn btn-danger btn-sm cancel-order-btn" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-times"></i> Cancel</button>`;
     } else if ((status === 'pending' || status === 'preparing') && isCashier && !isAdmin) {
-        html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(94,155,158,0.12);color:var(--info);border:1px solid rgba(94,155,158,0.3);">In Kitchen</span>`;
+        html += `<span class="badge action-status-badge" style="background:rgba(94,155,158,0.12);color:var(--info);border:1px solid rgba(94,155,158,0.3);font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;">In Kitchen</span>`;
     } else if (status === 'completed') {
-        html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(44,122,90,0.12);color:var(--success);border:1px solid rgba(44,122,90,0.25);">Served</span>`;
+        html += `<span class="badge action-status-badge" style="background:rgba(44,122,90,0.12);color:var(--success);border:1px solid rgba(44,122,90,0.25);font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;">Served</span>`;
     } else if (status === 'cancelled') {
-        html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(214,64,69,0.10);color:var(--danger);border:1px solid rgba(214,64,69,0.25);">Cancelled</span>`;
+        html += `<span class="badge action-status-badge" style="background:rgba(214,64,69,0.10);color:var(--danger);border:1px solid rgba(214,64,69,0.25);font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;">Cancelled</span>`;
     } else if (status === 'voided') {
-        html += `<span class="badge action-status-badge" style="font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;width:100%;box-sizing:border-box;background:rgba(15,76,92,0.10);color:var(--primary-dark);border:1px solid rgba(15,76,92,0.28);">Voided</span>`;
+        html += `<span class="badge action-status-badge" style="background:rgba(15,76,92,0.10);color:var(--primary-dark);border:1px solid rgba(15,76,92,0.28);font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;">Voided</span>`;
     }
-
-    html += '</div>';
-    return html;
+    return html + '</div>';
 }
 
 // ============================================
 // MARK AS SERVED
 // ============================================
-async function markAsServed(orderId, orderNumber, btn) {
-    if (!confirm(`Mark Order #${orderNumber} as Served?\n\nThis will complete the order. Payment was already collected at the POS.`)) return;
+async function markAsServed(orderId, orderNumber) {
+    const numEl  = document.getElementById('markServedOrderNumber');
+    const confEl = document.getElementById('confirmMarkServedBtn');
+    if (numEl)  numEl.textContent = orderNumber || '';
+    if (confEl) { confEl.setAttribute('data-order-id', orderId); confEl.setAttribute('data-order-number', orderNumber); }
+    markServedModal?.show();
+}
 
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Serving…';
-    }
-
+async function executeMarkAsServed(orderId, orderNumber) {
     try {
-        const formData = new FormData();
-        formData.append('order_id', orderId);
-
-        const res  = await fetch(MARK_SERVED_URL, { method: 'POST', body: formData });
+        const fd = new FormData(); fd.append('order_id', orderId);
+        const res  = await fetch(MARK_SERVED_URL, { method: 'POST', body: fd });
         const data = await safeJSONParse(res);
-
         if (!data.success) throw new Error(data.error || 'Failed to mark as served.');
-
-        // Update the row immediately
         const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
         if (row) {
             row.setAttribute('data-status', 'completed');
@@ -701,60 +903,25 @@ async function markAsServed(orderId, orderNumber, btn) {
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
             if (statusCell)  statusCell.innerHTML  = getOrderStatusBadge('completed');
             if (totalSpan)   totalSpan.className   = 'price-total-paid';
-            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({
-                order_id:     orderId,
-                order_number: orderNumber,
-                total_amount: row.getAttribute('data-order-total'),
-                status:       'completed',
-            });
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id:orderId, order_number:orderNumber, total_amount:row.getAttribute('data-order-total'), status:'completed' });
         }
-
-        // If kitchen items modal is open for this order, close it
-        if (kitchenModalOrderId && String(kitchenModalOrderId) === String(orderId)) {
-            kitchenItemsModal?.hide();
-            kitchenModalOrderId = null;
-        }
-
-    } catch (err) {
-        console.error('Mark as served error:', err);
-        showErrorModal('Mark as Served Failed', err.message);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-concierge-bell"></i> Mark as Served';
-        }
-    }
+        if (kitchenModalOrderId && String(kitchenModalOrderId) === String(orderId)) { kitchenItemsModal?.hide(); kitchenModalOrderId = null; }
+    } catch (err) { console.error('Mark as served error:', err); showErrorModal('Mark as Served Failed', err.message); }
 }
 
 // ============================================
-// ITEM STATUS UPDATE (kitchen progress)
+// ITEM STATUS UPDATE
 // ============================================
 async function updateItemStatus(orderItemId, nextStatus, btn) {
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating…</span>';
-    }
-
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating…</span>'; }
     try {
-        const formData = new FormData();
-        formData.append('order_item_id', orderItemId);
-        formData.append('status', nextStatus);
-
-        const res     = await fetch(ITEM_STATUS_URL, { method: 'POST', body: formData });
+        const fd = new FormData(); fd.append('order_item_id', orderItemId); fd.append('status', nextStatus);
+        const res = await fetch(ITEM_STATUS_URL, { method: 'POST', body: fd });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const rawText = await res.text();
-        let data;
-        try { data = JSON.parse(rawText); }
-        catch (parseErr) {
-            console.error('Server returned non-JSON:', rawText);
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; }
-            return;
-        }
-
+        const raw = await res.text();
+        let data; try { data = JSON.parse(raw); } catch { if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; } return; }
         if (!data.success) throw new Error(data.error || 'Update failed');
-
         if (kitchenModalOrderId) await refreshKitchenModal(kitchenModalOrderId);
-
         const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
@@ -763,18 +930,9 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
             const totalSpan   = row.querySelector('td[data-label="Total"] span');
             if (statusCell)  statusCell.innerHTML = getOrderStatusBadge(data.order_status);
             if (totalSpan)   totalSpan.className  = data.order_status === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
-            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({
-                order_id:     data.order_id,
-                order_number: row.getAttribute('data-order-number'),
-                total_amount: row.getAttribute('data-order-total'),
-                status:       data.order_status,
-            });
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id:data.order_id, order_number:row.getAttribute('data-order-number'), total_amount:row.getAttribute('data-order-total'), status:data.order_status });
         }
-
-    } catch (err) {
-        console.error('Item status update error:', err.message);
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; }
-    }
+    } catch (err) { console.error('Item status update error:', err.message); if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; } }
 }
 
 // ============================================
@@ -782,47 +940,68 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 // ============================================
 async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
     const isCancel = action === 'cancel_item';
-    pendingItemAction = { orderItemId, action, itemName, btn };
+    pendingItemAction = { orderItemId, action, itemName, btn, refundAmount:0, refundMethod:'cash', refundNote:'' };
 
-    const titleEl   = document.querySelector('#cancelVoidItemModal .modal-title');
-    const iconEl    = document.getElementById('cancelVoidItemIcon');
-    const headingEl = document.getElementById('cancelVoidItemHeading');
-    const bodyEl    = document.getElementById('cancelVoidItemBody');
-    const confirmEl = document.getElementById('confirmCancelVoidItemBtn');
-    const selEl     = document.getElementById('cancelVoidItemReasonSelect');
+    const titleEl=document.querySelector('#cancelVoidItemModal .modal-title'), iconEl=document.getElementById('cancelVoidItemIcon');
+    const headingEl=document.getElementById('cancelVoidItemHeading'), bodyEl=document.getElementById('cancelVoidItemBody');
+    const confirmEl=document.getElementById('confirmCancelVoidItemBtn'), selEl=document.getElementById('cancelVoidItemReasonSelect');
 
     window._cancelVoidItemReason?.reset();
+    _voidItemTotalPaid=0; _voidItemRefundCap=0; _voidItemRefundOpen=false;
+    document.getElementById('voidItemRefundSection')?.remove();
 
     if (isCancel) {
         if (titleEl)   titleEl.innerHTML  = `<i class="fas fa-times-circle me-2" style="color:var(--danger);"></i> Cancel Item`;
-        if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-times-circle"></i>`; iconEl.style.background = 'rgba(214,64,69,0.10)'; iconEl.style.color = 'var(--danger)'; }
+        if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-times-circle"></i>`; iconEl.style.background='rgba(214,64,69,0.10)'; iconEl.style.color='var(--danger)'; }
         if (headingEl) headingEl.textContent = `Cancel "${itemName}"?`;
-        if (bodyEl)    bodyEl.innerHTML    = `This item has <strong>not been prepared</strong> yet — it will be removed from the order.<br>No stock will be restored (none was deducted).`;
-        if (confirmEl) { confirmEl.className = 'btn btn-danger'; confirmEl.style.cssText = ''; confirmEl.innerHTML = '<i class="fas fa-times-circle me-1"></i> Yes, Cancel Item'; }
+        if (bodyEl)    bodyEl.innerHTML   = `This item has <strong>not been prepared</strong> yet — it will be removed from the order.<br>No stock will be restored (none was deducted).`;
+        if (confirmEl) { confirmEl.className='btn btn-danger'; confirmEl.style.cssText=''; confirmEl.innerHTML='<i class="fas fa-times-circle me-1"></i> Yes, Cancel Item'; }
     } else {
         if (titleEl)   titleEl.innerHTML  = `<i class="fas fa-ban me-2" style="color:var(--primary-dark);"></i> Void Item`;
-        if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-ban"></i>`; iconEl.style.background = 'rgba(15,76,92,0.10)'; iconEl.style.color = 'var(--primary-dark)'; }
+        if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-ban"></i>`; iconEl.style.background='rgba(15,76,92,0.10)'; iconEl.style.color='var(--primary-dark)'; }
         if (headingEl) headingEl.textContent = `Void "${itemName}"?`;
-        if (bodyEl)    bodyEl.innerHTML    = `This item was already <strong>prepared</strong>. Ingredients will <strong>NOT be restored</strong> — cost is written off as waste.<br>Sale total updated to exclude this item.`;
-        if (confirmEl) { confirmEl.className = 'btn'; confirmEl.style.cssText = 'background:var(--primary);color:white;'; confirmEl.innerHTML = '<i class="fas fa-ban me-1"></i> Yes, Void Item'; }
+        if (bodyEl)    bodyEl.innerHTML   = `This item was already <strong>prepared</strong>. Ingredients will <strong>NOT be restored</strong> — cost is written off as waste.<br>Sale total updated to exclude this item.`;
+        if (confirmEl) { confirmEl.className='btn'; confirmEl.style.cssText='background:var(--primary);color:white;'; confirmEl.innerHTML='<i class="fas fa-ban me-1"></i> Yes, Void Item'; }
     }
 
-    if (selEl) {
-        selEl.innerHTML = '<option value="">— Loading reasons… —</option>';
-        await loadReasons(action === 'cancel_item' ? 'cancel_item' : 'void_item', 'cancelVoidItemReasonSelect');
-    }
-
+    if (selEl) { selEl.innerHTML='<option value="">— Loading reasons… —</option>'; await loadReasons(action==='cancel_item'?'cancel_item':'void_item', 'cancelVoidItemReasonSelect'); }
     cancelVoidItemModal?.show();
+
+    if (!isCancel) {
+        _injectVoidItemRefundPanel('loading');
+        try {
+            const orderId = kitchenModalOrderId;
+            if (orderId) {
+                const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
+                const data = await res.json();
+                if (data.success) {
+                    const d = data.data;
+                    _voidItemTotalPaid = parseFloat(d.payment?.amount_paid || 0);
+                    const matchedItem  = (d.items || []).find(i => String(i.order_item_id) === String(orderItemId));
+                    let itemSellingTotal = 0;
+                    if (matchedItem) {
+                        const addonsTotal = (matchedItem.addons || []).reduce((s, a) => s + parseFloat(a.price||0)*parseInt(a.quantity||1), 0);
+                        itemSellingTotal  = Math.round(((parseFloat(matchedItem.unit_price||0)*parseInt(matchedItem.quantity||1))+addonsTotal)*100)/100;
+                    }
+                    _voidItemRefundCap = _voidItemTotalPaid > 0 ? Math.min(itemSellingTotal, _voidItemTotalPaid) : itemSellingTotal;
+                    _injectVoidItemRefundPanel('ready');
+                } else { _injectVoidItemRefundPanel('error'); }
+            } else { _injectVoidItemRefundPanel('no-context'); }
+        } catch (err) { console.error('voidItem refund fetch error:', err); _injectVoidItemRefundPanel('error'); }
+    }
 }
 
-async function executeCancelVoidItem(orderItemId, action, btn, reason) {
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Processing…</span>'; }
+async function executeCancelVoidItem(orderItemId, action, btn, reason, refundAmount=0, refundMethod='cash', refundNote='') {
+    if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> <span>Processing…</span>'; }
     try {
-        const formData = new FormData();
-        formData.append('order_item_id', orderItemId);
-        formData.append('action', action);
-        formData.append('reason', reason);
-        const res  = await fetch(CANCEL_VOID_ITEM_URL, { method: 'POST', body: formData });
+        const fd = new FormData();
+        fd.append('order_item_id', orderItemId); fd.append('action', action); fd.append('reason', reason);
+        if (action === 'void_item') {
+            fd.append('refund_amount', (refundAmount||0).toFixed(2));
+            fd.append('refund_method', refundMethod||'cash');
+            fd.append('refund_note',   refundNote||'');
+        }
+        const res  = await fetch(CANCEL_VOID_ITEM_URL, { method:'POST', body:fd });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Operation failed');
@@ -830,102 +1009,248 @@ async function executeCancelVoidItem(orderItemId, action, btn, reason) {
         const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row && data.order_status) {
             row.setAttribute('data-status', data.order_status);
-            const statusCell  = row.querySelector('td[data-label="Status"]');
-            const actionsCell = row.querySelector('td[data-label="Actions"]');
-            const totalSpan   = row.querySelector('td[data-label="Total"] span');
+            const statusCell=row.querySelector('td[data-label="Status"]'), actionsCell=row.querySelector('td[data-label="Actions"]'), totalSpan=row.querySelector('td[data-label="Total"] span');
             if (statusCell) statusCell.innerHTML = getOrderStatusBadge(data.order_status);
-            if (totalSpan) {
-                totalSpan.className = data.order_status === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
-                if (data.new_total !== undefined) {
-                    totalSpan.textContent = '₱' + formatPrice(data.new_total);
-                    row.setAttribute('data-order-total', data.new_total);
-                }
-            }
-            if (actionsCell) {
-                actionsCell.innerHTML = getOrderActionsHTML({
-                    order_id:     data.order_id,
-                    order_number: row.getAttribute('data-order-number'),
-                    total_amount: data.new_total ?? row.getAttribute('data-order-total'),
-                    status:       data.order_status,
-                });
-            }
+            if (totalSpan) { totalSpan.className=data.order_status==='completed'?'price-total-paid':'price-total-unpaid'; if(data.new_total!==undefined){totalSpan.textContent='₱'+formatPrice(data.new_total);row.setAttribute('data-order-total',data.new_total);} }
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id:data.order_id, order_number:row.getAttribute('data-order-number'), total_amount:data.new_total??row.getAttribute('data-order-total'), status:data.order_status });
         }
-    } catch (err) {
-        console.error('Cancel/void item error:', err);
-        showErrorModal('Operation Failed', err.message);
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; }
-    }
+        if (openDetailsOrderId && String(openDetailsOrderId)===String(data.order_id)) await fetchAndPopulateOrderDetails(data.order_id);
+    } catch (err) { console.error('Cancel/void item error:', err); showErrorModal('Operation Failed', err.message); if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';} }
 }
 
 // ============================================
 // VOID ORDER
 // ============================================
-async function voidOrder(orderId, orderNumber, btn) {
-    const numEl  = document.getElementById('voidOrderNumber');
-    const confEl = document.getElementById('confirmVoidOrderBtn');
+async function voidOrder(orderId, orderNumber) {
+    const numEl=document.getElementById('voidOrderNumber'), confEl=document.getElementById('confirmVoidOrderBtn');
     if (numEl)  numEl.textContent = orderNumber || '';
-    if (confEl) {
-        confEl.setAttribute('data-order-id',     orderId);
-        confEl.setAttribute('data-order-number', orderNumber);
-    }
+    if (confEl) { confEl.setAttribute('data-order-id',orderId); confEl.setAttribute('data-order-number',orderNumber); }
 
     const sel = document.getElementById('voidOrderReasonSelect');
-    if (sel) {
-        sel.innerHTML = '<option value="">— Loading reasons… —</option>';
-        await loadReasons('void_order', 'voidOrderReasonSelect');
+    if (sel) { sel.innerHTML='<option value="">— Loading reasons… —</option>'; await loadReasons('void_order','voidOrderReasonSelect'); }
+
+    resetVoidRefundPanel();
+    voidOrderModal?.show();
+
+    const paidHintEl = document.getElementById('voidRefundPaidHint');
+    const refAmtEl   = document.getElementById('voidRefundAmount');
+
+    try {
+        const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
+        const resp = await res.json();
+        if (!resp.success) throw new Error(resp.message || 'Failed to load');
+
+        const d = resp.data;
+        _voidOrderTotalPaid = parseFloat(d.payment?.amount_paid || 0);
+
+        // Compute selling total of ready items
+        let itemsSellingTotal = 0;
+        (d.items || []).forEach(item => {
+            if (item.item_status !== 'ready') return;
+            const addonsTotal = (item.addons || []).reduce((s,a) => s + parseFloat(a.price||0)*parseInt(a.quantity||1), 0);
+            itemsSellingTotal += (parseFloat(item.unit_price||0) + addonsTotal) * parseInt(item.quantity||1);
+        });
+        itemsSellingTotal = Math.round(itemsSellingTotal * 100) / 100;
+
+        _voidOrderRefundCap = _voidOrderTotalPaid > 0
+            ? Math.min(itemsSellingTotal, _voidOrderTotalPaid)
+            : itemsSellingTotal;
+
+        if (paidHintEl) paidHintEl.textContent = _voidOrderTotalPaid > 0
+            ? `Paid: ₱${_voidOrderTotalPaid.toFixed(2)} · Max refund: ₱${_voidOrderRefundCap.toFixed(2)}`
+            : 'No payment recorded — refund not applicable.';
+
+        if (refAmtEl) {
+            refAmtEl.disabled    = _voidOrderRefundCap <= 0;
+            refAmtEl.placeholder = _voidOrderRefundCap > 0 ? `0.00 – ${_voidOrderRefundCap.toFixed(2)}` : 'No payment on file';
+            refAmtEl.max         = _voidOrderRefundCap > 0 ? _voidOrderRefundCap.toFixed(2) : '0';
+        }
+
+        buildRefundPresets(d.items || [], _voidOrderTotalPaid, _voidOrderRefundCap);
+
+    } catch (err) {
+        console.error('voidOrder fetch error:', err);
+        if (paidHintEl) paidHintEl.textContent = 'Could not fetch payment info.';
+        if (refAmtEl)   refAmtEl.disabled = true;
     }
 
     window._voidOrderReason?.reset();
-    voidOrderModal?.show();
 }
 
-async function executeVoidOrder(orderId, orderNumber, reason, btn) {
+async function executeVoidOrder(orderId, orderNumber, reason, refundAmount, refundMethod, refundNote) {
     try {
-        const formData = new FormData();
-        formData.append('order_id', orderId);
-        formData.append('reason',   reason);
-        const res  = await fetch(VOID_ORDER_URL, { method: 'POST', body: formData });
+        const fd = new FormData();
+        fd.append('order_id',      orderId);
+        fd.append('reason',        reason);
+        fd.append('refund_amount', (refundAmount||0).toFixed(2));
+        fd.append('refund_method', refundMethod||'cash');
+        fd.append('refund_note',   refundNote||'');
+        const res  = await fetch(VOID_ORDER_URL, { method:'POST', body:fd });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Void failed');
+
         const row = document.querySelector(`tr[data-order-id="${data.order_id}"]`);
         if (row) {
-            row.setAttribute('data-status', data.order_status);
-            const statusCell  = row.querySelector('td[data-label="Status"]');
-            const actionsCell = row.querySelector('td[data-label="Actions"]');
-            const totalSpan   = row.querySelector('td[data-label="Total"] span');
-            if (statusCell) statusCell.innerHTML = getOrderStatusBadge(data.order_status);
-            if (totalSpan)  { totalSpan.className = 'price-total-unpaid'; totalSpan.textContent = '₱0.00'; row.setAttribute('data-order-total', '0'); }
-            if (actionsCell) {
-                actionsCell.innerHTML = getOrderActionsHTML({
-                    order_id:     data.order_id,
-                    order_number: row.getAttribute('data-order-number'),
-                    total_amount: 0,
-                    status:       data.order_status,
-                });
-            }
+            row.setAttribute('data-status','voided');
+            const statusCell=row.querySelector('td[data-label="Status"]'), actionsCell=row.querySelector('td[data-label="Actions"]'), totalSpan=row.querySelector('td[data-label="Total"] span');
+            if (statusCell) statusCell.innerHTML = getOrderStatusBadge('voided');
+            if (totalSpan)  { totalSpan.className='price-total-unpaid'; totalSpan.textContent='₱0.00'; row.setAttribute('data-order-total','0'); }
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id:data.order_id, order_number:row.getAttribute('data-order-number'), total_amount:0, status:'voided' });
         }
-        if (kitchenModalOrderId && String(kitchenModalOrderId) === String(orderId)) {
-            kitchenItemsModal?.hide();
-            kitchenModalOrderId = null;
-        }
+        if (kitchenModalOrderId && String(kitchenModalOrderId)===String(orderId)) { kitchenItemsModal?.hide(); kitchenModalOrderId=null; }
         await refreshOrders();
+    } catch (err) { console.error('Void order error:', err); showErrorModal('Void Failed', err.message); }
+}
+
+// ============================================
+// POST-COMPLETION REFUND MODAL
+// ============================================
+async function openRefundModal(orderId, orderNumber) {
+    _refundOrderId = orderId;
+    _refundOrderNumber = orderNumber;
+    _refundType = 'full';
+
+    // Reset modal UI
+    document.getElementById('refundModalOrderNumber').textContent = orderNumber || '';
+    document.getElementById('refundModalError').style.display = 'none';
+    document.getElementById('refundReasonError').style.display = 'none';
+    document.getElementById('refundReasonSelect').value = '';
+    document.getElementById('refundReasonText').value = '';
+    document.getElementById('refundReasonText').style.display = 'none';
+    document.getElementById('refundMethod').value = 'cash';
+    document.getElementById('refundFullPanel').style.display = 'block';
+    document.getElementById('refundPartialPanel').style.display = 'none';
+
+    document.querySelectorAll('.refund-type-btn').forEach(b => {
+        const active = b.dataset.type === 'full';
+        b.classList.toggle('active', active);
+        b.style.background  = active ? 'var(--success)' : 'white';
+        b.style.color       = active ? 'white' : 'var(--navy)';
+        b.style.borderColor = active ? 'var(--success)' : 'var(--border)';
+    });
+
+    refundModal?.show();
+
+    try {
+        const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load order.');
+        const d = data.data;
+
+        _refundOrderTotal = parseFloat(d.order?.total_amount || 0);
+        _refundAlready    = parseFloat(d.refunds?.total_refunded || 0);
+
+        // Filter out cancelled or voided items
+        _refundItems = (d.items || []).filter(i => !['cancelled','voided'].includes(i.item_status));
+
+        // Calculate remaining refund per item and sum it
+        _refundRemaining = _refundItems.reduce((sum, item) => {
+            const refunded = parseFloat(item.refunded_amount || 0);
+            const subtotal = parseFloat(item.subtotal || 0);
+            return sum + Math.max(0, subtotal - refunded);
+        }, 0);
+
+        // Update modal UI
+        document.getElementById('refundOrderTotal').textContent      = '₱' + formatPrice(_refundOrderTotal);
+        document.getElementById('refundAlreadyRefunded').textContent = '₱' + formatPrice(_refundAlready);
+        document.getElementById('refundRemaining').textContent       = '₱' + formatPrice(_refundRemaining);
+        document.getElementById('refundFullAmount').textContent      = '₱' + formatPrice(_refundRemaining);
+
+        buildRefundItemsList(_refundItems);
+
     } catch (err) {
-        console.error('Void order error:', err);
-        showErrorModal('Void Failed', err.message);
+        const errEl = document.getElementById('refundModalError');
+        if (errEl) {
+            errEl.textContent = 'Failed to load order details: ' + err.message;
+            errEl.style.display = 'block';
+        }
     }
 }
+
+function buildRefundItemsList(items) {
+    const container = document.getElementById('refundItemsList');
+    if (!container) return;
+    if (!items || items.length === 0) { container.innerHTML='<div style="padding:1rem;text-align:center;color:var(--warm-gray);font-size:0.83rem;">No refundable items.</div>'; return; }
+    container.innerHTML = items.map(item => {
+        const addonsTotal = (item.addons||[]).reduce((s,a)=>s+parseFloat(a.price||0)*parseInt(a.quantity||1),0);
+        const lineTotal   = (parseFloat(item.unit_price||0)*parseInt(item.quantity||1))+addonsTotal;
+        const label       = item.variant_name_snapshot?`${item.item_name_snapshot||item.item_name} · ${item.variant_name_snapshot}`:(item.item_name_snapshot||item.item_name||'');
+        return `<div class="refund-item-row">
+            <input type="checkbox" class="refund-item-check" data-item-id="${item.order_item_id}" data-max="${lineTotal.toFixed(2)}" id="ritem_${item.order_item_id}">
+            <label for="ritem_${item.order_item_id}" style="flex:1;cursor:pointer;line-height:1.35;">
+                <div style="font-weight:600;color:var(--navy);">${escapeHtml(label)}</div>
+                <div style="font-size:0.76rem;color:var(--warm-gray);">×${item.quantity} · ₱${formatPrice(item.unit_price)} each${item.addons&&item.addons.length?' + add-ons':''}</div>
+            </label>
+            <div style="display:flex;align-items:center;gap:0.3rem;">
+                <span style="font-size:0.75rem;color:var(--warm-gray);">₱</span>
+                <input type="number" class="refund-item-amount" data-item-id="${item.order_item_id}" min="0.01" step="0.01" max="${lineTotal.toFixed(2)}" value="${lineTotal.toFixed(2)}" disabled placeholder="${lineTotal.toFixed(2)}">
+            </div>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('.refund-item-check').forEach(cb => {
+        cb.addEventListener('change', function () {
+            const inp = container.querySelector(`.refund-item-amount[data-item-id="${this.dataset.itemId}"]`);
+            if (inp) inp.disabled = !this.checked;
+            updateRefundPartialTotal();
+        });
+    });
+    container.querySelectorAll('.refund-item-amount').forEach(inp => { inp.addEventListener('input', updateRefundPartialTotal); });
+}
+
+function updateRefundPartialTotal() {
+    let total = 0;
+    document.querySelectorAll('.refund-item-check:checked').forEach(cb => {
+        const inp = document.querySelector(`.refund-item-amount[data-item-id="${cb.dataset.itemId}"]`);
+        if (inp) total += parseFloat(inp.value||0)||0;
+    });
+    const el = document.getElementById('refundPartialTotal'); if (el) el.textContent = '₱'+formatPrice(total);
+}
+
+async function executeRefund() {
+    const errorEl = document.getElementById('refundModalError');
+    errorEl.style.display = 'none';
+    const reasonSel = document.getElementById('refundReasonSelect');
+    const reasonTa  = document.getElementById('refundReasonText');
+    let reason = reasonSel?.value || '';
+    if (reason === 'Other') reason = reasonTa?.value.trim() || '';
+    if (!reason) { document.getElementById('refundReasonError').style.display='block'; return; }
+    const method = document.getElementById('refundMethod')?.value || 'cash';
+    const btn    = document.getElementById('confirmRefundBtn');
+    const fd     = new FormData();
+    fd.append('order_id', _refundOrderId); fd.append('refund_type', _refundType); fd.append('reason', reason); fd.append('refund_method', method);
+    if (_refundType === 'partial') {
+        const selectedItems = [];
+        document.querySelectorAll('.refund-item-check:checked').forEach(cb => {
+            const inp = document.querySelector(`.refund-item-amount[data-item-id="${cb.dataset.itemId}"]`);
+            const amt = parseFloat(inp?.value||0)||0;
+            if (amt > 0) selectedItems.push({ order_item_id:parseInt(cb.dataset.itemId), amount:amt });
+        });
+        if (selectedItems.length === 0) { errorEl.textContent='Please select at least one item to refund.'; errorEl.style.display='block'; return; }
+        fd.append('items', JSON.stringify(selectedItems));
+    }
+    if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin me-1"></i> Processing…'; }
+    try {
+        const res  = await fetch(PROCESS_REFUND_URL, { method:'POST', body:fd });
+        const data = await safeJSONParse(res);
+        if (!data.success) throw new Error(data.error || 'Refund failed.');
+        refundModal?.hide();
+        if (openDetailsOrderId) await fetchAndPopulateOrderDetails(openDetailsOrderId);
+        await refreshOrders();
+    } catch (err) { errorEl.textContent=err.message; errorEl.style.display='block'; }
+    finally { if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-rotate-left me-1"></i> Confirm Refund'; } }
+}
+
+window.openRefundModal = openRefundModal;
 
 // ============================================
 // KITCHEN ITEMS MODAL
 // ============================================
 async function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
-    const modal = document.getElementById('kitchenItemsModal');
-    if (!modal || !kitchenItemsModal) return;
-    kitchenModalOrderId = String(orderId);
-    modal.setAttribute('data-open-order-id', String(orderId));
-    const bodyEl   = document.getElementById('kitchenModalBody');
-    const headerEl = document.getElementById('kitchenModalHeader');
+    const modal=document.getElementById('kitchenItemsModal');
+    if (!modal||!kitchenItemsModal) return;
+    kitchenModalOrderId=String(orderId); modal.setAttribute('data-open-order-id',String(orderId));
+    const bodyEl=document.getElementById('kitchenModalBody'), headerEl=document.getElementById('kitchenModalHeader');
     if (bodyEl)   bodyEl.innerHTML = `<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm mb-2" style="color:var(--primary);" role="status"></div><p class="mb-0" style="font-size:0.85rem;">Loading…</p></div>`;
     if (headerEl) headerEl.innerHTML = '';
     kitchenItemsModal.show();
@@ -933,141 +1258,50 @@ async function openKitchenItemsModal(orderId, orderNumber, orderStatus) {
 }
 
 async function refreshKitchenModal(orderId) {
-    const modal = document.getElementById('kitchenItemsModal');
-    if (!modal || !modal.classList.contains('show')) return;
-    if (String(kitchenModalOrderId) !== String(orderId)) return;
+    const modal=document.getElementById('kitchenItemsModal');
+    if (!modal||!modal.classList.contains('show')) return;
+    if (String(kitchenModalOrderId)!==String(orderId)) return;
     try {
-        const res  = await fetch(`${ORDER_ITEMS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const res=await fetch(`${ORDER_ITEMS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!data.success) return;
+        const data=await res.json(); if (!data.success) return;
         renderKitchenModal(data.order, data.items);
     } catch (err) { console.error('Kitchen modal refresh error:', err); }
 }
 
 function renderKitchenModal(order, items) {
-    const modal = document.getElementById('kitchenItemsModal');
-    if (!modal || !modal.classList.contains('show')) return;
-    const orderStatus = order.status || 'pending';
-    const headerEl    = document.getElementById('kitchenModalHeader');
-    if (headerEl) {
-        headerEl.innerHTML = `
-            <div style="display:flex;align-items:center;gap:0.75rem;">
-                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
-                    <i class="fas fa-receipt"></i>
-                </div>
-                <div>
-                    <div style="font-size:1.1rem;font-weight:700;color:white;">Order #${escapeHtml(order.order_number)}</div>
-                    <div style="font-size:0.78rem;opacity:0.75;color:white;">
-                        ${items.length} item${items.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
-                        ${order.order_type === 'dine_in' ? 'Dine In' : order.order_type === 'takeout' ? 'Takeout' : '—'}
-                    </div>
-                </div>
-            </div>
-            <div style="margin-left:auto;">
-                <span class="kitchen-modal-status-pill kitchen-modal-status-${orderStatus}">${capitalize(orderStatus)}</span>
-            </div>`;
-    }
-    const bodyEl = document.getElementById('kitchenModalBody');
+    const modal=document.getElementById('kitchenItemsModal');
+    if (!modal||!modal.classList.contains('show')) return;
+    const orderStatus=order.status||'pending', headerEl=document.getElementById('kitchenModalHeader');
+    if (headerEl) headerEl.innerHTML=`<div style="display:flex;align-items:center;gap:0.75rem;"><div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;"><i class="fas fa-receipt"></i></div><div><div style="font-size:1.1rem;font-weight:700;color:white;">Order #${escapeHtml(order.order_number)}</div><div style="font-size:0.78rem;opacity:0.75;color:white;">${items.length} item${items.length!==1?'s':''} &nbsp;·&nbsp; ${order.order_type==='dine_in'?'Dine In':order.order_type==='takeout'?'Takeout':'—'}</div></div></div><div style="margin-left:auto;"><span class="kitchen-modal-status-pill kitchen-modal-status-${orderStatus}">${capitalize(orderStatus)}</span></div>`;
+    const bodyEl=document.getElementById('kitchenModalBody');
     if (bodyEl) {
-        const activeItemCount = items.filter(
-            i => !['cancelled', 'voided', 'completed'].includes(i.item_status || 'pending')
-        ).length;
-
-        bodyEl.innerHTML = items.length
-            ? '<div class="kitchen-modal-items">' + items.map(item => buildItemCardHTML(item, orderStatus, activeItemCount)).join('') + '</div>'
-            : '<p class="text-muted text-center py-3">No items found.</p>';
+        const activeCount=items.filter(i=>!['cancelled','voided','completed'].includes(i.item_status||'pending')).length;
+        bodyEl.innerHTML=items.length?'<div class="kitchen-modal-items">'+items.map(item=>buildItemCardHTML(item,orderStatus,activeCount)).join('')+'</div>':'<p class="text-muted text-center py-3">No items found.</p>';
     }
 }
 
-function buildItemCardHTML(item, orderStatus, activeItemCount = 99) {
-    const userRole   = window.userRole || '';
-    const isAdmin    = userRole === 'admin';
-    const isCashier  = userRole === 'cashier';
-    const canUpdate  = userRole === 'kitchen' || isAdmin;
-    const orderDone  = ['completed', 'cancelled', 'voided'].includes(orderStatus);
-    const itemStatus = item.item_status || 'pending';
-    const isTerminal = ['completed', 'cancelled', 'voided'].includes(itemStatus);
-
-    const displayConfig = {
-        pending:   { label: 'Pending',   icon: 'fa-hourglass-half', cls: 'item-status-pending'   },
-        preparing: { label: 'Preparing', icon: 'fa-bowl-food',       cls: 'item-status-preparing' },
-        ready:     { label: 'Ready',     icon: 'fa-circle-check',    cls: 'item-status-ready'     },
-        completed: { label: 'Completed', icon: 'fa-check-double',    cls: 'item-status-completed' },
-        cancelled: { label: 'Cancelled', icon: 'fa-times-circle',    cls: 'item-status-cancelled' },
-        voided:    { label: 'Voided',    icon: 'fa-ban',             cls: 'item-status-voided'    },
-    };
-
-    const sc    = displayConfig[itemStatus] || displayConfig.pending;
-    const badge = `<span class="item-status-badge ${sc.cls}"><i class="fas ${sc.icon}"></i> ${sc.label}</span>`;
-
-    let progressBtn = '';
-    if (canUpdate && !orderDone && !isTerminal && itemStatus !== 'ready') {
-        const nextStatus = itemStatus === 'pending' ? 'preparing' : 'ready';
-        const btnConfig  = itemStatus === 'pending'
-            ? { label: 'Start Cooking', icon: 'fa-play',  cls: 'item-action-start' }
-            : { label: 'Mark Ready',    icon: 'fa-check', cls: 'item-action-ready' };
-        progressBtn = `<button type="button"
-                               class="item-status-btn ${btnConfig.cls}"
-                               data-order-item-id="${item.order_item_id}"
-                               data-next-status="${nextStatus}">
-                           <i class="fas ${btnConfig.icon}"></i>
-                           <span>${btnConfig.label}</span>
-                       </button>`;
+function buildItemCardHTML(item, orderStatus, activeItemCount=99) {
+    const isAdmin=window.userRole==='admin', isCashier=window.userRole==='cashier', canUpdate=window.userRole==='kitchen'||isAdmin;
+    const orderDone=['completed','cancelled','voided'].includes(orderStatus);
+    const itemStatus=item.item_status||'pending', isTerminal=['completed','cancelled','voided'].includes(itemStatus);
+    const dc={pending:{label:'Pending',icon:'fa-hourglass-half',cls:'item-status-pending'},preparing:{label:'Preparing',icon:'fa-bowl-food',cls:'item-status-preparing'},ready:{label:'Ready',icon:'fa-circle-check',cls:'item-status-ready'},completed:{label:'Completed',icon:'fa-check-double',cls:'item-status-completed'},cancelled:{label:'Cancelled',icon:'fa-times-circle',cls:'item-status-cancelled'},voided:{label:'Voided',icon:'fa-ban',cls:'item-status-voided'}};
+    const sc=dc[itemStatus]||dc.pending, badge=`<span class="item-status-badge ${sc.cls}"><i class="fas ${sc.icon}"></i> ${sc.label}</span>`;
+    let progressBtn='';
+    if (canUpdate&&!orderDone&&!isTerminal&&itemStatus!=='ready') {
+        const ns=itemStatus==='pending'?'preparing':'ready', bc=itemStatus==='pending'?{label:'Start Cooking',icon:'fa-play',cls:'item-action-start'}:{label:'Mark Ready',icon:'fa-check',cls:'item-action-ready'};
+        progressBtn=`<button type="button" class="item-status-btn ${bc.cls}" data-order-item-id="${item.order_item_id}" data-next-status="${ns}"><i class="fas ${bc.icon}"></i><span>${bc.label}</span></button>`;
     }
-
-    let adminActionBtn = '';
-    const onlyOneLeft = activeItemCount <= 1;
-    const canCancel = (isAdmin || isCashier) && !orderDone && !isTerminal && itemStatus === 'pending' && !onlyOneLeft;
-    const canVoid   = isAdmin && !orderDone && !isTerminal && itemStatus === 'ready' && !onlyOneLeft;
-
-    if (canCancel) {
-        adminActionBtn = `<button type="button"
-                                  class="item-status-btn item-action-cancel-item"
-                                  data-order-item-id="${item.order_item_id}"
-                                  data-action="cancel_item"
-                                  data-item-name="${escapeHtml(item.item_name || '')}"
-                                  title="Cancel this item">
-                              <i class="fas fa-times"></i>
-                              <span>Cancel</span>
-                          </button>`;
-    } else if (canVoid) {
-        adminActionBtn = `<button type="button"
-                                  class="item-status-btn item-action-void-item"
-                                  data-order-item-id="${item.order_item_id}"
-                                  data-action="void_item"
-                                  data-item-name="${escapeHtml(item.item_name || '')}"
-                                  title="Void — ingredients written off as waste">
-                              <i class="fas fa-ban"></i>
-                              <span>Void</span>
-                          </button>`;
-    }
-
-    const baseName    = escapeHtml(item.item_name || '');
-    const variantName = item.variant_name_snapshot || item.current_variant_name || item.variant_name || null;
-    const variantBit  = variantName ? `<span class="item-variant-label"> · ${escapeHtml(variantName)}</span>` : '';
-    const addonsHTML  = (item.addons && item.addons.length > 0)
-        ? `<div class="item-addons"><span class="item-addons-label">Add-ons:</span>
-           ${item.addons.map(a => `<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>`).join('')}</div>`
-        : '';
-    const noteHTML = (item.item_notes && item.item_notes.trim())
-        ? `<div class="item-card-note-inline"><span class="item-card-note-label">Note:</span><span class="item-card-note-text">${escapeHtml(item.item_notes)}</span></div>`
-        : '';
-
-    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}">
-                <div class="item-card-header">
-                    <div class="item-card-name">
-                        <span class="item-name-text">${baseName}${variantBit}</span>
-                        <span class="item-qty-badge">×${item.quantity || 1}</span>
-                    </div>
-                    <div class="item-card-right">
-                        ${badge}
-                        ${progressBtn}
-                        ${adminActionBtn}
-                    </div>
-                </div>
-                ${addonsHTML}${noteHTML}
-            </div>`;
+    const onlyOneLeft=activeItemCount<=1;
+    let adminBtn='';
+    if ((isAdmin||isCashier)&&!orderDone&&!isTerminal&&itemStatus==='pending'&&!onlyOneLeft)
+        adminBtn=`<button type="button" class="item-status-btn item-action-cancel-item" data-order-item-id="${item.order_item_id}" data-action="cancel_item" data-item-name="${escapeHtml(item.item_name||'')}"><i class="fas fa-times"></i><span>Cancel</span></button>`;
+    else if (isAdmin&&!orderDone&&!isTerminal&&itemStatus==='ready'&&!onlyOneLeft)
+        adminBtn=`<button type="button" class="item-status-btn item-action-void-item" data-order-item-id="${item.order_item_id}" data-action="void_item" data-item-name="${escapeHtml(item.item_name||'')}"><i class="fas fa-ban"></i><span>Void</span></button>`;
+    const bn=escapeHtml(item.item_name||''), vn=item.variant_name_snapshot||item.current_variant_name||item.variant_name||null;
+    const addonsHTML=(item.addons&&item.addons.length)?`<div class="item-addons"><span class="item-addons-label">Add-ons:</span>${item.addons.map(a=>`<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity>1?` ×${a.quantity}`:''}</span>`).join('')}</div>`:'';
+    const noteHTML=(item.item_notes&&item.item_notes.trim())?`<div class="item-card-note-inline"><span class="item-card-note-label">Note:</span><span class="item-card-note-text">${escapeHtml(item.item_notes)}</span></div>`:'';
+    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}"><div class="item-card-header"><div class="item-card-name"><span class="item-name-text">${bn}${vn?`<span class="item-variant-label"> · ${escapeHtml(vn)}</span>`:''}</span><span class="item-qty-badge">×${item.quantity||1}</span></div><div class="item-card-right">${badge}${progressBtn}${adminBtn}</div></div>${addonsHTML}${noteHTML}</div>`;
 }
 
 // ============================================
@@ -1075,286 +1309,275 @@ function buildItemCardHTML(item, orderStatus, activeItemCount = 99) {
 // ============================================
 function viewOrderDetails(orderId, orderNumber) {
     if (!orderDetailsModal) return;
-    openDetailsOrderId = String(orderId);
-    const loaderEl  = document.getElementById('orderDetailsLoader');
-    const contentEl = document.getElementById('orderDetailsContent');
-    const errorEl   = document.getElementById('orderDetailsError');
-    if (loaderEl)  loaderEl.style.display  = 'block';
-    if (contentEl) contentEl.style.display = 'none';
-    if (errorEl)   errorEl.style.display   = 'none';
-    const numEl = document.getElementById('detailOrderNumber');
-    if (numEl) numEl.textContent = '#' + (orderNumber || '');
-    // Hide print button until data loads
-    const printBtn = document.getElementById('printReceiptBtn');
-    if (printBtn) printBtn.style.display = 'none';
+    openDetailsOrderId=String(orderId);
+    ['orderDetailsLoader','orderDetailsContent','orderDetailsError'].forEach((id,i)=>{ const el=document.getElementById(id); if(el) el.style.display=i===0?'block':'none'; });
+    const numEl=document.getElementById('detailOrderNumber'); if(numEl) numEl.textContent='#'+(orderNumber||'');
+    const printBtn=document.getElementById('printReceiptBtn'), refundBtn=document.getElementById('refundOrderBtn');
+    if (printBtn)  printBtn.style.display  = 'none';
+    if (refundBtn) refundBtn.style.display = 'none';
     orderDetailsModal.show();
     fetchAndPopulateOrderDetails(orderId);
 }
 
 async function fetchAndPopulateOrderDetails(orderId) {
-    const loaderEl  = document.getElementById('orderDetailsLoader');
-    const contentEl = document.getElementById('orderDetailsContent');
-    const errorEl   = document.getElementById('orderDetailsError');
+    const loaderEl=document.getElementById('orderDetailsLoader'), contentEl=document.getElementById('orderDetailsContent'), errorEl=document.getElementById('orderDetailsError');
     try {
-        const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const res=await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!data.success) throw new Error(data.message || 'Failed to load');
-        const d = data.data;
-        populateOrderDetailsModal(d.order || {}, d.items || [], d.payment || null, d.cancel_audit || null, d.void_audit || null);
-        if (loaderEl)  loaderEl.style.display  = 'none';
-        if (contentEl) contentEl.style.display = 'block';
-        if (errorEl)   errorEl.style.display   = 'none';
+        const data=await res.json(); if (!data.success) throw new Error(data.message||'Failed to load');
+        const d=data.data;
+        // Always pass d.refunds (unified table). d.refund (old payments lookup) intentionally ignored.
+        populateOrderDetailsModal(d.order||{}, d.items||[], d.payment||null, d.cancel_audit||null, d.void_audit||null, d.refunds||null);
+        if(loaderEl) loaderEl.style.display='none'; if(contentEl) contentEl.style.display='block'; if(errorEl) errorEl.style.display='none';
     } catch (err) {
         console.error('Order details error:', err);
-        if (loaderEl)  loaderEl.style.display  = 'none';
-        if (errorEl)   errorEl.style.display   = 'block';
-        if (contentEl) contentEl.style.display = 'none';
+        if(loaderEl) loaderEl.style.display='none'; if(errorEl) errorEl.style.display='block'; if(contentEl) contentEl.style.display='none';
     }
 }
 
 async function refreshOrderDetailsModal(orderId) {
-    const modal = document.getElementById('orderDetailsModal');
-    if (!modal || !modal.classList.contains('show')) return;
+    const modal=document.getElementById('orderDetailsModal');
+    if (!modal||!modal.classList.contains('show')) return;
     try {
-        const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers: { 'Cache-Control': 'no-cache' } });
-        const data = await res.json();
-        if (!data.success) return;
-        const d = data.data;
-        populateOrderDetailsModal(d.order || {}, d.items || [], d.payment || null, d.cancel_audit || null, d.void_audit || null);
+        const res=await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
+        const data=await res.json(); if (!data.success) return;
+        const d=data.data;
+        populateOrderDetailsModal(d.order||{}, d.items||[], d.payment||null, d.cancel_audit||null, d.void_audit||null, d.refunds||null);
     } catch (err) { /* silent */ }
 }
 
-function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit) {
-    const set     = (id, val)  => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML  = html; };
+// ─────────────────────────────────────────────────────────────────────────────
+// populateOrderDetailsModal
+//
+// refunds = d.refunds from get_order_details.php
+// Shape: { rows: [...], total_refunded: float, count: int } | null
+//
+// ALL refund types shown in detailRefundsHistorySection:
+//   'void_order' → whole order voided, refund issued
+//   'void_item'  → single item voided, partial refund issued
+//   'post_sale'  → post-completion admin refund
+//
+// Receipt (printFinalReceipt / printVoidReceipt):
+//   - Completed orders → printFinalReceipt (shows payment + refunds if any)
+//   - Voided orders    → printVoidReceipt  (shows waste, refund amount, net)
+// ─────────────────────────────────────────────────────────────────────────────
+function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit, refunds) {
+    window._lastOrderRefunds = refunds || null;
 
-    const numEl = document.getElementById('detailOrderNumber');
-    if (numEl) numEl.textContent = '#' + (order.order_number || '');
+    const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=val; };
+    const setHTML=(id,html)=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; };
 
-    set('detailCustomer', order.customer_name || 'Walk-in');
-    if (order.created_at) {
-        set('detailDate', new Date(order.created_at).toLocaleString('en-PH', {
-            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        }));
-    }
-    set('detailCashier', order.cashier_name || 'N/A');
+    const numEl=document.getElementById('detailOrderNumber'); if(numEl) numEl.textContent='#'+(order.order_number||'');
+    set('detailCustomer', order.customer_name||'Walk-in');
+    if (order.created_at) set('detailDate', new Date(order.created_at).toLocaleString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+    set('detailCashier', order.cashier_name||'N/A');
     setHTML('detailOrderType', order.order_type ? getOrderTypeBadge(order.order_type) : '—');
     setHTML('detailStatus', getOrderStatusBadge(order.status));
 
-    const tableWrap = document.getElementById('detailTableWrap');
-    const tableEl   = document.getElementById('detailTable');
-    if (order.table_name) {
-        if (tableEl)   tableEl.innerHTML       = `<span class="table-number-badge"><i class="fas fa-chair"></i> ${escapeHtml(order.table_name)}</span>`;
-        if (tableWrap) tableWrap.style.display = '';
-    } else {
-        if (tableWrap) tableWrap.style.display = 'none';
-    }
+    const tableWrap=document.getElementById('detailTableWrap'), tableEl=document.getElementById('detailTable');
+    if (order.table_name) { if(tableEl) tableEl.innerHTML=`<span class="table-number-badge"><i class="fas fa-chair"></i> ${escapeHtml(order.table_name)}</span>`; if(tableWrap) tableWrap.style.display=''; }
+    else { if(tableWrap) tableWrap.style.display='none'; }
 
-    // Items table
-    const itemsBody = document.getElementById('detailItemsBody');
+    const itemsBody=document.getElementById('detailItemsBody');
     if (itemsBody) {
-        itemsBody.innerHTML = '';
+        itemsBody.innerHTML='';
         items.forEach(item => {
-            const itemSubtotal       = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)).toFixed(2);
-            const displayItemName    = item.item_name_snapshot    || item.item_name    || '';
-            const displayVariantName = item.variant_name_snapshot || item.current_variant_name || item.variant_name || null;
-            const variantBit         = displayVariantName ? `<span class="od-variant-label"> · ${escapeHtml(displayVariantName)}</span>` : '';
-
-            let itemStatusBit = '';
-            if (['cancelled', 'voided'].includes(item.item_status)) {
-                itemStatusBit = ` <span class="item-status-badge item-status-${item.item_status}" style="font-size:0.68rem;padding:0.12rem 0.45rem;vertical-align:middle;">${capitalize(item.item_status)}</span>`;
-            }
-
-            let reasonPill = '';
-            if (item.item_status === 'cancelled' && item.cancel_reason && order.status !== 'cancelled') {
-                reasonPill = `<div class="od-note-pill" style="background:rgba(214,64,69,0.08);border-color:rgba(214,64,69,0.3);color:#9e3a34;">
-                    <i class="fas fa-times-circle" style="color:var(--danger);"></i>
-                    <span style="font-style:normal;font-weight:600;">Cancel reason:</span> ${escapeHtml(item.cancel_reason)}
-                </div>`;
-            } else if (item.item_status === 'voided' && item.void_reason && order.status !== 'voided') {
-                reasonPill = `<div class="od-note-pill" style="background:rgba(15,76,92,0.07);border-color:rgba(15,76,92,0.25);color:var(--primary-dark);">
-                    <i class="fas fa-ban" style="color:var(--primary-dark);"></i>
-                    <span style="font-style:normal;font-weight:600;">Void reason:</span> ${escapeHtml(item.void_reason)}
-                </div>`;
-            }
-
-            const notePill = (item.item_notes && item.item_notes.trim())
-                ? `<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>` : '';
-
-            let priceInfo = `₱${formatPrice(item.unit_price)}`;
-            if (item.current_variant_price && parseFloat(item.current_variant_price) !== parseFloat(item.unit_price)) {
-                const priceDiff = parseFloat(item.current_variant_price) - parseFloat(item.unit_price);
-                const diffClass = priceDiff > 0 ? 'price-up' : 'price-down';
-                const diffText  = priceDiff > 0 ? '+' : '';
-                priceInfo = `₱${formatPrice(item.unit_price)} <small class="od-price-compare ${diffClass}">(${diffText}₱${formatPrice(Math.abs(priceDiff))})</small>`;
-            }
-
-            const tr = document.createElement('tr');
-            tr.className = 'od-item-row';
-            if (['cancelled', 'voided'].includes(item.item_status)) tr.style.opacity = '0.6';
-            tr.innerHTML = `
-                <td class="od-td od-td-item">
-                    <span class="od-item-name" style="${item.item_status === 'cancelled' ? 'text-decoration:line-through;' : ''}">${escapeHtml(displayItemName)}${variantBit}</span>${itemStatusBit}
-                    ${notePill}${reasonPill}
-                </td>
-                <td class="od-td od-td-center">${item.quantity || 1}</td>
-                <td class="od-td od-td-right od-muted">${priceInfo}</td>
-                <td class="od-td od-td-right od-item-subtotal"${['cancelled','voided'].includes(item.item_status) ? ' style="text-decoration:line-through;color:var(--warm-gray);"' : ''}>₱${itemSubtotal}</td>`;
+            const itemSub=(parseFloat(item.unit_price||0)*parseInt(item.quantity||1)).toFixed(2);
+            const dn=item.item_name_snapshot||item.item_name||'', dvn=item.variant_name_snapshot||item.current_variant_name||null;
+            const vBit=dvn?`<span class="od-variant-label"> · ${escapeHtml(dvn)}</span>`:'';
+            let statusBit='', reasonPill='', notePill='';
+            if (['cancelled','voided'].includes(item.item_status)) statusBit=` <span class="item-status-badge item-status-${item.item_status}" style="font-size:0.68rem;padding:0.12rem 0.45rem;vertical-align:middle;">${capitalize(item.item_status)}</span>`;
+            if (item.item_status==='cancelled'&&item.cancel_reason&&order.status!=='cancelled') reasonPill=`<div class="od-note-pill" style="background:rgba(214,64,69,0.08);border-color:rgba(214,64,69,0.3);color:#9e3a34;"><i class="fas fa-times-circle" style="color:var(--danger);"></i><span style="font-style:normal;font-weight:600;">Cancel reason:</span> ${escapeHtml(item.cancel_reason)}</div>`;
+            else if (item.item_status==='voided'&&item.void_reason&&order.status!=='voided') reasonPill=`<div class="od-note-pill" style="background:rgba(15,76,92,0.07);border-color:rgba(15,76,92,0.25);color:var(--primary-dark);"><i class="fas fa-ban" style="color:var(--primary-dark);"></i><span style="font-style:normal;font-weight:600;">Void reason:</span> ${escapeHtml(item.void_reason)}</div>`;
+            if (item.item_notes&&item.item_notes.trim()) notePill=`<div class="od-note-pill"><i class="fas fa-pen-to-square"></i> ${escapeHtml(item.item_notes)}</div>`;
+            const tr=document.createElement('tr'); tr.className='od-item-row';
+            if (['cancelled','voided'].includes(item.item_status)) tr.style.opacity='0.6';
+            tr.innerHTML=`<td class="od-td od-td-item"><span class="od-item-name" style="${item.item_status==='cancelled'?'text-decoration:line-through;':''}">${escapeHtml(dn)}${vBit}</span>${statusBit}${notePill}${reasonPill}</td><td class="od-td od-td-center">${item.quantity||1}</td><td class="od-td od-td-right od-muted">₱${formatPrice(item.unit_price)}</td><td class="od-td od-td-right od-item-subtotal"${['cancelled','voided'].includes(item.item_status)?' style="text-decoration:line-through;color:var(--warm-gray);"':''}>₱${itemSub}</td>`;
             itemsBody.appendChild(tr);
-
-            (item.addons || []).forEach(addon => {
-                const addonSubtotal = (parseFloat(addon.price || 0) * parseInt(addon.quantity || 1)).toFixed(2);
-                const addonTr = document.createElement('tr');
-                addonTr.className = 'od-addon-row';
-                addonTr.innerHTML = `
-                    <td class="od-td od-td-addon"><i class="fas fa-corner-down-right od-addon-icon"></i>${escapeHtml(addon.addon_name)}</td>
-                    <td class="od-td od-td-center od-muted">${addon.quantity || 1}</td>
-                    <td class="od-td od-td-right od-muted">₱${formatPrice(addon.price)}</td>
-                    <td class="od-td od-td-right od-muted">₱${addonSubtotal}</td>`;
-                itemsBody.appendChild(addonTr);
+            (item.addons||[]).forEach(addon=>{
+                const aStmt=(parseFloat(addon.price||0)*parseInt(addon.quantity||1)).toFixed(2);
+                const aTr=document.createElement('tr'); aTr.className='od-addon-row';
+                aTr.innerHTML=`<td class="od-td od-td-addon"><i class="fas fa-corner-down-right od-addon-icon"></i>${escapeHtml(addon.addon_name)}</td><td class="od-td od-td-center od-muted">${addon.quantity||1}</td><td class="od-td od-td-right od-muted">₱${formatPrice(addon.price)}</td><td class="od-td od-td-right od-muted">₱${aStmt}</td>`;
+                itemsBody.appendChild(aTr);
             });
         });
     }
 
-    // Totals
-    const total    = parseFloat(order.total_amount || 0);
-    const subtotal = total / 1.12;
-    const vat      = total - subtotal;
-    set('detailSubtotal', subtotal.toFixed(2));
-    set('detailVat',      vat.toFixed(2));
-    set('detailTotal',    total.toFixed(2));
-
-    const totalDisplay = document.getElementById('detailTotalDisplay');
-    if (totalDisplay) {
-        totalDisplay.style.color = order.status === 'completed' ? 'var(--success)' : 'var(--danger)';
-    }
+    const total=parseFloat(order.total_amount||0), subtotal=total/1.12, vat=total-subtotal;
+    set('detailSubtotal', subtotal.toFixed(2)); set('detailVat', vat.toFixed(2)); set('detailTotal', total.toFixed(2));
+    const totalDisplay=document.getElementById('detailTotalDisplay');
+    if (totalDisplay) totalDisplay.style.color=order.status==='completed'?'var(--success)':'var(--danger)';
 
     // Hide all audit sections
-    const paySection    = document.getElementById('detailPaymentSection');
-    const cancelSection = document.getElementById('detailCancelSection');
-    const voidSection   = document.getElementById('detailVoidSection');
-    if (paySection)    paySection.style.display    = 'none';
-    if (cancelSection) cancelSection.style.display = 'none';
-    if (voidSection)   voidSection.style.display   = 'none';
+    ['detailPaymentSection','detailCancelSection','detailVoidSection','detailRefundSection','detailRefundsHistorySection'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.style.display='none';
+    });
 
-    // Show correct section
-    if (payment && order.status === 'completed') {
-        if (paySection) {
-            paySection.style.display = '';
-            set('detailPayMethod',  payment.payment_method || '—');
+    if (payment && order.status==='completed') {
+        const sec=document.getElementById('detailPaymentSection');
+        if (sec) {
+            sec.style.display='';
+            set('detailPayMethod',  payment.payment_method||'—');
             set('detailAmountPaid', formatPrice(payment.amount_paid));
             set('detailChange',     formatPrice(payment.change_amount));
-            const processedByRow = document.getElementById('detailProcessedByRow');
-            const processedByEl  = document.getElementById('detailProcessedBy');
-            if (processedByRow && processedByEl) {
-                const cashierId     = parseInt(order.cashier_id);
-                const processedById = parseInt(payment.processed_by);
-                if (payment.processed_by && processedById !== cashierId && payment.processed_by_name) {
-                    processedByEl.textContent    = payment.processed_by_name;
-                    processedByRow.style.display = '';
-                } else {
-                    processedByRow.style.display = 'none';
-                }
+            const pbRow=document.getElementById('detailProcessedByRow'), pbEl=document.getElementById('detailProcessedBy');
+            if (pbRow&&pbEl) {
+                if (payment.processed_by&&parseInt(payment.processed_by)!==parseInt(order.cashier_id)&&payment.processed_by_name) { pbEl.textContent=payment.processed_by_name; pbRow.style.display=''; }
+                else pbRow.style.display='none';
             }
         }
-    } else if (order.status === 'cancelled' && cancelSection) {
-        cancelSection.style.display = '';
-        const reasonEl = document.getElementById('detailCancelReason');
-        if (reasonEl) reasonEl.textContent = cancelAudit?.reason || '—';
-    } else if (order.status === 'voided' && voidSection) {
-        voidSection.style.display = '';
-        const voidReasonEl = document.getElementById('detailVoidReason');
-        const wasteCostEl  = document.getElementById('detailWasteCost');
-        if (voidReasonEl) voidReasonEl.textContent = voidAudit?.reason || '—';
-        if (wasteCostEl)  wasteCostEl.textContent  = voidAudit?.total_waste_cost !== undefined
-            ? '₱' + formatPrice(voidAudit.total_waste_cost) : '—';
+    } else if (order.status==='cancelled') {
+        const sec=document.getElementById('detailCancelSection');
+        if (sec) { sec.style.display=''; set('detailCancelReason', cancelAudit?.reason||'—'); }
+    } else if (order.status==='voided') {
+        const sec=document.getElementById('detailVoidSection');
+        if (sec) {
+            sec.style.display='';
+            set('detailVoidReason', voidAudit?.reason||'—');
+            const wcEl=document.getElementById('detailWasteCost');
+            if (wcEl) wcEl.textContent=voidAudit?.total_waste_cost!==undefined?'₱'+formatPrice(voidAudit.total_waste_cost):'—';
+        }
     }
 
-    // ── Print Final Receipt button — only for completed orders ────────────────
-    const printBtn = document.getElementById('printReceiptBtn');
-    if (printBtn) {
-        if (order.status === 'completed') {
-            printBtn.style.display = '';
-            // Store order data on the button for the receipt builder
-            printBtn._orderData   = order;
-            printBtn._itemsData   = items;
-            printBtn._paymentData = payment;
-            // Swap href-based navigation to in-page receipt modal
-            printBtn.removeAttribute('href');
-            printBtn.setAttribute('target', '');
-            printBtn.onclick = function () {
-                printFinalReceipt(order, items, payment);
-                return false;
-            };
+    // ── Unified refunds history — ALL types, ALL statuses ────────────────────
+    // Source: d.refunds from refunds table (void_order, void_item, post_sale)
+    // Shown whenever any refund exists, regardless of order status.
+    const refundHistSection=document.getElementById('detailRefundsHistorySection');
+    if (refundHistSection) {
+        if (refunds && refunds.rows && refunds.rows.length > 0) {
+            refundHistSection.style.display='';
+            const typeLabel = type => type==='void_order'?'Void refund':type==='void_item'?'Item void refund':'Refund';
+            const list=document.getElementById('detailRefundsList');
+            if (list) {
+                list.innerHTML = refunds.rows.map(r => `
+                    <div class="od-payment-row">
+                        <span style="color:var(--warm-gray);font-size:0.79rem;">
+                            ${typeLabel(r.refund_type)} · ${escapeHtml((r.refund_method||'cash').toUpperCase())}
+                            ${r.note ? `<span style="font-weight:400;"> — ${escapeHtml(r.note)}</span>` : ''}
+                        </span>
+                        <span style="font-weight:700;color:var(--danger);">−₱${formatPrice(r.amount)}</span>
+                    </div>
+                    <div class="od-payment-row" style="margin-top:-4px;margin-bottom:4px;">
+                        <span style="font-size:0.73rem;color:var(--warm-gray);padding-left:0.5rem;">
+                            ${escapeHtml(r.reason)} · ${escapeHtml(r.processed_by_name||'—')}
+                        </span>
+                        <span style="font-size:0.73rem;color:var(--warm-gray);">
+                            ${new Date(r.created_at).toLocaleDateString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+                        </span>
+                    </div>`).join('<hr style="margin:2px 0;border-color:var(--border);">');
+                const totalEl=document.getElementById('detailRefundsTotalAmount');
+                if (totalEl) totalEl.textContent='₱'+formatPrice(refunds.total_refunded);
+            }
         } else {
-            printBtn.style.display = 'none';
-            printBtn.onclick = null;
+            refundHistSection.style.display='none';
         }
+    }
+
+    // ── Print / Refund buttons ────────────────────────────────────────────────
+    const printBtn=document.getElementById('printReceiptBtn');
+    if (printBtn) {
+        if (order.status==='completed' || order.status==='voided') {
+            printBtn.style.display='';
+            printBtn.removeAttribute('href'); printBtn.setAttribute('target','');
+            if (order.status==='completed') {
+                printBtn.onclick=()=>{ printFinalReceipt(order,items,payment,refunds); return false; };
+            } else {
+                // voided — show void receipt with waste + refund info
+                printBtn.onclick=()=>{ printVoidReceipt(order,items,voidAudit,refunds); return false; };
+            }
+        } else { printBtn.style.display='none'; printBtn.onclick=null; }
+    }
+
+    const refundBtn=document.getElementById('refundOrderBtn');
+    if (refundBtn) {
+        if (order.status==='completed'&&window.userRole==='admin') {
+            refundBtn.style.display='flex';
+            refundBtn.onclick=()=>{ orderDetailsModal?.hide(); setTimeout(()=>openRefundModal(order.order_id,order.order_number),300); };
+        } else { refundBtn.style.display='none'; refundBtn.onclick=null; }
     }
 }
 
 // ============================================
-// BIR FINAL RECEIPT — demo print
+// RECEIPT HELPERS
 // ============================================
-function printFinalReceipt(order, items, payment) {
-    const orderNumber  = order.order_number || '—';
-    const customer     = order.customer_name || 'Walk-in Customer';
-    const cashier      = order.cashier_name  || '—';
-    const tableName    = order.table_name    || null;
-    const orderType    = order.order_type === 'dine_in' ? 'Dine In' : 'Take Out';
-    const total        = parseFloat(order.total_amount || 0);
-    const vatable      = total / 1.12;
-    const vatAmount    = total - vatable;
-    const amountPaid   = parseFloat(payment?.amount_paid   || total);
-    const changeAmt    = parseFloat(payment?.change_amount || 0);
-    const payMethod    = (payment?.payment_method || 'cash').toUpperCase();
 
-    const now      = order.completed_at ? new Date(order.completed_at) : new Date();
-    const dateStr  = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr  = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+/**
+ * Build the refund section HTML for any receipt.
+ * Shows each refund row and a net total line.
+ *
+ * @param {number}      orderTotal  - original order total (before refunds)
+ * @param {object|null} refunds     - d.refunds: { rows, total_refunded }
+ * @returns {string}  HTML string to embed in the receipt
+ */
+function _buildReceiptRefundsSection(orderTotal, refunds) {
+    if (!refunds || !refunds.rows || refunds.rows.length === 0) return '';
 
-    // Build items HTML
-    let itemsHTML = '';
-    items.forEach(item => {
-        if (['cancelled', 'voided'].includes(item.item_status)) return; // skip terminal items
-        const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
-        const lineTotal   = (parseFloat(item.unit_price || 0) + addonsTotal) * parseInt(item.quantity || 1);
-        const label       = item.variant_name_snapshot
-            ? `${item.item_name_snapshot || item.item_name} (${item.variant_name_snapshot})`
-            : (item.item_name_snapshot || item.item_name || '');
-        itemsHTML += `
-            <div style="display:flex;margin-bottom:3px;">
-                <span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span>
-                <span style="flex:0.5;text-align:center;">${item.quantity || 1}</span>
-                <span style="flex:1;text-align:right;">${parseFloat(item.unit_price || 0).toFixed(2)}</span>
-                <span style="flex:1;text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</span>
-            </div>`;
-        (item.addons || []).forEach(a => {
-            const aTotal = parseFloat(a.price || 0) * parseInt(a.quantity || 1);
-            itemsHTML += `
-                <div style="display:flex;font-size:10px;padding:1px 0 1px 10px;opacity:0.8;">
-                    <span style="flex:1;">+ ${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>
-                    <span style="flex:0;text-align:right;">${aTotal.toFixed(2)}</span>
-                </div>`;
-        });
+    const totalRefunded = parseFloat(refunds.total_refunded || 0);
+    const net           = Math.max(0, orderTotal - totalRefunded);
+
+    const typeLabel = type =>
+        type === 'void_order' ? 'Void Refund'
+        : type === 'void_item'  ? 'Item Void Refund'
+        : 'Refund';
+
+    const rows = refunds.rows.map(r =>
+        `<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">
+            <span>${typeLabel(r.refund_type)} — ${escapeHtml(r.reason)}</span>
+            <span>−₱${parseFloat(r.amount).toFixed(2)}</span>
+        </div>`
+    ).join('');
+
+    return `
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="font-size:10px;font-weight:bold;margin-bottom:3px;text-transform:uppercase;">Refunds Issued</div>
+        ${rows}
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:bold;border-top:1px solid #000;margin-top:3px;padding-top:3px;">
+            <span>Total Refunded:</span>
+            <span>−₱${totalRefunded.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-top:3px;">
+            <span>Net Amount:</span>
+            <span>₱${net.toFixed(2)}</span>
+        </div>`;
+}
+
+// ============================================
+// PRINT FINAL RECEIPT (completed orders)
+// ============================================
+function printFinalReceipt(order, items, payment, refunds) {
+    const orderNumber=order.order_number||'—', customer=order.customer_name||'Walk-in Customer';
+    const cashier=order.cashier_name||'—', tableName=order.table_name||null;
+    const orderType=order.order_type==='dine_in'?'Dine In':'Take Out';
+
+    // Totals — use order.total_amount as the canonical gross total
+    const grossTotal  = parseFloat(order.total_amount||0);
+    const vatable     = grossTotal/1.12;
+    const vatAmount   = grossTotal-vatable;
+    const amountPaid  = parseFloat(payment?.amount_paid||grossTotal);
+    const changeAmt   = parseFloat(payment?.change_amount||0);
+    const payMethod   = (payment?.payment_method||'cash').toUpperCase();
+
+    const now=order.completed_at?new Date(order.completed_at):new Date();
+    const dateStr=now.toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+    const timeStr=now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+
+    let itemsHTML='';
+    items.forEach(item=>{
+        if (['cancelled','voided'].includes(item.item_status)) return;
+        const addonsTotal=(item.addons||[]).reduce((s,a)=>s+parseFloat(a.price||0)*parseInt(a.quantity||1),0);
+        const lineTotal=(parseFloat(item.unit_price||0)+addonsTotal)*parseInt(item.quantity||1);
+        const label=item.variant_name_snapshot?`${item.item_name_snapshot||item.item_name} (${item.variant_name_snapshot})`:(item.item_name_snapshot||item.item_name||'');
+        itemsHTML+=`<div style="display:flex;margin-bottom:3px;"><span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span><span style="flex:0.5;text-align:center;">${item.quantity||1}</span><span style="flex:1;text-align:right;">${parseFloat(item.unit_price||0).toFixed(2)}</span><span style="flex:1;text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</span></div>`;
+        (item.addons||[]).forEach(a=>{const at=parseFloat(a.price||0)*parseInt(a.quantity||1); itemsHTML+=`<div style="display:flex;font-size:10px;padding:1px 0 1px 10px;opacity:0.8;"><span style="flex:1;">+ ${escapeHtml(a.addon_name)}${a.quantity>1?` ×${a.quantity}`:''}</span><span style="flex:0;text-align:right;">${at.toFixed(2)}</span></div>`;});
     });
 
-    const html = `
-        <div style="text-align:center;">
-            <div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div>
-            <div style="font-size:10px;">Karuhatan, Valenzuela City</div>
-            <div style="font-size:10px;">TIN: 000-000-000-000 (DEMO)</div>
-            <div style="font-size:10px;">MIN: 00000000000 (DEMO)</div>
-            <div style="font-size:10px;">S/N: DWD-POS-001</div>
-        </div>
+    const refundsSection=_buildReceiptRefundsSection(grossTotal, refunds||window._lastOrderRefunds);
+
+    const html=`
+        <div style="text-align:center;"><div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div><div style="font-size:10px;">Karuhatan, Valenzuela City</div><div style="font-size:10px;">TIN: 000-000-000-000 (DEMO)</div><div style="font-size:10px;">S/N: DWD-POS-001</div></div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;">
-            Official Receipt
-        </div>
-        <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px;">
-            ** FOR DEMONSTRATION PURPOSES ONLY **
-        </div>
+        <div style="text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;">Official Receipt</div>
+        <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px;">** FOR DEMONSTRATION PURPOSES ONLY **</div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>OR No.:</span><span style="font-weight:bold;">${escapeHtml(orderNumber)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Date:</span><span>${dateStr}</span></div>
@@ -1362,51 +1585,120 @@ function printFinalReceipt(order, items, payment) {
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Cashier:</span><span>${escapeHtml(cashier)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Type:</span><span>${orderType}</span></div>
-        ${tableName ? `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>` : ''}
+        ${tableName?`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>`:''}
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="display:flex;font-size:10px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase;">
-            <span style="flex:2.5;">Item</span>
-            <span style="flex:0.5;text-align:center;">Qty</span>
-            <span style="flex:1;text-align:right;">Price</span>
-            <span style="flex:1;text-align:right;">Total</span>
-        </div>
+        <div style="display:flex;font-size:10px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase;"><span style="flex:2.5;">Item</span><span style="flex:0.5;text-align:center;">Qty</span><span style="flex:1;text-align:right;">Price</span><span style="flex:1;text-align:right;">Total</span></div>
         ${itemsHTML}
         <hr style="border:none;border-top:3px double #000;margin:5px 0;">
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Vatable Sales:</span><span>₱${vatable.toFixed(2)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT (12%):</span><span>₱${vatAmount.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT Exempt:</span><span>₱0.00</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Zero-Rated:</span><span>₱0.00</span></div>
         <hr style="border:none;border-top:1px solid #000;margin:5px 0;">
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;">
-            <span>TOTAL:</span><span>₱${total.toFixed(2)}</span>
-        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;"><span>TOTAL:</span><span>₱${grossTotal.toFixed(2)}</span></div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="border:1px solid #000;padding:5px 6px;font-size:11px;">
             <div style="display:flex;justify-content:space-between;"><span>Method:</span><span>${payMethod}</span></div>
             <div style="display:flex;justify-content:space-between;"><span>Cash Tendered:</span><span>₱${amountPaid.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;"><span>Change:</span><span>₱${changeAmt.toFixed(2)}</span></div>
         </div>
+        ${refundsSection}
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="text-align:center;font-size:10px;line-height:1.7;">
             <div style="font-size:12px;font-weight:bold;text-transform:uppercase;">Thank you for dining with us!</div>
             <div>Please come again.</div>
-            <div style="margin-top:4px;">This serves as your official receipt.</div>
-            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">
-                OR: ${escapeHtml(orderNumber)}<br>
-                Printed: ${dateStr} ${timeStr}
-            </div>
-            <div style="margin-top:6px;font-size:9px;color:#888;">
-                ** THIS IS A DEMO RECEIPT — NOT BIR REGISTERED **
-            </div>
+            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">OR: ${escapeHtml(orderNumber)}<br>Printed: ${dateStr} ${timeStr}</div>
+            <div style="margin-top:6px;font-size:9px;color:#888;">** THIS IS A DEMO RECEIPT — NOT BIR REGISTERED **</div>
         </div>`;
 
-    // Populate and show the final receipt modal
+    _showReceiptModal(orderNumber, html);
+}
+
+// ============================================
+// PRINT VOID RECEIPT (voided orders)
+// Shows: items written off, waste total, refund issued, net loss
+// ============================================
+function printVoidReceipt(order, items, voidAudit, refunds) {
+    const orderNumber = order.order_number || '—';
+    const customer    = order.customer_name || 'Walk-in Customer';
+    const cashier     = order.cashier_name  || '—';
+    const tableName   = order.table_name    || null;
+    const orderType   = order.order_type === 'dine_in' ? 'Dine In' : 'Take Out';
+
+    const now     = order.created_at ? new Date(order.created_at) : new Date();
+    const dateStr = now.toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+    const timeStr = now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+
+    // Compute selling total of voided items (= original order value before zeroing)
+    let sellingTotal = 0;
+    let itemsHTML    = '';
+    items.forEach(item => {
+        if (!['voided','ready'].includes(item.item_status) && item.item_status !== 'voided') return;
+        const addonsTotal = (item.addons||[]).reduce((s,a)=>s+parseFloat(a.price||0)*parseInt(a.quantity||1),0);
+        const lineTotal   = (parseFloat(item.unit_price||0)+addonsTotal)*parseInt(item.quantity||1);
+        sellingTotal     += lineTotal;
+        const label       = item.variant_name_snapshot
+            ? `${item.item_name_snapshot||item.item_name} (${item.variant_name_snapshot})`
+            : (item.item_name_snapshot||item.item_name||'');
+        itemsHTML += `<div style="display:flex;margin-bottom:3px;text-decoration:line-through;opacity:0.7;">
+            <span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span>
+            <span style="flex:0.5;text-align:center;">${item.quantity||1}</span>
+            <span style="flex:1;text-align:right;">${parseFloat(item.unit_price||0).toFixed(2)}</span>
+            <span style="flex:1;text-align:right;">${lineTotal.toFixed(2)}</span>
+        </div>`;
+    });
+
+    const wasteCost     = parseFloat(voidAudit?.total_waste_cost || 0);
+    const totalRefunded = parseFloat(refunds?.total_refunded || 0);
+    const netLoss       = wasteCost - totalRefunded; // cost incurred minus money returned
+
+    const refundsSection = _buildReceiptRefundsSection(sellingTotal, refunds || window._lastOrderRefunds);
+
+    const html = `
+        <div style="text-align:center;">
+            <div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div>
+            <div style="font-size:10px;">Karuhatan, Valenzuela City</div>
+        </div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;">VOID ORDER RECORD</div>
+        <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px;">** INTERNAL DOCUMENT — NOT A SALES RECEIPT **</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Order No.:</span><span style="font-weight:bold;">${escapeHtml(orderNumber)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Date:</span><span>${dateStr}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Time:</span><span>${timeStr}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Cashier:</span><span>${escapeHtml(cashier)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Type:</span><span>${orderType}</span></div>
+        ${tableName?`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Void Reason:</span><span style="font-weight:600;max-width:55%;text-align:right;">${escapeHtml(voidAudit?.reason||'—')}</span></div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="font-size:10px;font-weight:bold;margin-bottom:3px;text-transform:uppercase;">Items Written Off (Waste)</div>
+        <div style="display:flex;font-size:9px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:2px;margin-bottom:3px;text-transform:uppercase;">
+            <span style="flex:2.5;">Item</span><span style="flex:0.5;text-align:center;">Qty</span><span style="flex:1;text-align:right;">Price</span><span style="flex:1;text-align:right;">Total</span>
+        </div>
+        ${itemsHTML}
+        <hr style="border:none;border-top:1px solid #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Selling Value:</span><span>₱${sellingTotal.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Waste Cost (ingredients):</span><span style="color:#d64045;">₱${wasteCost.toFixed(2)}</span></div>
+        ${refundsSection}
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:bold;">
+            <span>Net Loss (waste − refund):</span>
+            <span style="color:#d64045;">₱${Math.max(0, netLoss).toFixed(2)}</span>
+        </div>
+        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
+        <div style="text-align:center;font-size:9px;color:#888;line-height:1.6;">
+            Void processed by: ${escapeHtml(cashier)}<br>
+            Printed: ${dateStr} ${timeStr}<br>
+            ** STOCK NOT RESTORED — INGREDIENTS WRITTEN OFF AS WASTE **
+        </div>`;
+
+    _showReceiptModal(orderNumber, html);
+}
+
+function _showReceiptModal(orderNumber, html) {
     const printArea = document.getElementById('finalReceiptPrintArea');
     const numEl     = document.getElementById('finalReceiptOrderNumber');
     if (printArea) printArea.innerHTML = html;
     if (numEl)     numEl.textContent   = '#' + orderNumber;
-
-    // Close order details modal first, then show receipt
     orderDetailsModal?.hide();
     setTimeout(() => { finalReceiptModal?.show(); }, 250);
 }
@@ -1416,17 +1708,11 @@ function printFinalReceipt(order, items, payment) {
 // ============================================
 async function showCancelOrderModal(orderId, orderNumber) {
     if (!cancelOrderModal) return;
-    document.getElementById('cancelOrderNumber').textContent = orderNumber || '';
-    document.getElementById('cancelOrderId').value           = orderId || '';
-
-    const sel = document.getElementById('cancelOrderReasonSelect');
-    if (sel) {
-        sel.innerHTML = '<option value="">— Loading reasons… —</option>';
-        await loadReasons('cancel_order', 'cancelOrderReasonSelect');
-    }
-
-    window._cancelOrderReason?.reset();
-    cancelOrderModal.show();
+    document.getElementById('cancelOrderNumber').textContent = orderNumber||'';
+    document.getElementById('cancelOrderId').value           = orderId||'';
+    const sel=document.getElementById('cancelOrderReasonSelect');
+    if (sel) { sel.innerHTML='<option value="">— Loading reasons… —</option>'; await loadReasons('cancel_order','cancelOrderReasonSelect'); }
+    window._cancelOrderReason?.reset(); cancelOrderModal.show();
 }
 
 // ============================================
@@ -1437,185 +1723,84 @@ function setupEventListeners() {
 
     document.querySelectorAll('.cashier-view-btn').forEach(btn => {
         btn.addEventListener('click', function () {
-            document.querySelectorAll('.cashier-view-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            currentCashierView = this.getAttribute('data-view') || 'all';
-            loadPage(1);
+            document.querySelectorAll('.cashier-view-btn').forEach(b=>b.classList.remove('active'));
+            this.classList.add('active'); currentCashierView=this.getAttribute('data-view')||'all'; loadPage(1);
         });
     });
 
-    document.getElementById('processedByFilter')?.addEventListener('change', function () {
-        currentProcessedBy = parseInt(this.value) || 0;
-        loadPage(1);
-    });
+    document.getElementById('processedByFilter')?.addEventListener('change', function () { currentProcessedBy=parseInt(this.value)||0; loadPage(1); });
 
-    const dateFrom        = document.getElementById('dateFrom');
-    const dateTo          = document.getElementById('dateTo');
-    const btnAll          = document.getElementById('btnAll');
-    const btnToday        = document.getElementById('btnToday');
-    const btnYesterday    = document.getElementById('btnYesterday');
-    const btnThisWeek     = document.getElementById('btnThisWeek');
-    const btnCustom       = document.getElementById('btnCustom');
-    const dateCustomRange = document.getElementById('dateCustomRange');
+    const dateFrom=document.getElementById('dateFrom'), dateTo=document.getElementById('dateTo');
+    const btnAll=document.getElementById('btnAll'), btnToday=document.getElementById('btnToday');
+    const btnYesterday=document.getElementById('btnYesterday'), btnThisWeek=document.getElementById('btnThisWeek');
+    const btnCustom=document.getElementById('btnCustom'), dateCustomRange=document.getElementById('dateCustomRange');
 
-    function todayStr(offsetDays = 0) {
-        const d = new Date();
-        d.setDate(d.getDate() + offsetDays);
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
-    function toLocalStr(dateObj) {
-        return `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')}`;
-    }
+    function todayStr(off=0) { const d=new Date(); d.setDate(d.getDate()+off); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function toLocalStr(d)   { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
-    const today = todayStr();
-    if (dateFrom) dateFrom.max = today;
-    if (dateTo)   dateTo.max   = today;
+    const today=todayStr();
+    if (dateFrom) dateFrom.max=today; if (dateTo) dateTo.max=today;
 
-    const allShortcutBtns = [btnAll, btnToday, btnYesterday, btnThisWeek, btnCustom];
-    function setActiveShortcut(name) {
-        allShortcutBtns.forEach(btn => { if (btn) btn.classList.remove('active'); });
-        const map = { all: btnAll, today: btnToday, yesterday: btnYesterday, week: btnThisWeek, custom: btnCustom };
+    const allBtns=[btnAll,btnToday,btnYesterday,btnThisWeek,btnCustom];
+    function setActive(name) {
+        allBtns.forEach(b=>{ if(b) b.classList.remove('active'); });
+        const map={all:btnAll,today:btnToday,yesterday:btnYesterday,week:btnThisWeek,custom:btnCustom};
         if (map[name]) map[name].classList.add('active');
-        if (dateCustomRange) dateCustomRange.style.display = name === 'custom' ? 'flex' : 'none';
+        if (dateCustomRange) dateCustomRange.style.display=name==='custom'?'flex':'none';
     }
 
-    function applyCustomDateFilter() {
-        const from = dateFrom?.value || '';
-        const to   = dateTo?.value   || '';
-        if (from && to && from > to) {
-            if (document.activeElement === dateFrom) { if (dateTo) dateTo.value = from; }
-            else { if (dateFrom) dateFrom.value = to; }
-        }
-        currentDateFrom = dateFrom?.value || '';
-        currentDateTo   = dateTo?.value   || '';
-        if (dateFrom && currentDateTo)    dateFrom.max = currentDateTo;
-        if (dateTo   && currentDateFrom)  dateTo.min   = currentDateFrom;
-        if (dateFrom && !currentDateTo)   dateFrom.max = today;
-        if (dateTo   && !currentDateFrom) dateTo.min   = '';
+    function applyDate() {
+        const f=dateFrom?.value||'', t=dateTo?.value||'';
+        if (f&&t&&f>t) { if(document.activeElement===dateFrom){if(dateTo)dateTo.value=f;}else{if(dateFrom)dateFrom.value=t;} }
+        currentDateFrom=dateFrom?.value||''; currentDateTo=dateTo?.value||'';
+        if(dateFrom&&currentDateTo) dateFrom.max=currentDateTo; if(dateTo&&currentDateFrom) dateTo.min=currentDateFrom;
+        if(dateFrom&&!currentDateTo) dateFrom.max=today; if(dateTo&&!currentDateFrom) dateTo.min='';
         loadPage(1);
     }
 
-    dateFrom?.addEventListener('change', applyCustomDateFilter);
-    dateTo?.addEventListener('change',   applyCustomDateFilter);
+    dateFrom?.addEventListener('change',applyDate); dateTo?.addEventListener('change',applyDate);
+    btnAll?.addEventListener('click',()=>{ setActive('all'); currentDateFrom=''; currentDateTo=''; if(dateFrom){dateFrom.value='';dateFrom.min='';dateFrom.max=today;} if(dateTo){dateTo.value='';dateTo.min='';dateTo.max=today;} loadPage(1); });
+    btnToday?.addEventListener('click',()=>{ setActive('today'); currentDateFrom=today; currentDateTo=today; if(dateFrom){dateFrom.value=today;dateFrom.min='';dateFrom.max=today;} if(dateTo){dateTo.value=today;dateTo.min=today;dateTo.max=today;} loadPage(1); });
+    btnYesterday?.addEventListener('click',()=>{ setActive('yesterday'); const y=todayStr(-1); currentDateFrom=y; currentDateTo=y; if(dateFrom){dateFrom.value=y;dateFrom.min='';dateFrom.max=today;} if(dateTo){dateTo.value=y;dateTo.min=y;dateTo.max=today;} loadPage(1); });
+    btnThisWeek?.addEventListener('click',()=>{
+        setActive('week'); const now=new Date(), day=now.getDay(), mon=new Date(now); mon.setDate(now.getDate()-((day+6)%7));
+        const eow=new Date(mon); eow.setDate(mon.getDate()+6); const sun=eow>now?now:eow;
+        const ms=toLocalStr(mon), ss=toLocalStr(sun); currentDateFrom=ms; currentDateTo=ss;
+        if(dateFrom){dateFrom.value=ms;dateFrom.min='';dateFrom.max=ss;} if(dateTo){dateTo.value=ss;dateTo.min=ms;dateTo.max=today;} loadPage(1);
+    });
+    btnCustom?.addEventListener('click',()=>{ setActive('custom'); currentDateFrom=''; currentDateTo=''; if(dateFrom){dateFrom.value='';dateFrom.min='';dateFrom.max=today;} if(dateTo){dateTo.value='';dateTo.min='';dateTo.max=today;} loadPage(1); });
 
-    btnAll?.addEventListener('click', () => {
-        setActiveShortcut('all'); currentDateFrom = ''; currentDateTo = '';
-        if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
-        loadPage(1);
-    });
-    btnToday?.addEventListener('click', () => {
-        setActiveShortcut('today'); currentDateFrom = today; currentDateTo = today;
-        if (dateFrom) { dateFrom.value = today; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = today; dateTo.min   = today; dateTo.max = today; }
-        loadPage(1);
-    });
-    btnYesterday?.addEventListener('click', () => {
-        setActiveShortcut('yesterday');
-        const y = todayStr(-1); currentDateFrom = y; currentDateTo = y;
-        if (dateFrom) { dateFrom.value = y; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = y; dateTo.min   = y;  dateTo.max   = today; }
-        loadPage(1);
-    });
-    btnThisWeek?.addEventListener('click', () => {
-        setActiveShortcut('week');
-        const now = new Date(), day = now.getDay();
-        const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
-        const endOfWeek = new Date(mon); endOfWeek.setDate(mon.getDate() + 6);
-        const sun = endOfWeek > now ? now : endOfWeek;
-        const monStr = toLocalStr(mon), sunStr = toLocalStr(sun);
-        currentDateFrom = monStr; currentDateTo = sunStr;
-        if (dateFrom) { dateFrom.value = monStr; dateFrom.min = ''; dateFrom.max = sunStr; }
-        if (dateTo)   { dateTo.value   = sunStr; dateTo.min   = monStr; dateTo.max = today; }
-        loadPage(1);
-    });
-    btnCustom?.addEventListener('click', () => {
-        setActiveShortcut('custom'); currentDateFrom = ''; currentDateTo = '';
-        if (dateFrom) { dateFrom.value = ''; dateFrom.min = ''; dateFrom.max = today; }
-        if (dateTo)   { dateTo.value   = ''; dateTo.min   = ''; dateTo.max   = today; }
-        loadPage(1);
+    setActive('today'); currentDateFrom=today; currentDateTo=today;
+
+    const searchInput=document.getElementById('searchInput');
+    if (searchInput) { let deb; searchInput.addEventListener('input',function(){ clearTimeout(deb); deb=setTimeout(()=>{ currentSearch=this.value.toLowerCase().trim(); loadPage(1); },300); }); }
+
+    document.querySelectorAll('.filter-tab').forEach(tab=>{
+        tab.addEventListener('click',function(){ document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active')); this.classList.add('active'); currentFilter=this.getAttribute('data-status')||'all'; syncProcessedByVisibility(); loadPage(1); });
     });
 
-    setActiveShortcut('today');
-    currentDateFrom = today;
-    currentDateTo   = today;
-
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        let debounce;
-        searchInput.addEventListener('input', function () {
-            clearTimeout(debounce);
-            debounce = setTimeout(() => { currentSearch = this.value.toLowerCase().trim(); loadPage(1); }, 300);
-        });
-    }
-
-    document.querySelectorAll('.filter-tab').forEach(tab => {
-        tab.addEventListener('click', function () {
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            currentFilter = this.getAttribute('data-status') || 'all';
-            syncProcessedByVisibility();
-            loadPage(1);
-        });
-    });
-
-    // Delegated click handler — paymentModal removed; markAsServed added
     document.addEventListener('click', function (e) {
-        if (e.target.closest('.items-manage-btn')) {
-            const btn = e.target.closest('.items-manage-btn');
-            const row = btn.closest('tr');
-            if (!row) return;
-            openKitchenItemsModal(row.getAttribute('data-order-id'), row.getAttribute('data-order-number'), row.getAttribute('data-status'));
-        }
-        if (e.target.closest('.view-order-btn')) {
-            const btn = e.target.closest('.view-order-btn');
-            viewOrderDetails(btn.dataset.orderId, btn.dataset.orderNumber);
-        }
-        if (e.target.closest('.mark-served-btn')) {
-            const btn = e.target.closest('.mark-served-btn');
-            if (btn.disabled) return;
-            markAsServed(btn.dataset.orderId, btn.dataset.orderNumber, btn);
-        }
-        if (e.target.closest('.cancel-order-btn')) {
-            const btn = e.target.closest('.cancel-order-btn');
-            showCancelOrderModal(btn.dataset.orderId, btn.dataset.orderNumber);
-        }
-        if (e.target.closest('.void-order-btn')) {
-            const btn = e.target.closest('.void-order-btn');
-            if (btn.disabled) return;
-            voidOrder(btn.dataset.orderId, btn.dataset.orderNumber, btn);
-        }
-        if (e.target.closest('.item-status-btn')) {
-            const btn = e.target.closest('.item-status-btn');
-            if (btn.disabled) return;
-            if (btn.classList.contains('item-action-cancel-item') || btn.classList.contains('item-action-void-item')) {
-                cancelVoidOrderItem(
-                    btn.getAttribute('data-order-item-id'),
-                    btn.getAttribute('data-action'),
-                    btn.getAttribute('data-item-name'),
-                    btn
-                );
-                return;
-            }
-            updateItemStatus(btn.getAttribute('data-order-item-id'), btn.getAttribute('data-next-status'), btn);
+        if (e.target.closest('.items-manage-btn')) { const btn=e.target.closest('.items-manage-btn'), row=btn.closest('tr'); if(!row) return; openKitchenItemsModal(row.getAttribute('data-order-id'),row.getAttribute('data-order-number'),row.getAttribute('data-status')); }
+        if (e.target.closest('.view-order-btn'))   { const btn=e.target.closest('.view-order-btn'); viewOrderDetails(btn.dataset.orderId,btn.dataset.orderNumber); }
+        if (e.target.closest('.mark-served-btn'))  { const btn=e.target.closest('.mark-served-btn'); if(!btn.disabled) markAsServed(btn.dataset.orderId,btn.dataset.orderNumber); }
+        if (e.target.closest('.cancel-order-btn')) { const btn=e.target.closest('.cancel-order-btn'); showCancelOrderModal(btn.dataset.orderId,btn.dataset.orderNumber); }
+        if (e.target.closest('.void-order-btn'))   { const btn=e.target.closest('.void-order-btn'); if(!btn.disabled) voidOrder(btn.dataset.orderId,btn.dataset.orderNumber); }
+        if (e.target.closest('.item-status-btn'))  {
+            const btn=e.target.closest('.item-status-btn'); if(btn.disabled) return;
+            if (btn.classList.contains('item-action-cancel-item')||btn.classList.contains('item-action-void-item')) { cancelVoidOrderItem(btn.getAttribute('data-order-item-id'),btn.getAttribute('data-action'),btn.getAttribute('data-item-name'),btn); return; }
+            updateItemStatus(btn.getAttribute('data-order-item-id'),btn.getAttribute('data-next-status'),btn);
         }
     });
 
-    document.addEventListener('visibilitychange', () => {
-        document.hidden ? stopAutoRefresh() : startAutoRefresh();
-    });
-
+    document.addEventListener('visibilitychange',()=>{ document.hidden ? stopAutoRefresh() : startAutoRefresh(); });
     setupModalBackdropCleanup();
 }
 
 // ============================================
 // UTILITIES
 // ============================================
-window.capitalize = function(str) {
-    if (!str) return '';
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-};
-
+window.capitalize    = str => str ? str.charAt(0).toUpperCase()+str.slice(1).toLowerCase() : '';
 window.refreshOrders    = refreshOrders;
 window.startAutoRefresh = startAutoRefresh;
 window.stopAutoRefresh  = stopAutoRefresh;
+window.toggleVoidRefund = toggleVoidRefund;

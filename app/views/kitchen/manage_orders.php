@@ -21,6 +21,86 @@
                              font-size: 10px; line-height: 1.5; color: #000;
                              width: 54mm; padding: 0; background: white; }
 }
+
+/* ── Refund toggle (void modal) ── */
+#voidRefundToggleBtn:hover { background: var(--lavender) !important; }
+#voidRefundAmount:focus {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(214,64,69,0.10);
+}
+#voidRefundAmount.inp-invalid { border-color: var(--danger) !important; }
+#voidRefundAmount.inp-valid   { border-color: var(--success) !important; }
+#voidRefundNote:focus, #voidRefundMethod:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(15,76,92,0.08);
+    outline: none;
+}
+.refund-preset-btn {
+    padding: 0.3rem 0.75rem;
+    border: 1.5px solid var(--border);
+    border-radius: 40px;
+    background: white;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--warm-gray);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+.refund-preset-btn:hover { border-color: var(--danger); color: var(--danger); background: rgba(214,64,69,0.05); }
+.refund-preset-btn.active { background: var(--danger); color: white; border-color: var(--danger); }
+.refund-preset-btn.full   { border-color: rgba(44,122,90,0.5); color: var(--success); background: rgba(44,122,90,0.06); }
+.refund-preset-btn.full:hover, .refund-preset-btn.full.active { background: var(--success); color: white; border-color: var(--success); }
+#voidRefundChevron.open { transform: rotate(180deg); }
+
+/* ── Mark served bell ── */
+#markServedModal .fa-concierge-bell { animation: bellPulse 1.4s ease-in-out infinite; }
+@keyframes bellPulse {
+    0%,100% { transform: rotate(0deg); }
+    20%     { transform: rotate(-14deg); }
+    40%     { transform: rotate(14deg); }
+    60%     { transform: rotate(-8deg); }
+    80%     { transform: rotate(8deg); }
+}
+
+/* ── Refund card in order details (void refund) ── */
+#detailRefundSection .od-payment-title { color: var(--danger); }
+
+/* ── Post-completion Refund Modal ── */
+.refund-type-btn { transition: all 0.15s; }
+.refund-type-btn.active[data-type="full"]    { background: var(--success) !important; color: white !important; border-color: var(--success) !important; }
+.refund-type-btn.active[data-type="partial"] { background: var(--primary) !important; color: white !important; border-color: var(--primary) !important; }
+
+.refund-item-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+    transition: background 0.1s;
+}
+.refund-item-row:last-child { border-bottom: none; }
+.refund-item-row:hover      { background: var(--light-bg); }
+.refund-item-row input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 16px; height: 16px;
+    cursor: pointer; flex-shrink: 0;
+}
+.refund-item-amount {
+    margin-left: auto;
+    padding: 0.25rem 0.5rem;
+    width: 95px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.refund-item-amount:focus         { border-color: var(--primary); }
+.refund-item-amount:not([disabled]) { border-color: var(--primary-light); }
 </style>
 <body>
 
@@ -117,13 +197,6 @@
         <div class="card-body">
             <div class="row g-3 align-items-center">
                 <div class="col-lg-8 col-md-12">
-
-                    <!-- ═══════════════════════════════════════════════════════
-                         PATCH A — Filter tabs
-                         Voided tab is now visible to both admin and cashier.
-                         Admins see all voided orders; cashiers see only their
-                         own (enforced server-side in get_orders.php).
-                    ════════════════════════════════════════════════════════ -->
                     <div class="filter-tabs">
                         <button class="filter-tab active" data-status="all">
                             <i class="fas fa-th me-1"></i> All
@@ -156,7 +229,6 @@
                         </button>
                         <?php endif; ?>
                     </div>
-
                 </div>
                 <div class="col-lg-4 col-md-12">
                     <div class="search-box">
@@ -258,14 +330,8 @@
 </div><!-- /.main-content -->
 
 
-
-
 <!-- ══════════════════════════════════════════
      CANCEL ORDER MODAL
-     PATCH B — reason <select> now empty;
-     options loaded from DB via loadReasons().
-     "Other" textarea hidden by default,
-     revealed by wireReasonDropdown() in JS.
 ══════════════════════════════════════════ -->
 <div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -286,26 +352,19 @@
                         Since the order is <strong>pending</strong>, no stock has been deducted — nothing will be restored.
                     </p>
                 </div>
-
                 <div class="mt-3">
                     <label for="cancelOrderReasonSelect" class="form-label fw-semibold"
                            style="font-size:0.82rem;color:var(--navy);">
                         <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
                         Reason for cancelling <span class="text-danger">*</span>
                     </label>
-                    <select id="cancelOrderReasonSelect"
-                            class="form-select mb-2"
+                    <select id="cancelOrderReasonSelect" class="form-select mb-2"
                             style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
                         <option value="">— Select a reason —</option>
-                        <!-- Populated dynamically by loadReasons('cancel_order', ...) -->
                     </select>
-                    <textarea id="cancelOrderReasonText"
-                              class="form-control"
-                              rows="2"
-                              maxlength="255"
+                    <textarea id="cancelOrderReasonText" class="form-control" rows="2" maxlength="255"
                               placeholder="Describe the reason in more detail…"
-                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"
-                    ></textarea>
+                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"></textarea>
                     <div id="cancelOrderReasonError"
                          style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
                         Please select or enter a reason.
@@ -316,14 +375,198 @@
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-arrow-left me-1"></i> Go Back
                 </button>
-                    <form method="POST" action="index.php?page=manage_orders" id="cancelOrderForm">
-                        <input type="hidden" name="order_id"      id="cancelOrderId">
-                        <input type="hidden" name="cancel_reason" id="cancelOrderReasonHidden">
-                        <input type="hidden" name="cancel_order"  value="1">
-                        <button type="button" id="cancelOrderSubmitBtn" class="btn btn-danger">
+                <form method="POST" action="index.php?page=manage_orders" id="cancelOrderForm">
+                    <input type="hidden" name="order_id"      id="cancelOrderId">
+                    <input type="hidden" name="cancel_reason" id="cancelOrderReasonHidden">
+                    <input type="hidden" name="cancel_order"  value="1">
+                    <button type="button" id="cancelOrderSubmitBtn" class="btn btn-danger">
                         <i class="fas fa-times-circle me-1"></i> Yes, Cancel Order
                     </button>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     VOID ORDER MODAL
+══════════════════════════════════════════ -->
+<div class="modal fade" id="voidOrderModal" tabindex="-1" aria-labelledby="voidOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:500px;">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;border:none;">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="voidOrderModalLabel">
+                    <i class="fas fa-ban me-2" style="color:var(--primary-dark);"></i>
+                    Void Order
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="modal-icon" style="background:rgba(15,76,92,0.10);color:var(--primary-dark);">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <h5 class="mb-1">Void entire Order #<span id="voidOrderNumber"></span>?</h5>
+                    <p class="text-muted mb-0" style="font-size:0.85rem;line-height:1.6;">
+                        All items are ready but the customer will not pay.<br>
+                        <strong>Ingredients are written off as waste</strong> — stock is NOT restored.<br>
+                        Sale total becomes <strong>₱0</strong>.
+                    </p>
+                </div>
+
+                <div class="mb-3">
+                    <label for="voidOrderReasonSelect" class="form-label fw-semibold"
+                           style="font-size:0.82rem;color:var(--navy);">
+                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
+                        Reason for voiding <span class="text-danger">*</span>
+                    </label>
+                    <select id="voidOrderReasonSelect" class="form-select mb-2"
+                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
+                        <option value="">— Select a reason —</option>
+                    </select>
+                    <textarea id="voidOrderReasonText" class="form-control" rows="2" maxlength="255"
+                              placeholder="Describe the reason in more detail…"
+                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"></textarea>
+                    <div id="voidOrderReasonError"
+                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
+                        Please select or enter a reason.
+                    </div>
+                </div>
+
+                <!-- Refund dropdown -->
+                <div id="voidRefundToggleRow"
+                     style="border:1.5px solid var(--border);border-radius:12px;overflow:hidden;">
+                    <button type="button" id="voidRefundToggleBtn"
+                            onclick="toggleVoidRefund()"
+                            style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                                   padding:0.75rem 1rem;background:var(--light-bg);border:none;
+                                   cursor:pointer;font-family:inherit;transition:background 0.15s;">
+                        <div style="display:flex;align-items:center;gap:0.6rem;">
+                            <div style="width:28px;height:28px;background:rgba(214,64,69,0.10);
+                                        border-radius:8px;display:flex;align-items:center;
+                                        justify-content:center;color:var(--danger);font-size:0.85rem;">
+                                <i class="fas fa-rotate-left"></i>
+                            </div>
+                            <div style="text-align:left;">
+                                <div style="font-size:0.85rem;font-weight:700;color:var(--navy);">
+                                    Issue a Refund
+                                    <span style="font-size:0.75rem;font-weight:400;color:var(--warm-gray);margin-left:0.3rem;">(optional)</span>
+                                </div>
+                                <div id="voidRefundPaidHint" style="font-size:0.72rem;color:var(--warm-gray);margin-top:1px;">
+                                    Loading payment info…
+                                </div>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down" id="voidRefundChevron"
+                           style="color:var(--warm-gray);font-size:0.8rem;transition:transform 0.2s;"></i>
+                    </button>
+
+                    <div id="voidRefundPanel" style="display:none;padding:1rem;border-top:1.5px solid var(--border);background:white;">
+                        <div style="margin-bottom:0.75rem;">
+                            <div style="font-size:0.73rem;font-weight:700;color:var(--warm-gray);
+                                        text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.4rem;">
+                                Quick select
+                            </div>
+                            <div id="voidRefundPresets" style="display:flex;gap:0.4rem;flex-wrap:wrap;"></div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;margin-bottom:0.65rem;">
+                            <div>
+                                <label style="font-size:0.75rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.3rem;">
+                                    Refund Amount
+                                </label>
+                                <div style="position:relative;">
+                                    <span style="position:absolute;left:0;top:0;bottom:0;width:34px;
+                                                 display:flex;align-items:center;justify-content:center;
+                                                 font-weight:700;color:var(--warm-gray);font-size:0.9rem;
+                                                 background:var(--light-bg);border-radius:10px 0 0 10px;
+                                                 border:1.5px solid var(--border);border-right:none;">₱</span>
+                                    <input type="number" id="voidRefundAmount"
+                                           min="0" step="0.01" placeholder="0.00"
+                                           style="width:100%;padding:0.5rem 0.6rem 0.5rem 2.2rem;
+                                                  border:1.5px solid var(--border);border-radius:10px;
+                                                  font-size:0.88rem;font-family:inherit;outline:none;transition:border-color 0.15s;">
+                                </div>
+                                <div id="voidRefundError"
+                                     style="font-size:0.72rem;color:var(--danger);margin-top:3px;min-height:1rem;"></div>
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.3rem;">
+                                    Method
+                                </label>
+                                <select id="voidRefundMethod"
+                                        style="width:100%;padding:0.5rem 0.7rem;border:1.5px solid var(--border);border-radius:10px;
+                                               font-size:0.85rem;font-family:inherit;background:white;color:var(--dark);outline:none;">
+                                    <option value="cash">Cash</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:0.5rem;">
+                            <label style="font-size:0.75rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.3rem;">
+                                Note <span style="font-weight:400;color:var(--warm-gray);">(optional)</span>
+                            </label>
+                            <input type="text" id="voidRefundNote" maxlength="200"
+                                   placeholder="e.g. Customer changed mind…"
+                                   style="width:100%;padding:0.5rem 0.7rem;border:1.5px solid var(--border);border-radius:10px;
+                                          font-size:0.83rem;font-family:inherit;outline:none;transition:border-color 0.15s;">
+                        </div>
+
+                        <div id="voidRefundFeedback"
+                             style="display:none;margin-top:0.5rem;padding:0.45rem 0.75rem;border-radius:8px;font-size:0.78rem;font-weight:600;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-arrow-left me-1"></i> Go Back
+                </button>
+                <button type="button" class="btn" id="confirmVoidOrderBtn"
+                        style="background:var(--primary);color:white;" data-order-id="" data-order-number="">
+                    <i class="fas fa-ban me-1"></i> Yes, Void Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     MARK AS SERVED MODAL
+══════════════════════════════════════════ -->
+<div class="modal fade" id="markServedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;border:none;">
+            <div style="background:linear-gradient(135deg,var(--success),#1f5d43);
+                        padding:1.4rem 1.4rem 1rem;text-align:center;">
+                <div style="width:52px;height:52px;background:rgba(255,255,255,0.18);border-radius:16px;
+                             display:flex;align-items:center;justify-content:center;font-size:1.5rem;
+                             color:white;margin:0 auto 0.75rem;">
+                    <i class="fas fa-concierge-bell"></i>
+                </div>
+                <div style="font-size:1rem;font-weight:700;color:white;line-height:1.3;">Mark as Served?</div>
+                <div style="font-size:0.78rem;color:rgba(255,255,255,0.75);margin-top:0.25rem;">
+                    Order #<span id="markServedOrderNumber" style="font-weight:700;"></span>
+                </div>
+            </div>
+            <div class="modal-body text-center" style="padding:1.1rem 1.4rem 0.6rem;">
+                <p class="mb-0 text-muted" style="font-size:0.85rem;line-height:1.6;">
+                    This will mark the order as <strong>completed</strong>.<br>
+                    Payment was already collected at the POS.
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-0 pb-3 gap-2 justify-content-center px-4">
+                <button type="button" class="btn btn-outline-secondary flex-fill"
+                        style="border-radius:12px;" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn flex-fill" id="confirmMarkServedBtn"
+                        style="background:var(--success);color:white;border-radius:12px;font-weight:700;">
+                    <i class="fas fa-check me-1"></i> Yes, Serve It
+                </button>
             </div>
         </div>
     </div>
@@ -372,7 +615,6 @@
             </div>
 
             <div class="modal-body p-0">
-
                 <!-- Loader -->
                 <div id="orderDetailsLoader" class="text-center py-5">
                     <div class="spinner-border" style="color:var(--primary);width:2.2rem;height:2.2rem;" role="status"></div>
@@ -426,15 +668,10 @@
                         </table>
                     </div>
 
-                    <!-- ═══════════════════════════════════════════════════════
-                         PATCH C — od-footer-grid
-                         Added #detailCancelSection alongside the existing
-                         payment and void sections. All three are hidden by
-                         default and revealed by populateOrderDetailsModal().
-                    ════════════════════════════════════════════════════════ -->
+                    <!-- Footer grid -->
                     <div class="od-footer-grid">
 
-                        <!-- Payment info (completed orders) -->
+                        <!-- Payment (completed) -->
                         <div id="detailPaymentSection" class="od-payment-card" style="display:none;">
                             <div class="od-payment-title">
                                 <i class="fas fa-money-bill-wave me-1"></i> Payment
@@ -453,14 +690,13 @@
                             </div>
                             <div class="od-payment-row" id="detailProcessedByRow" style="display:none;">
                                 <span style="color:var(--warm-gray);font-size:0.8rem;">
-                                    <i class="fas fa-shield-halved me-1" style="color:var(--primary-light);"></i>
-                                    Processed by
+                                    <i class="fas fa-shield-halved me-1" style="color:var(--primary-light);"></i> Processed by
                                 </span>
                                 <span id="detailProcessedBy" style="font-size:0.82rem;font-weight:600;color:var(--navy);">—</span>
                             </div>
                         </div>
 
-                        <!-- Cancel audit info (cancelled orders) -->
+                        <!-- Cancel audit -->
                         <div id="detailCancelSection" class="od-payment-card"
                              style="display:none;border-color:rgba(214,64,69,0.2);">
                             <div class="od-payment-title" style="color:var(--danger);">
@@ -479,7 +715,7 @@
                             </div>
                         </div>
 
-                        <!-- Void audit info (voided orders) -->
+                        <!-- Void audit -->
                         <div id="detailVoidSection" class="od-payment-card"
                              style="display:none;border-color:rgba(15,76,92,0.2);">
                             <div class="od-payment-title" style="color:var(--primary-dark);">
@@ -492,8 +728,7 @@
                             </div>
                             <div class="od-payment-row">
                                 <span style="color:var(--warm-gray);font-size:0.8rem;">Waste Cost</span>
-                                <span id="detailWasteCost"
-                                      style="font-size:0.82rem;font-weight:700;color:var(--danger);">—</span>
+                                <span id="detailWasteCost" style="font-size:0.82rem;font-weight:700;color:var(--danger);">—</span>
                             </div>
                             <div class="od-payment-row">
                                 <span style="color:var(--warm-gray);font-size:0.8rem;">Stock impact</span>
@@ -503,7 +738,48 @@
                             </div>
                         </div>
 
-                        <!-- Totals breakdown -->
+                        <!-- Void refund (payments table, pre-completion) -->
+                        <div id="detailRefundSection" class="od-payment-card"
+                             style="display:none;border-color:rgba(214,64,69,0.2);">
+                            <div class="od-payment-title" style="color:var(--danger);">
+                                <i class="fas fa-rotate-left me-1"></i> Refund Issued (Void)
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Amount Refunded</span>
+                                <span id="detailRefundAmount"
+                                      style="font-size:0.9rem;font-weight:800;color:var(--danger);">—</span>
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Method</span>
+                                <span id="detailRefundMethod" style="font-size:0.82rem;font-weight:600;color:var(--navy);">—</span>
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.8rem;">Note</span>
+                                <span id="detailRefundNote"
+                                      style="font-size:0.8rem;color:var(--warm-gray);max-width:55%;text-align:right;">—</span>
+                            </div>
+                            <div class="od-payment-row">
+                                <span style="color:var(--warm-gray);font-size:0.75rem;">Audit</span>
+                                <span style="font-size:0.72rem;color:var(--warm-gray);">Logged in payments table</span>
+                            </div>
+                        </div>
+
+                        <!-- Post-completion refunds (refunds table) -->
+                        <div id="detailRefundsHistorySection" class="od-payment-card"
+                             style="display:none;border-color:rgba(214,64,69,0.2);">
+                            <div class="od-payment-title" style="color:var(--danger);">
+                                <i class="fas fa-rotate-left me-1"></i> Refunds Issued
+                            </div>
+                            <div id="detailRefundsList"></div>
+                            <div class="od-payment-row"
+                                 style="border-top:1.5px solid rgba(214,64,69,0.15);margin-top:6px;padding-top:8px;">
+                                <span style="font-weight:700;color:var(--navy);">Total Refunded</span>
+                                <span id="detailRefundsTotalAmount"
+                                      style="font-weight:800;color:var(--danger);font-size:0.95rem;">₱0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Totals -->
                         <div class="od-totals-card">
                             <div class="od-totals-row">
                                 <span>Subtotal (excl. VAT)</span>
@@ -520,7 +796,6 @@
                         </div>
 
                     </div><!-- /.od-footer-grid -->
-
                 </div><!-- /#orderDetailsContent -->
 
                 <!-- Error -->
@@ -532,13 +807,214 @@
             </div>
 
             <div class="modal-footer"
-                 style="border-top:1px solid var(--border);padding:1.1rem 1.6rem;border-radius:0 0 24px 24px;">
+                 style="border-top:1px solid var(--border);padding:1.1rem 1.6rem;border-radius:0 0 24px 24px;gap:0.5rem;flex-wrap:wrap;">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Close
                 </button>
                 <a id="printReceiptBtn" href="#" target="_blank" class="btn btn-primary" style="display:none;">
                     <i class="fas fa-print me-1"></i> Print Receipt
                 </a>
+                <?php if (hasRole('admin')): ?>
+                <button type="button" id="refundOrderBtn"
+                        style="display:none;background:var(--success);color:white;border:none;border-radius:8px;
+                               padding:0.5rem 1.1rem;font-size:0.85rem;font-weight:700;font-family:inherit;
+                               cursor:pointer;align-items:center;gap:0.4rem;">
+                    <i class="fas fa-rotate-left me-1"></i> Issue Refund
+                </button>
+                <?php endif; ?>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     CANCEL / VOID ITEM MODAL
+══════════════════════════════════════════ -->
+<div class="modal fade" id="cancelVoidItemModal" tabindex="-1" aria-labelledby="cancelVoidItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelVoidItemModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="modal-icon" id="cancelVoidItemIcon"></div>
+                    <h5 class="mb-2" id="cancelVoidItemHeading"></h5>
+                    <p class="text-muted mb-0" id="cancelVoidItemBody" style="font-size:0.88rem;line-height:1.6;"></p>
+                </div>
+                <div class="mt-3">
+                    <label for="cancelVoidItemReasonSelect" class="form-label fw-semibold"
+                           style="font-size:0.82rem;color:var(--navy);">
+                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
+                        Reason <span class="text-danger">*</span>
+                    </label>
+                    <select id="cancelVoidItemReasonSelect" class="form-select mb-2"
+                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
+                        <option value="">— Select a reason —</option>
+                    </select>
+                    <textarea id="cancelVoidItemReasonText" class="form-control" rows="2" maxlength="255"
+                              placeholder="Describe the reason in more detail…"
+                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"></textarea>
+                    <div id="cancelVoidItemReasonError"
+                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
+                        Please select or enter a reason.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-arrow-left me-1"></i> Go Back
+                </button>
+                <button type="button" class="btn" id="confirmCancelVoidItemBtn"
+                        data-order-item-id="" data-action="" data-item-name=""></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     POST-COMPLETION REFUND MODAL (admin only)
+══════════════════════════════════════════ -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:520px;">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;border:none;">
+
+            <div class="modal-header" style="background:linear-gradient(135deg,var(--success),#1f5d43);padding:1.2rem 1.6rem;">
+                <h5 class="modal-title" style="color:white;display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fas fa-rotate-left" style="color:rgba(255,255,255,0.85);"></i>
+                    Issue Refund — Order #<span id="refundModalOrderNumber" style="font-weight:500;opacity:0.85;"></span>
+                </h5>
+                <button type="button" class="btn-close" style="filter:brightness(0) invert(1);" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body" style="padding:1.4rem 1.6rem;">
+
+                <!-- Summary strip -->
+                <div id="refundOrderSummary"
+                     style="background:var(--light-bg);border-radius:12px;padding:0.75rem 1rem;
+                            margin-bottom:1.1rem;font-size:0.83rem;display:flex;
+                            justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                    <div>
+                        <span style="color:var(--warm-gray);">Order Total</span>
+                        <strong id="refundOrderTotal" style="color:var(--navy);margin-left:0.4rem;">₱0.00</strong>
+                    </div>
+                    <div>
+                        <span style="color:var(--warm-gray);">Already Refunded</span>
+                        <strong id="refundAlreadyRefunded" style="color:var(--danger);margin-left:0.4rem;">₱0.00</strong>
+                    </div>
+                    <div>
+                        <span style="color:var(--warm-gray);">Remaining</span>
+                        <strong id="refundRemaining" style="color:var(--success);margin-left:0.4rem;">₱0.00</strong>
+                    </div>
+                </div>
+
+                <!-- Type toggle -->
+                <div style="margin-bottom:1rem;">
+                    <label style="font-size:0.8rem;font-weight:700;color:var(--navy);text-transform:uppercase;
+                                  letter-spacing:0.4px;display:block;margin-bottom:0.5rem;">Refund Type</label>
+                    <div style="display:flex;gap:0.5rem;">
+                        <button type="button" class="refund-type-btn active" data-type="full"
+                                style="flex:1;padding:0.55rem;border-radius:10px;font-size:0.83rem;
+                                       font-weight:700;border:2px solid var(--success);
+                                       background:var(--success);color:white;cursor:pointer;font-family:inherit;">
+                            <i class="fas fa-check-double me-1"></i> Full Refund
+                        </button>
+                        <button type="button" class="refund-type-btn" data-type="partial"
+                                style="flex:1;padding:0.55rem;border-radius:10px;font-size:0.83rem;
+                                       font-weight:700;border:2px solid var(--border);
+                                       background:white;color:var(--navy);cursor:pointer;font-family:inherit;">
+                            <i class="fas fa-list-check me-1"></i> Partial (per item)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Full panel -->
+                <div id="refundFullPanel">
+                    <div style="background:rgba(44,122,90,0.07);border:1.5px solid rgba(44,122,90,0.25);
+                                border-radius:12px;padding:0.85rem 1rem;font-size:0.85rem;
+                                color:var(--success);font-weight:600;text-align:center;">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Refund of <span id="refundFullAmount" style="font-size:1rem;">₱0.00</span> will be issued.
+                    </div>
+                </div>
+
+                <!-- Partial panel -->
+                <div id="refundPartialPanel" style="display:none;">
+                    <div style="font-size:0.78rem;font-weight:700;color:var(--warm-gray);
+                                text-transform:uppercase;letter-spacing:0.4px;margin-bottom:0.5rem;">
+                        Select items to refund
+                    </div>
+                    <div id="refundItemsList"
+                         style="border:1.5px solid var(--border);border-radius:12px;overflow:hidden;"></div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:0.5rem;
+                                font-size:0.82rem;color:var(--warm-gray);">
+                        Selected total:
+                        <strong id="refundPartialTotal" style="color:var(--danger);margin-left:0.3rem;">₱0.00</strong>
+                    </div>
+                </div>
+
+                <!-- Reason -->
+                <div style="margin-top:1rem;">
+                    <label style="font-size:0.8rem;font-weight:700;color:var(--navy);display:block;margin-bottom:0.4rem;">
+                        Reason <span class="text-danger">*</span>
+                    </label>
+                    <select id="refundReasonSelect"
+                            style="width:100%;padding:0.55rem 0.75rem;border:1.5px solid var(--border);
+                                   border-radius:10px;font-size:0.85rem;font-family:inherit;
+                                   background:white;color:var(--dark);outline:none;margin-bottom:0.5rem;">
+                        <option value="">— Select a reason —</option>
+                        <option value="Customer complaint">Customer complaint</option>
+                        <option value="Wrong item served">Wrong item served</option>
+                        <option value="Quality issue">Quality issue</option>
+                        <option value="Overcharge">Overcharge</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <textarea id="refundReasonText" rows="2" maxlength="255"
+                              placeholder="Additional details (optional)…"
+                              style="width:100%;padding:0.55rem 0.75rem;border:1.5px solid var(--border);
+                                     border-radius:10px;font-size:0.83rem;font-family:inherit;
+                                     resize:none;outline:none;display:none;"></textarea>
+                    <div id="refundReasonError"
+                         style="display:none;font-size:0.76rem;color:var(--danger);margin-top:3px;">
+                        Please select a reason.
+                    </div>
+                </div>
+
+                <!-- Method -->
+                <div style="margin-top:0.75rem;">
+                    <label style="font-size:0.8rem;font-weight:700;color:var(--navy);display:block;margin-bottom:0.4rem;">
+                        Refund Method
+                    </label>
+                    <select id="refundMethod"
+                            style="width:100%;padding:0.55rem 0.75rem;border:1.5px solid var(--border);
+                                   border-radius:10px;font-size:0.85rem;font-family:inherit;
+                                   background:white;color:var(--dark);outline:none;">
+                        <option value="cash">Cash</option>
+                    </select>
+                </div>
+
+                <!-- Error -->
+                <div id="refundModalError"
+                     style="display:none;margin-top:0.85rem;padding:0.6rem 0.85rem;
+                            background:rgba(214,64,69,0.08);border:1.5px solid rgba(214,64,69,0.25);
+                            border-radius:10px;font-size:0.82rem;color:var(--danger);font-weight:600;"></div>
+
+            </div>
+
+            <div class="modal-footer" style="padding:1rem 1.6rem;border-top:1px solid var(--border);">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </button>
+                <button type="button" id="confirmRefundBtn"
+                        style="background:var(--success);color:white;border:none;border-radius:10px;
+                               padding:0.55rem 1.3rem;font-size:0.88rem;font-weight:700;
+                               font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:0.4rem;">
+                    <i class="fas fa-rotate-left"></i> Confirm Refund
+                </button>
             </div>
 
         </div>
@@ -567,6 +1043,8 @@
 <?php unset($_SESSION['success']); ?>
 <?php endif; ?>
 
+
+<!-- FINAL RECEIPT MODAL -->
 <div class="modal fade" id="finalReceiptModal" tabindex="-1" aria-labelledby="finalReceiptModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:420px;">
         <div class="modal-content" style="border-radius:20px;overflow:hidden;">
@@ -579,19 +1057,15 @@
                     <span id="finalReceiptOrderNumber"
                           style="font-weight:500;opacity:0.7;font-size:0.88rem;margin-left:4px;"></span>
                 </h5>
-                <button type="button" class="btn-close"
-                        style="filter:brightness(0) invert(1);"
+                <button type="button" class="btn-close" style="filter:brightness(0) invert(1);"
                         data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:1.2rem;background:#f5f5f0;">
-                <!-- 58mm receipt paper -->
                 <div id="finalReceiptPrintArea"
                      style="background:white;font-family:'Courier New',Courier,monospace;
                             font-size:11px;line-height:1.55;color:#000;
                             padding:1rem;border:1px dashed #ccc;border-radius:8px;
-                            max-height:480px;overflow-y:auto;">
-                    <!-- Populated by printFinalReceipt() in manage_orders.js -->
-                </div>
+                            max-height:480px;overflow-y:auto;"></div>
                 <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:1rem;">
                     <button class="btn btn-primary" onclick="window.print()"
                             style="border-radius:12px;font-weight:700;display:flex;align-items:center;gap:0.5rem;">
@@ -602,137 +1076,6 @@
                         <i class="fas fa-times me-1"></i> Close
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- ══════════════════════════════════════════
-     VOID ORDER MODAL
-     PATCH D — reason <select> now empty;
-     options loaded from DB via loadReasons().
-     "Other" textarea hidden by default,
-     revealed by wireReasonDropdown() in JS.
-══════════════════════════════════════════ -->
-<div class="modal fade" id="voidOrderModal" tabindex="-1" aria-labelledby="voidOrderModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="voidOrderModalLabel">
-                    <i class="fas fa-ban me-2" style="color:var(--primary-dark);"></i>
-                    Void Order
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center mb-3">
-                    <div class="modal-icon" style="background:rgba(15,76,92,0.10);color:var(--primary-dark);">
-                        <i class="fas fa-ban"></i>
-                    </div>
-                    <h5 class="mb-2">Void entire Order #<span id="voidOrderNumber"></span>?</h5>
-                    <p class="text-muted mb-0" style="font-size:0.88rem;line-height:1.6;">
-                        All items are ready but the customer will not pay.<br>
-                        <strong>Ingredients are written off as waste</strong> — stock is NOT restored.<br>
-                        Sale total becomes <strong>₱0</strong>. Waste cost is tracked for accounting.
-                    </p>
-                </div>
-
-                <div class="mt-3">
-                    <label for="voidOrderReasonSelect" class="form-label fw-semibold"
-                           style="font-size:0.82rem;color:var(--navy);">
-                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
-                        Reason for voiding <span class="text-danger">*</span>
-                    </label>
-                    <select id="voidOrderReasonSelect"
-                            class="form-select mb-2"
-                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
-                        <option value="">— Select a reason —</option>
-                        <!-- Populated dynamically by loadReasons('void_order', ...) -->
-                    </select>
-                    <textarea id="voidOrderReasonText"
-                              class="form-control"
-                              rows="2"
-                              maxlength="255"
-                              placeholder="Describe the reason in more detail…"
-                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"
-                    ></textarea>
-                    <div id="voidOrderReasonError"
-                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
-                        Please select or enter a reason.
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-arrow-left me-1"></i> Go Back
-                </button>
-                <button type="button" class="btn" id="confirmVoidOrderBtn"
-                        style="background:var(--primary);color:white;"
-                        data-order-id="" data-order-number="">
-                    <i class="fas fa-ban me-1"></i> Yes, Void Order
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ══════════════════════════════════════════
-     CANCEL / VOID ITEM MODAL
-     PATCH E — reason <select> now empty;
-     options loaded from DB via loadReasons()
-     when modal opens (cancel_item vs void_item).
-     "Other" textarea hidden by default.
-══════════════════════════════════════════ -->
-<div class="modal fade" id="cancelVoidItemModal" tabindex="-1" aria-labelledby="cancelVoidItemModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="cancelVoidItemModalLabel">
-                    <!-- injected by JS -->
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center mb-3">
-                    <div class="modal-icon" id="cancelVoidItemIcon"></div>
-                    <h5 class="mb-2" id="cancelVoidItemHeading"></h5>
-                    <p class="text-muted mb-0" id="cancelVoidItemBody"
-                       style="font-size:0.88rem;line-height:1.6;"></p>
-                </div>
-
-                <div class="mt-3">
-                    <label for="cancelVoidItemReasonSelect" class="form-label fw-semibold"
-                           style="font-size:0.82rem;color:var(--navy);">
-                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
-                        Reason <span class="text-danger">*</span>
-                    </label>
-                    <select id="cancelVoidItemReasonSelect"
-                            class="form-select mb-2"
-                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
-                        <option value="">— Select a reason —</option>
-                        <!-- Populated dynamically by loadReasons('cancel_item' | 'void_item', ...) -->
-                    </select>
-                    <textarea id="cancelVoidItemReasonText"
-                              class="form-control"
-                              rows="2"
-                              maxlength="255"
-                              placeholder="Describe the reason in more detail…"
-                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"
-                    ></textarea>
-                    <div id="cancelVoidItemReasonError"
-                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
-                        Please select or enter a reason.
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-arrow-left me-1"></i> Go Back
-                </button>
-                <button type="button" class="btn" id="confirmCancelVoidItemBtn"
-                        data-order-item-id="" data-action="" data-item-name="">
-                    <!-- label injected by JS -->
-                </button>
             </div>
         </div>
     </div>
