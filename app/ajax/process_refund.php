@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/ingredientsHelper.php';
 
 header('Content-Type: application/json');
 
@@ -78,8 +79,8 @@ try {
         $refundAmount = $remainingCap;
 
         $ins = $pdo->prepare("
-            INSERT INTO refunds (order_id, order_item_id, amount, reason, refund_method, processed_by)
-            VALUES (?, NULL, ?, ?, ?, ?)
+            INSERT INTO refunds (order_id, order_item_id, amount, reason, refund_method, refund_type, processed_by)
+            VALUES (?, NULL, ?, ?, ?, 'void_order', ?)
         ");
         $ins->execute([$order_id, $refundAmount, $reason, $refund_method, (int) $_SESSION['user_id']]);
         $insertedRefunds[] = [
@@ -87,6 +88,8 @@ try {
             'order_item_id' => null,
             'amount'        => $refundAmount,
         ];
+        
+        $totalRefunded = $refundAmount;
     } else {
         // ── Partial refund ──────────────────────────────
         $selectedItems = json_decode($items_json, true);
@@ -149,8 +152,8 @@ try {
 
             // Insert refund
             $ins = $pdo->prepare("
-                INSERT INTO refunds (order_id, order_item_id, amount, reason, refund_method, processed_by)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO refunds (order_id, order_item_id, amount, reason, refund_method, refund_type, processed_by)
+                VALUES (?, ?, ?, ?, ?, 'post_sale', ?)
             ");
             $ins->execute([$order_id, $oi_id, $amount, $reason, $refund_method, (int) $_SESSION['user_id']]);
 
@@ -162,10 +165,150 @@ try {
         }
 
         $totalRefunded = array_sum(array_column($insertedRefunds, 'amount'));
+
     }
 
-    if (empty($totalRefunded)) {
-        $totalRefunded = array_sum(array_column($insertedRefunds, 'amount'));
+    // ── Calculate and record waste cost for refunded items ─────────────────────
+    $totalWasteCost = 0;
+    $wasteItems = [];
+    
+    if ($refund_type === 'full') {
+        // For full refunds, calculate waste for all completed items
+        $wasteItemsStmt = $pdo->prepare("
+            SELECT
+                oi.order_item_id,
+                oi.item_id,
+                oi.variant_id,
+                oi.quantity,
+                oi.item_name_snapshot,
+                COALESCE(mv.cost_price, mi.cost_price) AS unit_cost
+            FROM order_items oi
+            JOIN menu_items mi ON oi.item_id = mi.item_id
+            LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
+            WHERE oi.order_id = ? AND oi.status = 'completed'
+        ");
+        $wasteItemsStmt->execute([$order_id]);
+        $wasteItemsData = $wasteItemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("DEBUG: Found " . count($wasteItemsData) . " completed items for full refund");
+        
+        // Pre-fetch addon costs
+        $addonCostStmt = $pdo->prepare("
+            SELECT
+                oia.order_item_id,
+                COALESCE(SUM(a.price * oia.quantity), 0) AS addon_cost
+            FROM order_item_addons oia
+            JOIN addons a ON oia.addon_id = a.addon_id
+            WHERE oia.order_item_id IN (
+                SELECT order_item_id FROM order_items
+                WHERE order_id = ? AND status = 'completed'
+            )
+            GROUP BY oia.order_item_id
+        ");
+        $addonCostStmt->execute([$order_id]);
+        $addonCosts = [];
+        foreach ($addonCostStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $addonCosts[$row['order_item_id']] = (float) $row['addon_cost'];
+        }
+        
+        foreach ($wasteItemsData as $item) {
+            $baseCost = round((float) $item['unit_cost'] * (int) $item['quantity'], 2);
+            $addonCost = round($addonCosts[$item['order_item_id']] ?? 0, 2);
+            $itemCost = $baseCost + $addonCost;
+            $totalWasteCost += $itemCost;
+            
+            error_log("DEBUG: Item {$item['order_item_id']} - base: $baseCost, addon: $addonCost, total: $itemCost");
+            
+            // Update item with waste cost
+            $updateStmt = $pdo->prepare("
+                UPDATE order_items
+                SET waste_cost = ?
+                WHERE order_item_id = ?
+            ");
+            $updateStmt->execute([$itemCost, $item['order_item_id']]);
+            
+            $wasteItems[] = [
+                'order_item_id' => $item['order_item_id'],
+                'item' => $item['item_name_snapshot'] ?? ('Item #' . $item['order_item_id']),
+                'qty' => (int) $item['quantity'],
+                'base_cost' => $baseCost,
+                'addon_cost' => $addonCost,
+                'waste_cost' => $itemCost,
+            ];
+        }
+    } else {
+        // For partial refunds, calculate waste only for refunded items
+        error_log("DEBUG: Processing partial refund with " . count($insertedRefunds) . " refunded items");
+        
+        foreach ($insertedRefunds as $refund) {
+            if ($refund['order_item_id'] === null) continue;
+            
+            $wasteItemStmt = $pdo->prepare("
+                SELECT
+                    oi.order_item_id,
+                    oi.item_id,
+                    oi.variant_id,
+                    oi.quantity,
+                    oi.item_name_snapshot,
+                    COALESCE(mv.cost_price, mi.cost_price) AS unit_cost
+                FROM order_items oi
+                JOIN menu_items mi ON oi.item_id = mi.item_id
+                LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
+                WHERE oi.order_item_id = ? AND oi.status = 'completed'
+            ");
+            $wasteItemStmt->execute([$refund['order_item_id']]);
+            $item = $wasteItemStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($item) {
+                // Get addon cost for this item
+                $addonCostStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(a.price * oia.quantity), 0) AS addon_cost
+                    FROM order_item_addons oia
+                    JOIN addons a ON oia.addon_id = a.addon_id
+                    WHERE oia.order_item_id = ?
+                ");
+                $addonCostStmt->execute([$item['order_item_id']]);
+                $addonCost = (float) $addonCostStmt->fetchColumn();
+                
+                $baseCost = round((float) $item['unit_cost'] * (int) $item['quantity'], 2);
+                $itemCost = $baseCost + $addonCost;
+                $totalWasteCost += $itemCost;
+                
+                error_log("DEBUG: Partial refund item {$item['order_item_id']} - base: $baseCost, addon: $addonCost, total: $itemCost");
+                
+                // Update item with waste cost
+                $updateStmt = $pdo->prepare("
+                    UPDATE order_items
+                    SET waste_cost = ?
+                    WHERE order_item_id = ?
+                ");
+                $updateStmt->execute([$itemCost, $item['order_item_id']]);
+                
+                $wasteItems[] = [
+                    'order_item_id' => $item['order_item_id'],
+                    'item' => $item['item_name_snapshot'] ?? ('Item #' . $item['order_item_id']),
+                    'qty' => (int) $item['quantity'],
+                    'base_cost' => $baseCost,
+                    'addon_cost' => $addonCost,
+                    'waste_cost' => $itemCost,
+                ];
+            } else {
+                error_log("DEBUG: No completed item found for order_item_id: {$refund['order_item_id']}");
+            }
+        }
+    }
+    
+    // Update order waste total
+    if ($totalWasteCost > 0) {
+        $updateOrderStmt = $pdo->prepare("
+            UPDATE orders
+            SET waste_total = COALESCE(waste_total, 0) + ?
+            WHERE order_id = ?
+        ");
+        $updateOrderStmt->execute([$totalWasteCost, $order_id]);
+        error_log("DEBUG: Updated order waste_total with: $totalWasteCost");
+    } else {
+        error_log("DEBUG: No waste cost to update (totalWasteCost = 0)");
     }
 
     // ── Audit log ─────────────────────────────────────
@@ -185,6 +328,9 @@ try {
             'total_refunded'   => $totalRefunded,
             'already_refunded' => $alreadyRefunded,
             'order_total'      => $orderTotal,
+            'waste_items'      => $wasteItems,
+            'total_waste_cost' => $totalWasteCost,
+            'stock_note'       => 'Ingredients already consumed — stock NOT restored. Cost written off as waste.',
         ]),
         $_SERVER['REMOTE_ADDR'] ?? null,
     ]);
@@ -200,6 +346,8 @@ try {
         'already_refunded' => $alreadyRefunded,
         'order_total'      => $orderTotal,
         'refunds'          => $insertedRefunds,
+        'waste_items'      => $wasteItems,
+        'total_waste_cost' => $totalWasteCost,
     ]);
 
 } catch (Exception $e) {

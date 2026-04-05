@@ -994,7 +994,29 @@
                                    border-radius:10px;font-size:0.85rem;font-family:inherit;
                                    background:white;color:var(--dark);outline:none;">
                         <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="bank-transfer">Bank Transfer</option>
                     </select>
+                </div>
+
+                <!-- Waste Cost Information -->
+                <div id="refundWasteInfo" style="display:none;margin-top:0.75rem;">
+                    <div style="background:rgba(255,107,74,0.08);border:1.5px solid rgba(255,107,74,0.25);
+                                border-radius:12px;padding:0.85rem 1rem;font-size:0.83rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                            <i class="fas fa-trash-alt" style="color:var(--secondary);"></i>
+                            <strong style="color:var(--secondary);">Waste Cost Calculation</strong>
+                        </div>
+                        <div id="refundWasteItems" style="margin-bottom:0.5rem;color:var(--dark);"></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="color:var(--warm-gray);font-weight:600;">Total Waste Cost:</span>
+                            <strong id="refundTotalWasteCost" style="color:var(--secondary);font-size:0.95rem;">₱0.00</strong>
+                        </div>
+                        <div style="margin-top:0.4rem;font-size:0.76rem;color:var(--warm-gray);">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Ingredients already consumed — cost written off as waste
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Error -->

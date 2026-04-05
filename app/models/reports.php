@@ -3,19 +3,22 @@
  * reports_model.php  – v6 (waste-aware)
  *
  * KEY RULES & FORMULAS:
- *  - Revenue = orders.total_amount (recalculated after items cancelled/voided to exclude them)
+ *  - Gross Revenue = SUM(unit_price * quantity) for sold items (status NOT IN 'cancelled','voided')
+ *  - Net Revenue = Gross Revenue - Total Refunds (after accounting for refunds)
  *  - COGS = SUM((unit_price - cost_price) * qty) for sold items (status NOT IN 'cancelled','voided')
- *  - Gross Profit = Revenue - COGS (always positive if calculated on sold items only)
- *  - Waste = SUM(waste_cost) for voided items only (NULL for cancelled items)
+ *  - Gross Profit = Net Revenue - COGS (always positive if calculated on sold items only)
+ *  - Waste = SUM(waste_cost) for voided and refunded completed items (NULL for cancelled items)
  *  - Net Profit = Gross Profit - Waste (after accounting for spoilage/waste)
  *  - VAT = total_amount - (total_amount / 1.12) [12% inclusive VAT, separate from profit]
  *
  * ITEM STATUS LOGIC:
  *  - "cancelled" items: were pending (never prepared) → no waste recorded (waste_cost = NULL)
  *  - "voided" items:    were ready (prepared) → waste cost recorded including addon costs
+ *  - "completed" items with waste_cost: refunded items → waste cost recorded including addon costs
  *
  * IMPORTANT: orders.total_amount is dynamically updated when items are voided/cancelled.
  * This ensures Revenue is always calculated from sold items only, never from deleted items.
+ * Refunds are tracked separately in the refunds table and subtracted to calculate Net Revenue.
  */
 
 // ============================================================
@@ -31,68 +34,62 @@ function vat_amount(float $total): float    { return $total - vat_exclusive($tot
 function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): array
 {
     $cid_clause  = $cashier_id !== null ? 'AND o.cashier_id = :cid'   : '';
-    $cid_clause2 = $cashier_id !== null ? 'AND cashier_id   = :cid_w' : '';
+    $cid_clause2 = $cashier_id !== null ? 'AND o_w.cashier_id = :cid_w' : '';
+    $cid_clause3 = $cashier_id !== null ? 'AND r.cashier_id = :cid_r' : '';
 
     $stmt = $pdo->prepare("
         SELECT
-            COUNT(o.order_id)                                        AS total_orders,
-            COALESCE(SUM(o.subtotal), 0)                             AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                             AS total_discounts,
-            COALESCE(SUM(o.total_amount), 0)                         AS net_revenue,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS net_revenue_excl_vat,
+            COUNT(o.order_id) AS total_orders,
+            COALESCE(SUM(oi_c.unit_price * oi_c.quantity), 0) AS gross_revenue,
+            COALESCE(SUM(o.discount), 0) AS total_discounts,
+            COALESCE(SUM(o.total_amount), 0) AS net_revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0) AS net_revenue_excl_vat,
             COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS total_vat_collected,
-            COALESCE(AVG(o.total_amount), 0)                         AS avg_order_value,
-            COUNT(DISTINCT o.cashier_id)                             AS active_cashiers,
-            /* gross_profit = revenue − COGS on completed items */
-            COALESCE(SUM(
-                (oi_c.unit_price - COALESCE(mv_c.cost_price, mi_c.cost_price))
-                * oi_c.quantity
-            ), 0)                                                    AS gross_profit,
-            (
-                SELECT COUNT(*)
-                FROM orders c2
-                WHERE DATE(c2.created_at) = :date_c
-                  AND c2.status = 'cancelled'
-                  $cid_clause
-            ) AS cancelled_orders,
-            /* waste = sum of ingredient cost for voided items on this date */
+            COALESCE(AVG(o.total_amount), 0) AS avg_order_value,
+            COUNT(DISTINCT o.cashier_id) AS active_cashiers,
+            COALESCE(SUM((oi_c.unit_price - COALESCE(mv_c.cost_price, mi_c.cost_price)) * oi_c.quantity), 0) AS gross_profit,
             (
                 SELECT COALESCE(SUM(oi_w.waste_cost), 0)
                 FROM order_items oi_w
                 JOIN orders o_w ON oi_w.order_id = o_w.order_id
-                WHERE oi_w.status    = 'voided'
+                WHERE oi_w.status IN ('voided', 'completed')
                   AND oi_w.waste_cost IS NOT NULL
                   AND DATE(o_w.created_at) = :date_w
                   $cid_clause2
-            ) AS total_waste_cost
+            ) AS total_waste_cost,
+            (
+                SELECT COALESCE(SUM(r.amount), 0)
+                FROM refunds r
+                WHERE DATE(r.created_at) = :date_r
+                  $cid_clause3
+            ) AS total_refunds
         FROM orders o
         LEFT JOIN order_items oi_c
-            ON  oi_c.order_id = o.order_id
+            ON oi_c.order_id = o.order_id
             AND oi_c.status NOT IN ('cancelled', 'voided')
-        LEFT JOIN menu_items    mi_c ON oi_c.item_id    = mi_c.item_id
+        LEFT JOIN menu_items mi_c ON oi_c.item_id = mi_c.item_id
         LEFT JOIN menu_variants mv_c ON oi_c.variant_id = mv_c.variant_id
         WHERE o.status = 'completed'
           AND DATE(o.completed_at) = :date
           $cid_clause
     ");
 
-    $params = [':date' => $date, ':date_c' => $date, ':date_w' => $date];
+    $params = [':date' => $date, ':date_w' => $date, ':date_r' => $date];
     if ($cashier_id !== null) {
-        $params[':cid']   = $cashier_id;
+        $params[':cid'] = $cashier_id;
         $params[':cid_w'] = $cashier_id;
+        $params[':cid_r'] = $cashier_id;
     }
 
     $stmt->execute($params);
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // net_profit = gross_profit − waste
-    $row['net_profit'] = round(
-        (float)($row['gross_profit'] ?? 0) - (float)($row['total_waste_cost'] ?? 0),
-        2
-    );
-
+    // Calculate net revenue after refunds
+    $row['net_revenue_after_refunds'] = round((float)$row['net_revenue'] - (float)$row['total_refunds'], 2);
+    $row['net_profit'] = round((float)$row['gross_profit'] - (float)$row['total_waste_cost'], 2);
     return $row;
 }
+
 
 // ============================================================
 // CLOSE-OUT  (waste + net_profit added)
@@ -155,16 +152,28 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
         SELECT COALESCE(SUM(oi.waste_cost), 0) AS total_waste_cost
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE oi.status      = 'voided'
-          AND oi.waste_cost   IS NOT NULL
-          AND o.cashier_id   = :cid
+        WHERE oi.status IN ('voided', 'completed')
+          AND oi.waste_cost IS NOT NULL
+          AND o.cashier_id = :cid
           AND DATE(o.created_at) = :date
     ");
     $stmt3->execute([':cid' => $cashier_id, ':date' => $date]);
     $waste = (float) $stmt3->fetchColumn();
 
+    // Refunds: total refunds processed on this date by this cashier
+    $stmt4 = $pdo->prepare("
+        SELECT COALESCE(SUM(r.amount), 0) AS total_refunds
+        FROM refunds r
+        WHERE r.cashier_id = :cid
+          AND DATE(r.created_at) = :date
+    ");
+    $stmt4->execute([':cid' => $cashier_id, ':date' => $date]);
+    $refunds = (float) $stmt4->fetchColumn();
+
     $merged                    = array_merge($summary, $cash);
     $merged['total_waste_cost'] = $waste;
+    $merged['total_refunds'] = $refunds;
+    $merged['net_sales_after_refunds'] = round((float)($merged['net_sales'] ?? 0) - $refunds, 2);
 
     return $merged;
 }
@@ -176,54 +185,52 @@ function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
 {
     $stmt = $pdo->prepare("
         SELECT
-            COUNT(o.order_id)                                        AS total_orders,
-            COALESCE(SUM(o.subtotal), 0)                             AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                             AS total_discounts,
-            COALESCE(SUM(o.total_amount), 0)                         AS net_revenue,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS net_revenue_excl_vat,
+            COUNT(o.order_id) AS total_orders,
+            COALESCE(SUM(oi_c.unit_price * oi_c.quantity), 0) AS gross_revenue,
+            COALESCE(SUM(o.discount), 0) AS total_discounts,
+            COALESCE(SUM(o.total_amount), 0) AS net_revenue,
+            COALESCE(SUM(o.total_amount / 1.12), 0) AS net_revenue_excl_vat,
             COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS total_vat_collected,
-            COALESCE(AVG(o.total_amount), 0)                         AS avg_order_value,
-            COUNT(DISTINCT o.cashier_id)                             AS active_cashiers,
-            COALESCE(SUM(
-                (oi_c.unit_price - COALESCE(mv_c.cost_price, mi_c.cost_price))
-                * oi_c.quantity
-            ), 0)                                                    AS gross_profit,
-            (
-                SELECT COUNT(*)
-                FROM orders cx
-                WHERE cx.status           = 'cancelled'
-                  AND YEAR(cx.created_at)  = :year_c
-                  AND MONTH(cx.created_at) = :month_c
-            ) AS cancelled_orders,
+            COALESCE(AVG(o.total_amount), 0) AS avg_order_value,
+            COUNT(DISTINCT o.cashier_id) AS active_cashiers,
+            COALESCE(SUM((oi_c.unit_price - COALESCE(mv_c.cost_price, mi_c.cost_price)) * oi_c.quantity), 0) AS gross_profit,
             (
                 SELECT COALESCE(SUM(oi_w.waste_cost), 0)
                 FROM order_items oi_w
                 JOIN orders o_w ON oi_w.order_id = o_w.order_id
-                WHERE oi_w.status      = 'voided'
-                  AND oi_w.waste_cost   IS NOT NULL
-                  AND YEAR(o_w.created_at)  = :year_w
+                WHERE oi_w.status IN ('voided', 'completed')
+                  AND oi_w.waste_cost IS NOT NULL
+                  AND YEAR(o_w.created_at) = :year_w
                   AND MONTH(o_w.created_at) = :month_w
-            ) AS total_waste_cost
+            ) AS total_waste_cost,
+            (
+                SELECT COALESCE(SUM(r.amount), 0)
+                FROM refunds r
+                WHERE YEAR(r.created_at) = :year_r
+                  AND MONTH(r.created_at) = :month_r
+            ) AS total_refunds
         FROM orders o
         LEFT JOIN order_items oi_c
-            ON  oi_c.order_id = o.order_id
+            ON oi_c.order_id = o.order_id
             AND oi_c.status NOT IN ('cancelled', 'voided')
-        LEFT JOIN menu_items    mi_c ON oi_c.item_id    = mi_c.item_id
+        LEFT JOIN menu_items mi_c ON oi_c.item_id = mi_c.item_id
         LEFT JOIN menu_variants mv_c ON oi_c.variant_id = mv_c.variant_id
         WHERE o.status = 'completed'
-          AND YEAR(o.completed_at)  = :year
+          AND YEAR(o.completed_at) = :year
           AND MONTH(o.completed_at) = :month
     ");
+
     $stmt->execute([
-        ':year'    => $year,  ':month'   => $month,
-        ':year_c'  => $year,  ':month_c' => $month,
-        ':year_w'  => $year,  ':month_w' => $month,
+        ':year' => $year, ':month' => $month,
+        ':year_w' => $year, ':month_w' => $month,
+        ':year_r' => $year, ':month_r' => $month
     ]);
+
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    $row['net_profit'] = round(
-        (float)($row['gross_profit'] ?? 0) - (float)($row['total_waste_cost'] ?? 0),
-        2
-    );
+    
+    // Calculate net revenue after refunds
+    $row['net_revenue_after_refunds'] = round((float)$row['net_revenue'] - (float)$row['total_refunds'], 2);
+    $row['net_profit'] = round((float)$row['gross_profit'] - (float)$row['total_waste_cost'], 2);
     return $row;
 }
 
@@ -255,64 +262,79 @@ function rpt_daily_breakdown(PDO $pdo, int $year, int $month): array
 // ============================================================
 function rpt_yearly_summary(PDO $pdo, int $year): array
 {
-    $stmt = $pdo->prepare("
-        SELECT
-            COUNT(o.order_id)                                                        AS total_orders,
-            COALESCE(SUM(o.subtotal), 0)                                             AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                                             AS total_discounts,
-            COALESCE(SUM(o.total_amount), 0)                                         AS net_revenue,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                                  AS net_revenue_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)                 AS total_vat_collected,
-            COALESCE(AVG(o.total_amount), 0)                                         AS avg_order_value,
-            COALESCE(SUM(
-                (oi_c.unit_price - COALESCE(mv_c.cost_price, mi_c.cost_price))
-                * oi_c.quantity
-            ), 0)                                                                    AS gross_profit,
-            SUM(CASE WHEN MONTH(o.completed_at)=1  THEN o.total_amount ELSE 0 END)  AS jan,
-            SUM(CASE WHEN MONTH(o.completed_at)=2  THEN o.total_amount ELSE 0 END)  AS feb,
-            SUM(CASE WHEN MONTH(o.completed_at)=3  THEN o.total_amount ELSE 0 END)  AS mar,
-            SUM(CASE WHEN MONTH(o.completed_at)=4  THEN o.total_amount ELSE 0 END)  AS apr,
-            SUM(CASE WHEN MONTH(o.completed_at)=5  THEN o.total_amount ELSE 0 END)  AS may,
-            SUM(CASE WHEN MONTH(o.completed_at)=6  THEN o.total_amount ELSE 0 END)  AS jun,
-            SUM(CASE WHEN MONTH(o.completed_at)=7  THEN o.total_amount ELSE 0 END)  AS jul,
-            SUM(CASE WHEN MONTH(o.completed_at)=8  THEN o.total_amount ELSE 0 END)  AS aug,
-            SUM(CASE WHEN MONTH(o.completed_at)=9  THEN o.total_amount ELSE 0 END)  AS sep,
-            SUM(CASE WHEN MONTH(o.completed_at)=10 THEN o.total_amount ELSE 0 END)  AS oct_m,
-            SUM(CASE WHEN MONTH(o.completed_at)=11 THEN o.total_amount ELSE 0 END)  AS nov,
-            SUM(CASE WHEN MONTH(o.completed_at)=12 THEN o.total_amount ELSE 0 END)  AS dec_m
-        FROM orders o
-        LEFT JOIN order_items oi_c
-            ON  oi_c.order_id = o.order_id
-            AND oi_c.status NOT IN ('cancelled', 'voided')
-        LEFT JOIN menu_items    mi_c ON oi_c.item_id    = mi_c.item_id
-        LEFT JOIN menu_variants mv_c ON oi_c.variant_id = mv_c.variant_id
-        WHERE o.status = 'completed'
-          AND YEAR(o.completed_at) = :year
-    ");
+    $sql = "SELECT COUNT(o.order_id) AS total_orders, COALESCE(SUM(oi_c.unit_price * oi_c.quantity), 0) AS gross_revenue, COALESCE(SUM(o.discount), 0) AS total_discounts, COALESCE(SUM(o.total_amount), 0) AS net_revenue, COALESCE(SUM(o.total_amount / 1.12), 0) AS net_revenue_excl_vat, COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS total_vat_collected, COALESCE(AVG(o.total_amount), 0) AS avg_order_value, COALESCE(SUM((oi_c.unit_price - COALESCE(mv_c.cost_price, mi_c.cost_price)) * oi_c.quantity), 0) AS gross_profit FROM orders o LEFT JOIN order_items oi_c ON oi_c.order_id = o.order_id AND oi_c.status NOT IN ('cancelled', 'voided') LEFT JOIN menu_items mi_c ON oi_c.item_id = mi_c.item_id LEFT JOIN menu_variants mv_c ON oi_c.variant_id = mv_c.variant_id WHERE o.status = 'completed' AND YEAR(o.completed_at) = :year";
+    $stmt = $pdo->prepare($sql);
+
     $stmt->execute([':year' => $year]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Yearly waste
+    // Ensure we have default values for all fields
+    $row = array_merge([
+        'total_orders' => 0,
+        'gross_revenue' => 0,
+        'total_discounts' => 0,
+        'net_revenue' => 0,
+        'net_revenue_excl_vat' => 0,
+        'total_vat_collected' => 0,
+        'avg_order_value' => 0,
+        'gross_profit' => 0
+    ], $row);
+
     $wstmt = $pdo->prepare("
         SELECT COALESCE(SUM(oi.waste_cost), 0)
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE oi.status = 'voided'
+        WHERE oi.status IN ('voided', 'completed')
           AND oi.waste_cost IS NOT NULL
           AND YEAR(o.created_at) = :year
     ");
     $wstmt->execute([':year' => $year]);
-    $row['total_waste_cost'] = (float) $wstmt->fetchColumn();
-    $row['net_profit']       = round(
-        (float)($row['gross_profit'] ?? 0) - $row['total_waste_cost'],
-        2
-    );
+    $row['total_waste_cost'] = (float)$wstmt->fetchColumn();
+
+    $rstmt = $pdo->prepare("
+        SELECT COALESCE(SUM(r.amount), 0)
+        FROM refunds r
+        WHERE YEAR(r.created_at) = :year
+    ");
+    $rstmt->execute([':year' => $year]);
+    $row['total_refunds'] = (float)$rstmt->fetchColumn();
+
+    // Calculate net revenue after refunds and net profit
+    $row['net_revenue_after_refunds'] = round((float)$row['net_revenue'] - (float)$row['total_refunds'], 2);
+    $row['net_profit'] = round((float)$row['gross_profit'] - $row['total_waste_cost'], 2);
+
+    // Add monthly breakdown data
+    $monthly_stmt = $pdo->prepare("
+        SELECT
+            MONTH(o.completed_at) AS month_num,
+            COALESCE(SUM(o.total_amount), 0) AS monthly_revenue
+        FROM orders o
+        WHERE o.status = 'completed'
+          AND YEAR(o.completed_at) = :year
+        GROUP BY MONTH(o.completed_at)
+        ORDER BY month_num
+    ");
+    $monthly_stmt->execute([':year' => $year]);
+    $monthly_result = $monthly_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $monthly_data = [];
+    foreach ($monthly_result as $monthly_row) {
+        $monthly_data[$monthly_row['month_num']] = $monthly_row;
+    }
+
+    // Map month numbers to the keys expected by the view
+    $monthly_keys = [
+        1 => 'jan', 2 => 'feb', 3 => 'mar', 4 => 'apr',
+        5 => 'may', 6 => 'jun', 7 => 'jul', 8 => 'aug',
+        9 => 'sep', 10 => 'oct_m', 11 => 'nov', 12 => 'dec_m'
+    ];
+
+    foreach ($monthly_keys as $month_num => $key) {
+        $row[$key] = $monthly_data[$month_num]['monthly_revenue'] ?? 0;
+    }
+
     return $row;
 }
 
-// ============================================================
-// TOP SELLING ITEMS  — variant-aware, gross_profit only (no waste per item)
-// ============================================================
 function rpt_top_items(PDO $pdo, string $start, string $end, int $limit = 10): array
 {
     $stmt = $pdo->prepare("
@@ -538,7 +560,7 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
             SELECT o.cashier_id, COALESCE(SUM(oi.waste_cost), 0) AS total_waste
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.order_id
-            WHERE oi.status = 'voided'
+            WHERE oi.status IN ('voided', 'completed')
               AND oi.waste_cost IS NOT NULL
               AND DATE(o.created_at) BETWEEN :start4 AND :end4
             GROUP BY o.cashier_id

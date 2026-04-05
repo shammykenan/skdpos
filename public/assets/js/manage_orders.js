@@ -1234,6 +1234,7 @@ async function executeRefund() {
         const res  = await fetch(PROCESS_REFUND_URL, { method:'POST', body:fd });
         const data = await safeJSONParse(res);
         if (!data.success) throw new Error(data.error || 'Refund failed.');
+        
         refundModal?.hide();
         if (openDetailsOrderId) await fetchAndPopulateOrderDetails(openDetailsOrderId);
         await refreshOrders();
@@ -1413,6 +1414,10 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
         const el=document.getElementById(id); if(el) el.style.display='none';
     });
 
+    // Clear any existing waste cost display to prevent duplicates
+    const existingWasteRows = document.querySelectorAll('.od-payment-row[data-waste-cost]');
+    existingWasteRows.forEach(row => row.remove());
+
     if (payment && order.status==='completed') {
         const sec=document.getElementById('detailPaymentSection');
         if (sec) {
@@ -1424,6 +1429,39 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
             if (pbRow&&pbEl) {
                 if (payment.processed_by&&parseInt(payment.processed_by)!==parseInt(order.cashier_id)&&payment.processed_by_name) { pbEl.textContent=payment.processed_by_name; pbRow.style.display=''; }
                 else pbRow.style.display='none';
+            }
+            
+            // Calculate and display waste cost for refunded items in completed orders
+            if (refunds && refunds.rows && refunds.rows.length > 0) {
+                // Check if any refunds are post_sale type (refunded completed orders) OR void_order type (full refunds)
+                const hasRefundedItems = refunds.rows.some(r => r.refund_type === 'post_sale' || r.refund_type === 'void_order');
+                if (hasRefundedItems) {
+                    // Calculate total waste cost from items with waste_cost
+                    const totalWasteCost = items.reduce((sum, item) => {
+                        if (item.waste_cost && item.waste_cost > 0) {
+                            return sum + parseFloat(item.waste_cost);
+                        }
+                        return sum;
+                    }, 0);
+                    
+                    if (totalWasteCost > 0) {
+                        // Add waste cost display after payment details
+                        const wasteHtml = `
+                            <div class="od-payment-row" data-waste-cost="true" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+                                <span style="color:var(--secondary);font-weight:600;">
+                                    <i class="fas fa-trash-alt" style="margin-right:0.3rem;"></i>
+                                    Waste Cost (Refunded Items)
+                                </span>
+                                <span style="font-weight:700;color:var(--secondary);">₱${formatPrice(totalWasteCost)}</span>
+                            </div>
+                        `;
+                        // Insert waste cost after the change amount row
+                        const changeRow = sec.querySelector('.od-payment-row:last-child');
+                        if (changeRow) {
+                            changeRow.insertAdjacentHTML('afterend', wasteHtml);
+                        }
+                    }
+                }
             }
         }
     } else if (order.status==='cancelled') {

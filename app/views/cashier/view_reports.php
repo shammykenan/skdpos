@@ -108,6 +108,22 @@ body{font-family:'Inter',sans-serif;background:var(--light-bg);color:var(--dark)
 .s-compare{font-size:.78rem;margin-top:.3rem;}
 .vat-breakdown{font-size:.78rem;color:var(--warm-gray);margin-top:.3rem;padding:.3rem .6rem;background:rgba(15,76,92,.04);border-radius:8px;border-left:3px solid var(--primary-light);}
 .vat-breakdown span{font-weight:600;color:var(--primary-dark);}
+.refund-breakdown{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.refund-breakdown .refund-label{font-size:0.75rem;color:var(--warm-gray);margin-bottom:2px;}
+.refund-breakdown .refund-amount{font-weight:600;color:var(--danger);}
+.net-revenue-breakdown{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.net-revenue-breakdown .net-revenue-label{font-size:0.8rem;font-weight:600;color:var(--primary-dark);}
+.net-revenue-breakdown .net-revenue-amount{font-weight:700;color:var(--success);font-size:1.1rem;}
+@media (max-width: 768px) {
+    .refund-breakdown .refund-amount, .net-revenue-breakdown .net-revenue-amount { font-size: 1rem; }
+    .net-revenue-breakdown .net-revenue-label { font-size: 0.75rem; }
+    .refund-breakdown .refund-label { font-size: 0.7rem; }
+}
+@media (max-width: 480px) {
+    .refund-breakdown .refund-amount, .net-revenue-breakdown .net-revenue-amount { font-size: 0.9rem; }
+    .net-revenue-breakdown .net-revenue-label { font-size: 0.7rem; }
+    .refund-breakdown .refund-label { font-size: 0.65rem; }
+}
 .profit-breakdown{font-size:.78rem;color:var(--warm-gray);margin-top:.3rem;padding:.3rem .6rem;background:rgba(44,122,90,.05);border-radius:8px;border-left:3px solid var(--success);}
 .profit-breakdown span{font-weight:600;}
 .profit-breakdown .pos{color:var(--success);}
@@ -624,9 +640,23 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-label">Gross Revenue</div>
             <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
             <div class="vat-breakdown">
-                Excl. VAT: <span><?= peso((float)($s['net_revenue_excl_vat']??0)) ?></span>
-                &nbsp;|&nbsp; VAT: <span><?= peso((float)($s['total_vat_collected']??0)) ?></span>
+                <div class="vat-label">Excl. VAT:</div>
+                <div class="vat-amount"><?= peso((float)($s['net_revenue_excl_vat']??0)) ?></div>
+                <div class="vat-label">VAT:</div>
+                <div class="vat-amount"><?= peso((float)($s['total_vat_collected']??0)) ?></div>
             </div>
+            <?php if (($s['total_refunds']??0) > 0): ?>
+            <div class="refund-breakdown">
+                <div class="refund-label">Less: Refunds</div>
+                <div class="refund-amount"><?= peso((float)($s['total_refunds']??0)) ?></div>
+            </div>
+            <?php endif; ?>
+            <?php if (($s['net_revenue_after_refunds']??0) != ($s['net_revenue']??0)): ?>
+            <div class="net-revenue-breakdown">
+                <div class="net-revenue-label">Net Revenue</div>
+                <div class="net-revenue-amount"><?= peso((float)($s['net_revenue_after_refunds']??0)) ?></div>
+            </div>
+            <?php endif; ?>
         </div>
         <div class="stat-card c-coral">
             <div class="s-icon"><i class="fas fa-shopping-cart"></i></div>
@@ -765,10 +795,37 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 Excl. VAT: <span><?=peso((float)($s['net_revenue_excl_vat']??0))?></span>
                 &nbsp;|&nbsp; VAT: <span><?=peso((float)($s['total_vat_collected']??0))?></span>
             </div>
+            <?php if (($s['total_refunds']??0) > 0): ?>
+            <div class="refund-breakdown">
+                <div class="refund-label">Less: Refunds</div>
+                <div class="refund-amount"><?=peso((float)($s['total_refunds']??0))?></div>
+            </div>
+            <?php endif; ?>
+            <?php if (($s['net_revenue_after_refunds']??0) != ($s['net_revenue']??0)): ?>
+            <div class="net-revenue-breakdown">
+                <div class="net-revenue-label">Net Revenue</div>
+                <div class="net-revenue-amount"><?=peso((float)($s['net_revenue_after_refunds']??0))?></div>
+            </div>
+            <?php endif; ?>
         </div>
-        <div class="stat-card c-coral"><div class="s-icon"><i class="fas fa-shopping-cart"></i></div><div class="s-label">Total Orders</div><div class="s-value"><?=number_format($s['total_orders']??0)?></div><div class="s-sub">Cancelled: <?=$s['cancelled_orders']??0?></div></div>
-        <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-receipt"></i></div><div class="s-label">Avg Order Value</div><div class="s-value"><?=peso((float)($s['avg_order_value']??0))?></div><div class="s-sub">Discounts: <?=peso((float)($s['total_discounts']??0))?></div></div>
-        <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-users"></i></div><div class="s-label">Active Cashiers</div><div class="s-value"><?=$s['active_cashiers']??0?></div><div class="s-sub"><?=$months_list[$filter_month]?> <?=$filter_year?></div></div>
+        <div class="stat-card c-coral">
+            <div class="s-icon"><i class="fas fa-shopping-cart"></i></div>
+            <div class="s-label">Total Orders</div>
+            <div class="s-value"><?=number_format($s['total_orders']??0)?></div>
+            <div class="s-sub">Cancelled: <?=$s['cancelled_orders']??0?></div>
+        </div>
+        <div class="stat-card c-teal">
+            <div class="s-icon"><i class="fas fa-receipt"></i></div>
+            <div class="s-label">Avg Order Value</div>
+            <div class="s-value"><?=peso((float)($s['avg_order_value']??0))?></div>
+            <div class="s-sub">Discounts: <?=peso((float)($s['total_discounts']??0))?></div>
+        </div>
+        <div class="stat-card c-green">
+            <div class="s-icon"><i class="fas fa-users"></i></div>
+            <div class="s-label">Active Cashiers</div>
+            <div class="s-value"><?=$s['active_cashiers']??0?></div>
+            <div class="s-sub"><?=$months_list[$filter_month]?> <?=$filter_year?></div>
+        </div>
         <?php render_waste_card($s); ?>
         <?php render_net_profit_card($s); ?>
     </div>
@@ -896,6 +953,18 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 Excl. VAT: <span><?=peso((float)($s['net_revenue_excl_vat']??0))?></span>
                 &nbsp;|&nbsp; VAT: <span><?=peso((float)($s['total_vat_collected']??0))?></span>
             </div>
+            <?php if (($s['total_refunds']??0) > 0): ?>
+            <div class="refund-breakdown">
+                <div class="refund-label">Less: Refunds</div>
+                <div class="refund-amount"><?=peso((float)($s['total_refunds']??0))?></div>
+            </div>
+            <?php endif; ?>
+            <?php if (($s['net_revenue_after_refunds']??0) != ($s['net_revenue']??0)): ?>
+            <div class="net-revenue-breakdown">
+                <div class="net-revenue-label">Net Revenue</div>
+                <div class="net-revenue-amount"><?=peso((float)($s['net_revenue_after_refunds']??0))?></div>
+            </div>
+            <?php endif; ?>
         </div>
         <div class="stat-card c-coral"><div class="s-icon"><i class="fas fa-shopping-cart"></i></div><div class="s-label">Total Orders</div><div class="s-value"><?=number_format($s['total_orders']??0)?></div><div class="s-sub">Discounts: <?=peso((float)($s['total_discounts']??0))?></div></div>
         <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-receipt"></i></div><div class="s-label">Avg Order Value</div><div class="s-value"><?=peso((float)($s['avg_order_value']??0))?></div></div>
@@ -923,7 +992,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                         $val  = (float)($s[$key]??0);
                         $excl = $val>0 ? round($val/1.12,2) : 0;
                         $yearly_total += $val; $yearly_excl += $excl;
-                        $pct = $s['net_revenue']>0 ? min(100,round($val/$s['net_revenue']*100)) : 0;
+                        $pct = ($s['net_revenue']??0)>0 ? min(100,round($val/($s['net_revenue']??0)*100)) : 0;
                     ?>
                     <tr>
                         <td><?=$monthly_labels[$mi]?></td>
