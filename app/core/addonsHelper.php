@@ -32,8 +32,8 @@ function getAddonsForItemCategory(PDO $pdo, int $category_id): array
 }
 
 /**
- * Returns only active add-ons whose ingredient appears in the given item's recipe.
- * Joins units so callers get unit_code / unit_label instead of the old i.unit string.
+ * Returns only active add-ons that are assigned to the specific menu item via product_addons table.
+ * This follows the new rule: show add-ons based on product_addons, NOT based on ingredients.
  */
 function getAddonsForMenuItem(PDO $pdo, int $item_id): array
 {
@@ -45,10 +45,9 @@ function getAddonsForMenuItem(PDO $pdo, int $item_id): array
         FROM addons a
         JOIN ingredients i ON a.ingredient_id = i.ingredient_id
         JOIN units u       ON i.unit_id        = u.unit_id
+        JOIN product_addons pa ON a.addon_id = pa.addon_id
         WHERE a.is_active = 1
-          AND a.ingredient_id IN (
-              SELECT ingredient_id FROM recipes WHERE item_id = :item_id
-          )
+          AND pa.item_id = :item_id
         ORDER BY a.addon_name
     ";
     $stmt = $pdo->prepare($sql);

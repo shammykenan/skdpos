@@ -90,9 +90,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_addon'])) {
     exit;
 }
 
+// ── Handle Assign Add-ons ───────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_addons'])) {
+    $item_id = (int) ($_POST['item_id'] ?? 0);
+    $selected_addons = $_POST['selected_addons'] ?? [];
+
+    if (empty($item_id)) {
+        $_SESSION['error'] = 'Please select a product.';
+        header('Location: index.php?page=manage_addons');
+        exit;
+    }
+
+    try {
+        // Start transaction
+        $pdo->beginTransaction();
+
+        // Delete existing assignments for this product
+        $deleteStmt = $pdo->prepare("DELETE FROM product_addons WHERE item_id = :item_id");
+        $deleteStmt->execute([':item_id' => $item_id]);
+
+        // Insert new assignments
+        if (!empty($selected_addons)) {
+            $insertStmt = $pdo->prepare("INSERT INTO product_addons (item_id, addon_id) VALUES (:item_id, :addon_id)");
+            foreach ($selected_addons as $addon_id) {
+                $insertStmt->execute([
+                    ':item_id' => $item_id,
+                    ':addon_id' => (int)$addon_id
+                ]);
+            }
+        }
+
+        $pdo->commit();
+        $_SESSION['success'] = 'Add-on assignments saved successfully.';
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['error'] = 'Error saving assignments: ' . $e->getMessage();
+    }
+
+    header('Location: index.php?page=manage_addons');
+    exit;
+}
+
+// ── Handle Get Assignments (AJAX) ───────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_assignments') {
+    $item_id = (int) ($_GET['item_id'] ?? 0);
+    
+    header('Content-Type: application/json');
+    
+    if (empty($item_id)) {
+        echo json_encode(['assigned_addons' => []]);
+        exit;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT addon_id FROM product_addons WHERE item_id = :item_id");
+        $stmt->execute([':item_id' => $item_id]);
+        $assignments = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        echo json_encode(['assigned_addons' => $assignments]);
+    } catch (Exception $e) {
+        echo json_encode(['assigned_addons' => [], 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // ── Fetch data for view ───────────────────────────────────────────────────────
 $addons      = getAllAddons($pdo);
 $ingredients = getIngredientsForBeverages($pdo);
+
+// Get menu items for the assign add-ons modal
+$menuItemsStmt = $pdo->prepare("SELECT item_id, item_name FROM menu_items ORDER BY item_name");
+$menuItemsStmt->execute();
+$menu_items = $menuItemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Load view
 require_once __DIR__ . '/../views/admin/manage_addons.php';
