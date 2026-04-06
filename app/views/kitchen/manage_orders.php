@@ -12,15 +12,6 @@
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/manage_orders.css">
 </head>
 <style>
-@media print {
-    @page { size: 58mm auto; margin: 3mm 2mm; }
-    body > *               { display: none !important; }
-    #finalReceiptPrintArea { display: block !important; visibility: visible !important;
-                             position: fixed; top: 0; left: 0;
-                             font-family: 'Courier New', Courier, monospace;
-                             font-size: 10px; line-height: 1.5; color: #000;
-                             width: 54mm; padding: 0; background: white; }
-}
 
 /* ── Refund toggle (void modal) ── */
 #voidRefundToggleBtn:hover { background: var(--lavender) !important; }
@@ -1089,7 +1080,8 @@
                             padding:1rem;border:1px dashed #ccc;border-radius:8px;
                             max-height:480px;overflow-y:auto;"></div>
                 <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:1rem;">
-                    <button class="btn btn-primary" onclick="window.print()"
+                    <button onclick="_printReceiptHTML(document.getElementById('finalReceiptPrintArea').innerHTML)"
+                            class="btn btn-primary"
                             style="border-radius:12px;font-weight:700;display:flex;align-items:center;gap:0.5rem;">
                         <i class="fas fa-print"></i> Print
                     </button>

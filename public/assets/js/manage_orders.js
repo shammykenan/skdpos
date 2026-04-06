@@ -1583,68 +1583,91 @@ function _buildReceiptRefundsSection(orderTotal, refunds) {
 // PRINT FINAL RECEIPT (completed orders)
 // ============================================
 function printFinalReceipt(order, items, payment, refunds) {
-    const orderNumber=order.order_number||'—', customer=order.customer_name||'Walk-in Customer';
-    const cashier=order.cashier_name||'—', tableName=order.table_name||null;
-    const orderType=order.order_type==='dine_in'?'Dine In':'Take Out';
+    const orderNumber = order.order_number || '—';
+    const customer    = order.customer_name || 'Walk-in';
+    const cashier     = order.cashier_name  || '—';
+    const tableName   = order.table_name    || null;
+    const orderType   = order.order_type === 'dine_in' ? 'Dine In' : 'Take Out';
 
-    // Totals — use order.total_amount as the canonical gross total
-    const grossTotal  = parseFloat(order.total_amount||0);
-    const vatable     = grossTotal/1.12;
-    const vatAmount   = grossTotal-vatable;
-    const amountPaid  = parseFloat(payment?.amount_paid||grossTotal);
-    const changeAmt   = parseFloat(payment?.change_amount||0);
-    const payMethod   = (payment?.payment_method||'cash').toUpperCase();
+    const grossTotal = parseFloat(order.total_amount || 0);
+    const amountPaid = parseFloat(payment?.amount_paid || grossTotal);
+    const changeAmt  = parseFloat(payment?.change_amount || 0);
+    const payMethod  = (payment?.payment_method || 'cash').toUpperCase();
 
-    const now=order.completed_at?new Date(order.completed_at):new Date();
-    const dateStr=now.toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
-    const timeStr=now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+    const now     = order.completed_at ? new Date(order.completed_at) : new Date();
+    const dateStr = now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    let itemsHTML='';
-    items.forEach(item=>{
-        if (['cancelled','voided'].includes(item.item_status)) return;
-        const addonsTotal=(item.addons||[]).reduce((s,a)=>s+parseFloat(a.price||0)*parseInt(a.quantity||1),0);
-        const lineTotal=(parseFloat(item.unit_price||0)+addonsTotal)*parseInt(item.quantity||1);
-        const label=item.variant_name_snapshot?`${item.item_name_snapshot||item.item_name} (${item.variant_name_snapshot})`:(item.item_name_snapshot||item.item_name||'');
-        itemsHTML+=`<div style="display:flex;margin-bottom:3px;"><span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span><span style="flex:0.5;text-align:center;">${item.quantity||1}</span><span style="flex:1;text-align:right;">${parseFloat(item.unit_price||0).toFixed(2)}</span><span style="flex:1;text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</span></div>`;
-        (item.addons||[]).forEach(a=>{const at=parseFloat(a.price||0)*parseInt(a.quantity||1); itemsHTML+=`<div style="display:flex;font-size:10px;padding:1px 0 1px 10px;opacity:0.8;"><span style="flex:1;">+ ${escapeHtml(a.addon_name)}${a.quantity>1?` ×${a.quantity}`:''}</span><span style="flex:0;text-align:right;">${at.toFixed(2)}</span></div>`;});
+    let itemsHTML = '';
+    items.forEach(item => {
+        if (['cancelled', 'voided'].includes(item.item_status)) return;
+        const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
+        const lineTotal   = (parseFloat(item.unit_price || 0) + addonsTotal) * parseInt(item.quantity || 1);
+        const label       = item.variant_name_snapshot
+            ? `${item.item_name_snapshot || item.item_name} · ${item.variant_name_snapshot}`
+            : (item.item_name_snapshot || item.item_name || '');
+        itemsHTML += `<div style="display:flex;margin-bottom:3px;">
+            <span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span>
+            <span style="flex:0.5;text-align:center;">${item.quantity || 1}</span>
+            <span style="flex:1;text-align:right;">${parseFloat(item.unit_price || 0).toFixed(2)}</span>
+            <span style="flex:1;text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</span>
+        </div>`;
+        (item.addons || []).forEach(a => {
+            const at = parseFloat(a.price || 0) * parseInt(a.quantity || 1);
+            itemsHTML += `<div style="display:flex;font-size:10px;padding:1px 0 1px 10px;opacity:0.8;">
+                <span style="flex:1;">+ ${escapeHtml(a.addon_name)}${a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>
+                <span style="text-align:right;">${at.toFixed(2)}</span>
+            </div>`;
+        });
+        if (item.item_notes && item.item_notes.trim()) {
+            itemsHTML += `<div style="font-size:9px;font-style:italic;padding:1px 0 3px 10px;border-left:1px solid #999;margin-bottom:2px;opacity:0.8;">Note: ${escapeHtml(item.item_notes)}</div>`;
+        }
     });
 
-    const refundsSection=_buildReceiptRefundsSection(grossTotal, refunds||window._lastOrderRefunds);
+    const refundsSection = _buildReceiptRefundsSection(grossTotal, refunds || window._lastOrderRefunds);
 
-    const html=`
-        <div style="text-align:center;"><div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div><div style="font-size:10px;">Karuhatan, Valenzuela City</div><div style="font-size:10px;">TIN: 000-000-000-000 (DEMO)</div><div style="font-size:10px;">S/N: DWD-POS-001</div></div>
+    const html = `
+        <div style="text-align:center;">
+            <div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div>
+            <div style="font-size:10px;">Karuhatan, Valenzuela City</div>
+            <div style="font-size:10px;">(123) 456-7890</div>
+            <div style="font-size:11px;font-weight:bold;margin-top:4px;">SALES RECEIPT</div>
+            <div style="font-size:10px;">[ PAID ]</div>
+        </div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;">Official Receipt</div>
-        <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px;">** FOR DEMONSTRATION PURPOSES ONLY **</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>OR No.:</span><span style="font-weight:bold;">${escapeHtml(orderNumber)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Receipt No.:</span><span style="font-weight:bold;">${escapeHtml(orderNumber)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Date:</span><span>${dateStr}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Time:</span><span>${timeStr}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Cashier:</span><span>${escapeHtml(cashier)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Type:</span><span>${orderType}</span></div>
-        ${tableName?`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>`:''}
+        ${customer !== 'Walk-in' ? `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Order Type:</span><span>${orderType}</span></div>
+        ${tableName ? `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>` : ''}
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="display:flex;font-size:10px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase;"><span style="flex:2.5;">Item</span><span style="flex:0.5;text-align:center;">Qty</span><span style="flex:1;text-align:right;">Price</span><span style="flex:1;text-align:right;">Total</span></div>
+        <div style="display:flex;font-size:10px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase;">
+            <span style="flex:2.5;">Item</span>
+            <span style="flex:0.5;text-align:center;">Qty</span>
+            <span style="flex:1;text-align:right;">Price</span>
+            <span style="flex:1;text-align:right;">Total</span>
+        </div>
         ${itemsHTML}
         <hr style="border:none;border-top:3px double #000;margin:5px 0;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Vatable Sales:</span><span>₱${vatable.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT (12%):</span><span>₱${vatAmount.toFixed(2)}</span></div>
-        <hr style="border:none;border-top:1px solid #000;margin:5px 0;">
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;"><span>TOTAL:</span><span>₱${grossTotal.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Subtotal:</span><span>PHP ${grossTotal.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;"><span>TOTAL:</span><span>PHP ${grossTotal.toFixed(2)}</span></div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="border:1px solid #000;padding:5px 6px;font-size:11px;">
             <div style="display:flex;justify-content:space-between;"><span>Method:</span><span>${payMethod}</span></div>
-            <div style="display:flex;justify-content:space-between;"><span>Cash Tendered:</span><span>₱${amountPaid.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;"><span>Change:</span><span>₱${changeAmt.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Cash tendered:</span><span>PHP ${amountPaid.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Change:</span><span>PHP ${changeAmt.toFixed(2)}</span></div>
         </div>
         ${refundsSection}
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="text-align:center;font-size:10px;line-height:1.7;">
             <div style="font-size:12px;font-weight:bold;text-transform:uppercase;">Thank you for dining with us!</div>
             <div>Please come again.</div>
-            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">OR: ${escapeHtml(orderNumber)}<br>Printed: ${dateStr} ${timeStr}</div>
-            <div style="margin-top:6px;font-size:9px;color:#888;">** THIS IS A DEMO RECEIPT — NOT BIR REGISTERED **</div>
+            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">
+                Transaction: ${escapeHtml(orderNumber)}<br>
+                Printed: ${dateStr} ${timeStr}
+            </div>
         </div>`;
 
     _showReceiptModal(orderNumber, html);
@@ -1652,81 +1675,83 @@ function printFinalReceipt(order, items, payment, refunds) {
 
 // ============================================
 // PRINT VOID RECEIPT (voided orders)
-// Shows: items written off, waste total, refund issued, net loss
 // ============================================
 function printVoidReceipt(order, items, voidAudit, refunds) {
     const orderNumber = order.order_number || '—';
-    const customer    = order.customer_name || 'Walk-in Customer';
+    const customer    = order.customer_name || 'Walk-in';
     const cashier     = order.cashier_name  || '—';
     const tableName   = order.table_name    || null;
     const orderType   = order.order_type === 'dine_in' ? 'Dine In' : 'Take Out';
 
     const now     = order.created_at ? new Date(order.created_at) : new Date();
-    const dateStr = now.toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
-    const timeStr = now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+    const dateStr = now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    // Compute selling total of voided items (= original order value before zeroing)
     let sellingTotal = 0;
     let itemsHTML    = '';
     items.forEach(item => {
-        if (!['voided','ready'].includes(item.item_status) && item.item_status !== 'voided') return;
-        const addonsTotal = (item.addons||[]).reduce((s,a)=>s+parseFloat(a.price||0)*parseInt(a.quantity||1),0);
-        const lineTotal   = (parseFloat(item.unit_price||0)+addonsTotal)*parseInt(item.quantity||1);
+        if (item.item_status !== 'voided') return;
+        const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
+        const lineTotal   = (parseFloat(item.unit_price || 0) + addonsTotal) * parseInt(item.quantity || 1);
         sellingTotal     += lineTotal;
         const label       = item.variant_name_snapshot
-            ? `${item.item_name_snapshot||item.item_name} (${item.variant_name_snapshot})`
-            : (item.item_name_snapshot||item.item_name||'');
+            ? `${item.item_name_snapshot || item.item_name} · ${item.variant_name_snapshot}`
+            : (item.item_name_snapshot || item.item_name || '');
         itemsHTML += `<div style="display:flex;margin-bottom:3px;text-decoration:line-through;opacity:0.7;">
             <span style="flex:2.5;word-break:break-word;padding-right:4px;">${escapeHtml(label)}</span>
-            <span style="flex:0.5;text-align:center;">${item.quantity||1}</span>
-            <span style="flex:1;text-align:right;">${parseFloat(item.unit_price||0).toFixed(2)}</span>
+            <span style="flex:0.5;text-align:center;">${item.quantity || 1}</span>
+            <span style="flex:1;text-align:right;">${parseFloat(item.unit_price || 0).toFixed(2)}</span>
             <span style="flex:1;text-align:right;">${lineTotal.toFixed(2)}</span>
         </div>`;
     });
 
     const wasteCost     = parseFloat(voidAudit?.total_waste_cost || 0);
     const totalRefunded = parseFloat(refunds?.total_refunded || 0);
-    const netLoss       = wasteCost - totalRefunded; // cost incurred minus money returned
-
+    const netLoss       = Math.max(0, wasteCost - totalRefunded);
     const refundsSection = _buildReceiptRefundsSection(sellingTotal, refunds || window._lastOrderRefunds);
 
     const html = `
         <div style="text-align:center;">
             <div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div>
             <div style="font-size:10px;">Karuhatan, Valenzuela City</div>
+            <div style="font-size:10px;">(123) 456-7890</div>
+            <div style="font-size:11px;font-weight:bold;margin-top:4px;">VOID ORDER RECORD</div>
+            <div style="font-size:10px;">[ VOIDED ]</div>
         </div>
-        <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="text-align:center;font-size:11px;font-weight:bold;text-transform:uppercase;">VOID ORDER RECORD</div>
-        <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px;">** INTERNAL DOCUMENT — NOT A SALES RECEIPT **</div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Order No.:</span><span style="font-weight:bold;">${escapeHtml(orderNumber)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Date:</span><span>${dateStr}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Time:</span><span>${timeStr}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Cashier:</span><span>${escapeHtml(cashier)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Type:</span><span>${orderType}</span></div>
-        ${tableName?`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Void Reason:</span><span style="font-weight:600;max-width:55%;text-align:right;">${escapeHtml(voidAudit?.reason||'—')}</span></div>
+        ${customer !== 'Walk-in' ? `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Customer:</span><span>${escapeHtml(customer)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Order Type:</span><span>${orderType}</span></div>
+        ${tableName ? `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Table:</span><span>${escapeHtml(tableName)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Void Reason:</span><span style="font-weight:600;max-width:55%;text-align:right;">${escapeHtml(voidAudit?.reason || '—')}</span></div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="font-size:10px;font-weight:bold;margin-bottom:3px;text-transform:uppercase;">Items Written Off (Waste)</div>
-        <div style="display:flex;font-size:9px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:2px;margin-bottom:3px;text-transform:uppercase;">
-            <span style="flex:2.5;">Item</span><span style="flex:0.5;text-align:center;">Qty</span><span style="flex:1;text-align:right;">Price</span><span style="flex:1;text-align:right;">Total</span>
+        <div style="display:flex;font-size:10px;font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase;">
+            <span style="flex:2.5;">Item</span>
+            <span style="flex:0.5;text-align:center;">Qty</span>
+            <span style="flex:1;text-align:right;">Price</span>
+            <span style="flex:1;text-align:right;">Total</span>
         </div>
         ${itemsHTML}
-        <hr style="border:none;border-top:1px solid #000;margin:5px 0;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Selling Value:</span><span>₱${sellingTotal.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Waste Cost (ingredients):</span><span style="color:#d64045;">₱${wasteCost.toFixed(2)}</span></div>
+        <hr style="border:none;border-top:3px double #000;margin:5px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Selling Value:</span><span>PHP ${sellingTotal.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Waste Cost (ingredients):</span><span style="color:#d64045;">PHP ${wasteCost.toFixed(2)}</span></div>
         ${refundsSection}
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:bold;">
-            <span>Net Loss (waste − refund):</span>
-            <span style="color:#d64045;">₱${Math.max(0, netLoss).toFixed(2)}</span>
+            <span>Net Loss:</span>
+            <span style="color:#d64045;">PHP ${netLoss.toFixed(2)}</span>
         </div>
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
-        <div style="text-align:center;font-size:9px;color:#888;line-height:1.6;">
-            Void processed by: ${escapeHtml(cashier)}<br>
-            Printed: ${dateStr} ${timeStr}<br>
-            ** STOCK NOT RESTORED — INGREDIENTS WRITTEN OFF AS WASTE **
+        <div style="text-align:center;font-size:10px;line-height:1.7;">
+            <div style="font-size:12px;font-weight:bold;text-transform:uppercase;">— Internal Document —</div>
+            <div>Void processed by: ${escapeHtml(cashier)}</div>
+            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">
+                Transaction: ${escapeHtml(orderNumber)}<br>
+                Printed: ${dateStr} ${timeStr}
+            </div>
         </div>`;
 
     _showReceiptModal(orderNumber, html);
@@ -1738,9 +1763,52 @@ function _showReceiptModal(orderNumber, html) {
     if (printArea) printArea.innerHTML = html;
     if (numEl)     numEl.textContent   = '#' + orderNumber;
     orderDetailsModal?.hide();
-    setTimeout(() => { finalReceiptModal?.show(); }, 250);
-}
 
+    setTimeout(() => {
+        finalReceiptModal?.show();
+        // Auto-print using hidden iframe — same as POS
+        setTimeout(() => _printReceiptHTML(html), 400);
+    }, 250);
+}
+function _printReceiptHTML(html) {
+    const old = document.getElementById('receiptPrintFrame');
+    if (old) old.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'receiptPrintFrame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: 58mm auto; margin: 3mm 2mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10px;
+    line-height: 1.55;
+    color: #000;
+    width: 54mm;
+    background: white;
+  }
+</style>
+</head>
+<body>${html}</body>
+</html>`);
+    doc.close();
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        iframe.contentWindow.onafterprint = () => iframe.remove();
+        setTimeout(() => { if (iframe.parentNode) iframe.remove(); }, 30000);
+    }, 300);
+}
 // ============================================
 // CANCEL ORDER MODAL
 // ============================================

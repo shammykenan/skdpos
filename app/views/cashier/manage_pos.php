@@ -2028,10 +2028,75 @@ function showReceiptModal(d) {
 
     document.getElementById('receiptPrintArea').innerHTML = receiptHTML;
     showModal('receiptModal');
+
+    // Auto-print when a printer is connected — fires immediately on modal open
+    setTimeout(() => printReceipt(), 400);
 }
 
 function printReceipt() {
-    window.print();
+    const content = document.getElementById('receiptPrintArea').innerHTML;
+
+    // Remove any leftover iframe
+    const old = document.getElementById('receiptPrintFrame');
+    if (old) old.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'receiptPrintFrame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:58mm;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: 58mm auto; margin: 3mm 2mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10px;
+    line-height: 1.55;
+    color: #000;
+    width: 54mm;
+    background: white;
+  }
+  .rcpt-center { text-align: center; }
+  .rcpt-bold   { font-weight: bold; }
+  .rcpt-large  { font-size: 13px; font-weight: bold; }
+  .rcpt-small  { font-size: 10px; }
+  .rcpt-divider-dash   { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+  .rcpt-divider-solid  { border: none; border-top: 1px solid #000; margin: 5px 0; }
+  .rcpt-divider-double { border: none; border-top: 3px double #000; margin: 5px 0; }
+  .rcpt-row { display: flex; justify-content: space-between; padding: 1px 0; }
+  .rcpt-row .rcpt-name  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 4px; }
+  .rcpt-row .rcpt-right { flex-shrink: 0; font-weight: bold; }
+  .rcpt-item-row { display: flex; margin-bottom: 4px; }
+  .rcpt-col-name  { flex: 2.5; word-break: break-word; padding-right: 4px; }
+  .rcpt-col-qty   { flex: 0.5; text-align: center; }
+  .rcpt-col-price { flex: 1; text-align: right; }
+  .rcpt-col-total { flex: 1; text-align: right; font-weight: bold; }
+  .rcpt-addon-row { display: flex; justify-content: space-between; font-size: 10px; padding: 1px 0 1px 10px; }
+  .rcpt-note-row  { font-size: 10px; font-style: italic; padding: 1px 0 3px 10px; border-left: 1px solid #999; margin-bottom: 2px; }
+  .rcpt-total-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .rcpt-total-grand { font-weight: bold; font-size: 13px; }
+  .rcpt-pay-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .rcpt-footer-txt { text-align: center; font-size: 10px; line-height: 1.7; }
+</style>
+</head>
+<body>${content}</body>
+</html>`);
+    doc.close();
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        // Clean up after print dialog is dismissed
+        iframe.contentWindow.onafterprint = () => iframe.remove();
+        // Fallback removal in case onafterprint doesn't fire
+        setTimeout(() => { if (iframe.parentNode) iframe.remove(); }, 30000);
+    }, 300);
 }
 
 function afterReceiptClose() {
