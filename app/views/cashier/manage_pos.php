@@ -111,6 +111,15 @@
         .menu-item-card.out-of-stock { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.5); }
         .menu-item-card.out-of-stock:hover { transform: none; box-shadow: none; }
         .menu-item-card.in-cart { border-color: var(--success); box-shadow: 0 0 0 2px rgba(44,122,90,0.15); }
+
+        /* ─── CARD ADD FLASH ─── */
+        .menu-item-card.just-added { animation: cardFlash 0.45s ease forwards; }
+        @keyframes cardFlash {
+            0%   { box-shadow: 0 0 0 0 rgba(44,122,90,0); transform: scale(1); }
+            40%  { box-shadow: 0 0 0 6px rgba(44,122,90,0.35); transform: scale(0.97); }
+            100% { box-shadow: 0 0 0 2px rgba(44,122,90,0.15); transform: scale(1); }
+        }
+
         .menu-item-image { width: 100%; height: 130px; object-fit: cover; }
         .menu-item-placeholder { width: 100%; height: 130px; display: flex; align-items: center; justify-content: center; background: linear-gradient(145deg,#edf2f7,#f7fafc); color: #a0aec0; font-size: 2rem; }
         .menu-item-body { padding: 0.8rem; }
@@ -236,10 +245,7 @@
             color: white; box-shadow: 0 4px 14px rgba(44,122,90,0.3);
             font-family: inherit;
         }
-        .collect-payment-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(44,122,90,0.4);
-        }
+        .collect-payment-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(44,122,90,0.4); }
         .collect-payment-btn:active:not(:disabled) { transform: translateY(0); }
         .collect-payment-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
         .collect-payment-btn i { font-size: 1rem; }
@@ -249,6 +255,21 @@
         .alert { border-radius: 12px; border: none; padding: 0.8rem 1.1rem; margin-bottom: 1.2rem; font-size: 0.85rem; }
         .alert-success { background: rgba(44,122,90,0.1); color: #1e4a3b; border-left: 4px solid var(--success); }
         .alert-danger { background: rgba(214,64,69,0.07); color: #9e3a34; border-left: 4px solid var(--danger); }
+
+        /* ─── ADD TOAST ─── */
+        #addToast {
+            position: fixed; bottom: calc(var(--mobile-bottom-bar) + 12px); left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #1a202c; color: white; padding: 0.6rem 1.2rem;
+            border-radius: 40px; font-size: 0.82rem; font-weight: 600;
+            display: flex; align-items: center; gap: 0.5rem; z-index: 9999;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
+            white-space: nowrap; box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+        #addToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #addToast i { color: #68d391; }
+        @media (min-width: 992px) {
+            #addToast { bottom: 24px; }
+        }
 
         /* ─── MODALS (shared base) ─── */
         .modal { padding-right: 0 !important; }
@@ -384,58 +405,6 @@
         }
         .pm-cancel-btn:hover { background: var(--lavender); border-color: #a0aec0; }
 
-        /* ═══════════════════════════════════════════════════
-           RECEIPT MODAL (58mm inline)
-        ═══════════════════════════════════════════════════ */
-        #receiptModal .modal-dialog { max-width: 420px; }
-        #receiptModal .modal-content { border-radius: 20px; }
-        #receiptModal .modal-header { background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); border-radius: 20px 20px 0 0; padding: 1.1rem 1.4rem; }
-        #receiptModal .modal-title { color: white; }
-        #receiptModal .btn-close { filter: brightness(0) invert(1); }
-        .receipt-paper {
-            background: white; font-family: 'Courier New', Courier, monospace;
-            font-size: 11px; line-height: 1.55; color: #000;
-            padding: 1rem; border: 1px dashed #ccc; border-radius: 8px;
-            max-height: 420px; overflow-y: auto;
-        }
-        .receipt-paper::-webkit-scrollbar { width: 4px; }
-        .receipt-paper::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
-        .rcpt-center { text-align: center; }
-        .rcpt-bold   { font-weight: bold; }
-        .rcpt-large  { font-size: 13px; font-weight: bold; }
-        .rcpt-small  { font-size: 10px; }
-        .rcpt-divider-dash   { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-        .rcpt-divider-solid  { border: none; border-top: 1px solid #000; margin: 5px 0; }
-        .rcpt-divider-double { border: none; border-top: 3px double #000; margin: 5px 0; }
-        .rcpt-row { display: flex; justify-content: space-between; padding: 1px 0; }
-        .rcpt-row .rcpt-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 4px; }
-        .rcpt-row .rcpt-right { flex-shrink: 0; font-weight: bold; }
-        .rcpt-item-row { display: flex; margin-bottom: 4px; }
-        .rcpt-col-name  { flex: 2.5; word-break: break-word; padding-right: 4px; }
-        .rcpt-col-qty   { flex: 0.5; text-align: center; }
-        .rcpt-col-price { flex: 1; text-align: right; }
-        .rcpt-col-total { flex: 1; text-align: right; font-weight: bold; }
-        .rcpt-addon-row { display: flex; justify-content: space-between; font-size: 10px; padding: 1px 0 1px 10px; }
-        .rcpt-note-row  { font-size: 10px; font-style: italic; padding: 1px 0 3px 10px; border-left: 1px solid #999; margin-bottom: 2px; }
-        .rcpt-total-row { display: flex; justify-content: space-between; padding: 2px 0; }
-        .rcpt-total-grand { font-weight: bold; font-size: 13px; }
-        .rcpt-pay-row { display: flex; justify-content: space-between; padding: 2px 0; }
-        .rcpt-footer-txt { text-align: center; font-size: 10px; line-height: 1.7; }
-
-        .receipt-actions { display: flex; gap: 0.6rem; justify-content: center; margin-top: 1rem; }
-        .rcpt-print-btn {
-            padding: 0.7rem 1.5rem; background: var(--primary); color: white; border: none;
-            border-radius: 12px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
-            display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; font-family: inherit;
-        }
-        .rcpt-print-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
-        .rcpt-new-order-btn {
-            padding: 0.7rem 1.5rem; background: var(--success); color: white; border: none;
-            border-radius: 12px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
-            display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; font-family: inherit;
-        }
-        .rcpt-new-order-btn:hover { background: #1f5d43; transform: translateY(-1px); }
-
         /* ─── ADDON CHECKBOXES ─── */
         .addon-checkbox { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.9rem 1rem; border: 1.5px solid var(--border); border-radius: 14px; margin-bottom: 0.6rem; transition: all 0.2s; cursor: pointer; }
         .addon-checkbox:hover { background: #f4f7fb; border-color: var(--primary-light); }
@@ -511,23 +480,12 @@
 
         .fade-in { animation: fadeUp 0.3s ease forwards; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Print styles for 58mm receipt */
-        @media print {
-            @page { size: 58mm auto; margin: 3mm 2mm; }
-            body * { visibility: hidden; }
-            #receiptPrintArea, #receiptPrintArea * { visibility: visible; }
-            #receiptPrintArea {
-                position: fixed; top: 0; left: 0;
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 10px; line-height: 1.5; color: #000;
-                width: 54mm; padding: 0; background: white;
-            }
-            .receipt-actions, .modal-header, .modal-footer { display: none !important; }
-        }
     </style>
 </head>
 <body>
+
+<!-- ADD TOAST -->
+<div id="addToast"><i class="fas fa-check-circle"></i><span id="addToastText">Added to order</span></div>
 
 <!-- TOPBAR -->
 <div class="topbar">
@@ -1075,37 +1033,6 @@
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════
-     RECEIPT MODAL — 58mm inline
-══════════════════════════════════════════════════════ -->
-<div class="modal fade" id="receiptModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:400px;">
-        <div class="modal-content" style="border-radius:20px;overflow:hidden;">
-            <div class="modal-header" style="background:linear-gradient(135deg,#1a202c,#2d3748);border-radius:20px 20px 0 0;padding:1.1rem 1.4rem;">
-                <h5 class="modal-title" style="color:white;display:flex;align-items:center;gap:0.5rem;">
-                    <i class="fas fa-receipt" style="color:#fbbf24;"></i> Receipt
-                    <span id="receiptOrderNumber" style="font-weight:500;opacity:0.7;font-size:0.88rem;"></span>
-                </h5>
-                <button type="button" class="btn-close" style="filter:brightness(0) invert(1);" data-bs-dismiss="modal" onclick="afterReceiptClose()"></button>
-            </div>
-            <div class="modal-body" style="padding:1.2rem;background:#f5f5f0;">
-                <!-- 58mm receipt paper -->
-                <div class="receipt-paper" id="receiptPrintArea">
-                    <!-- Populated by JS -->
-                </div>
-                <div class="receipt-actions">
-                    <button class="rcpt-print-btn" onclick="printReceipt()">
-                        <i class="fas fa-print"></i> Print
-                    </button>
-                    <button class="rcpt-new-order-btn" onclick="afterReceiptClose()" data-bs-dismiss="modal">
-                        <i class="fas fa-plus-circle"></i> New Order
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const stockData      = <?= json_encode($stock_data      ?? []) ?>;
@@ -1123,11 +1050,32 @@ let currentVariantId   = null;
 let currentVariantName = null;
 let currentOrderType   = 'dine_in';
 let hasStockIssues     = false;
-
-// Tracks last completed order for receipt
 let lastOrderData      = null;
 
 const isMobile = () => window.innerWidth < 992;
+
+// ─────────────────────────────────────────────────────────────────
+// TOAST — "Added to order" feedback (no drawer pop)
+// ─────────────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showAddToast(name) {
+    const el   = document.getElementById('addToast');
+    const text = document.getElementById('addToastText');
+    if (!el) return;
+    if (_toastTimer) clearTimeout(_toastTimer);
+    text.textContent = `${name} added`;
+    el.classList.add('show');
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function flashCard(itemId) {
+    const card = document.querySelector(`.menu-item-card[data-item-id="${itemId}"]`);
+    if (!card) return;
+    card.classList.remove('just-added');
+    void card.offsetWidth; // reflow
+    card.classList.add('just-added');
+    setTimeout(() => card.classList.remove('just-added'), 500);
+}
 
 // ─────────────────────────────────────────────────────────────────
 // DRAFT PERSISTENCE
@@ -1315,7 +1263,10 @@ function addToCartWithQuantity(item, addons, quantity, note, variantId, variantN
             const mc = checkCanChangeQty(ei, mq);
             if (!mc.success) { showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients); return; }
             cart[ei].quantity = mq;
-            validateAndRender(); saveCart(); return;
+            validateAndRender(); saveCart();
+            flashCard(item.id);
+            showAddToast(item.name);
+            return;
         }
     }
 
@@ -1331,6 +1282,8 @@ function addToCartWithQuantity(item, addons, quantity, note, variantId, variantN
         hasStockIssue: false
     });
     validateAndRender(); saveCart();
+    flashCard(item.id);
+    showAddToast(variantName ? `${item.name} (${variantName})` : item.name);
 }
 
 function updateQuantity(idx, change) {
@@ -1745,7 +1698,7 @@ document.getElementById('addToCartBtn').addEventListener('click', () => {
     if (!c.success) { showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients); return; }
     addToCartWithQuantity(currentItem, adds, qty, note, currentVariantId, currentVariantName);
     hideModal('addonsModal');
-    if (isMobile() && cart.length === 1) setTimeout(openCartDrawer, 300);
+    // NO auto-open drawer — toast handles the feedback
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -1776,15 +1729,15 @@ function openPaymentModal() {
     if (!orderType) { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
     if (orderType === 'dine_in' && !tableId) { showErrorModal('Table Required', 'Please select a table for dine-in orders.'); return; }
 
-    // Compute total
+    // Close drawer first on mobile so payment modal sits clean
+    if (isMobile()) closeCartDrawer();
+
     _pmTotal = cart.reduce((s, r) => s + (r.price + r.addons.reduce((a, b) => a + b.price * b.quantity, 0)) * r.quantity, 0);
     const totalItems = cart.reduce((s, r) => s + r.quantity, 0);
 
-    // Header line
     document.getElementById('pmOrderSummaryLine').textContent =
         `${totalItems} item${totalItems !== 1 ? 's' : ''} · ${orderType === 'dine_in' ? 'Dine In' : 'Take Out'}`;
 
-    // Summary list
     const summaryEl = document.getElementById('pmSummaryItems');
     let summaryHTML = '';
     cart.forEach(row => {
@@ -1805,17 +1758,14 @@ function openPaymentModal() {
         <span>Total</span><span>₱${_pmTotal.toFixed(2)}</span></div>`;
     summaryEl.innerHTML = summaryHTML;
 
-    // Total display
     document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
 
-    // Reset input & change
     const cashInput = document.getElementById('pmCashInput');
     cashInput.value = '';
     cashInput.className = 'pm-cash-input';
     updateChangeDisplay(0, false);
     document.getElementById('pmConfirmBtn').disabled = true;
 
-    // Quick amounts
     buildQuickAmounts(_pmTotal);
 
     showModal('paymentModal');
@@ -1825,18 +1775,16 @@ function openPaymentModal() {
 function buildQuickAmounts(total) {
     const roundUp = (n, to) => Math.ceil(n / to) * to;
     const suggestions = new Set();
-    suggestions.add(total); // exact
+    suggestions.add(total);
     [20, 50, 100, 200, 500, 1000].forEach(d => {
         const rounded = roundUp(total, d);
         if (rounded >= total && rounded <= total * 3) suggestions.add(rounded);
     });
     const sorted = [...suggestions].sort((a, b) => a - b).slice(0, 5);
-
     const container = document.getElementById('pmQuickAmounts');
     container.innerHTML = sorted.map(amt => {
         const isExact = amt === total;
-        return `<button class="pm-quick-btn ${isExact ? 'exact' : ''}"
-                        onclick="setQuickAmount(${amt})">
+        return `<button class="pm-quick-btn ${isExact ? 'exact' : ''}" onclick="setQuickAmount(${amt})">
             ${isExact ? '<i class="fas fa-equals me-1"></i>Exact' : ''}₱${amt.toFixed(amt % 1 === 0 ? 0 : 2)}
         </button>`;
     }).join('');
@@ -1885,7 +1833,7 @@ function updateChangeDisplay(amountPaid, hasInput) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// CONFIRM PAYMENT & SUBMIT ORDER (AJAX)
+// CONFIRM PAYMENT & SUBMIT — silent print, no receipt modal
 // ─────────────────────────────────────────────────────────────────
 async function confirmPaymentAndSubmit() {
     const amountPaid  = parseFloat(document.getElementById('pmCashInput').value) || 0;
@@ -1916,11 +1864,8 @@ async function confirmPaymentAndSubmit() {
         });
         const data = await resp.json();
 
-        if (!data.success) {
-            throw new Error(data.error || 'Unknown error from server.');
-        }
+        if (!data.success) throw new Error(data.error || 'Unknown error from server.');
 
-        // Store for receipt
         lastOrderData = {
             orderNumber:  data.order_number,
             orderType,
@@ -1931,18 +1876,19 @@ async function confirmPaymentAndSubmit() {
             amountPaid,
             changeAmt,
             cashierName:  CASHIER_NAME,
-            createdAt:    data.created_at || new Date().toLocaleString('en-PH'),
         };
 
-        // Clear cart
+        // Clear cart immediately
         cart = [];
         localStorage.removeItem('pos_cart');
         sessionStorage.removeItem('draft_banner_shown');
         validateAndRender();
 
-        // Close payment modal, show receipt
+        // Close payment modal
         hideModal('paymentModal');
-        setTimeout(() => showReceiptModal(lastOrderData), 250);
+
+        // Silent ESC/POS 58mm print — no modal shown
+        setTimeout(() => silentPrintReceipt(lastOrderData), 300);
 
     } catch (err) {
         btn.disabled = false;
@@ -1952,12 +1898,10 @@ async function confirmPaymentAndSubmit() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// RECEIPT MODAL — 58mm inline
+// SILENT ESC/POS 58mm RECEIPT PRINT — no modal, hidden iframe
 // ─────────────────────────────────────────────────────────────────
-function showReceiptModal(d) {
-    document.getElementById('receiptOrderNumber').textContent = '#' + d.orderNumber;
-
-    const now = new Date();
+function buildReceiptHTML(d) {
+    const now     = new Date();
     const dateStr = now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
@@ -1965,78 +1909,116 @@ function showReceiptModal(d) {
     d.items.forEach(row => {
         const addonsTotal = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
         const lineTotal   = (row.price + addonsTotal) * row.quantity;
-        const label       = row.variantName ? `${row.name} · ${row.variantName}` : row.name;
-        itemsHTML += `<div class="rcpt-item-row">
-            <span class="rcpt-col-name">${escHtml(label)}</span>
-            <span class="rcpt-col-qty">${row.quantity}</span>
-            <span class="rcpt-col-price">${row.price.toFixed(2)}</span>
-            <span class="rcpt-col-total">${lineTotal.toFixed(2)}</span>
-        </div>`;
+        const label       = row.variantName ? `${row.name} / ${row.variantName}` : row.name;
+        // Truncate long names for 32-char 58mm width
+        const truncLabel  = label.length > 20 ? label.substring(0, 19) + '…' : label;
+        itemsHTML += `<tr>
+            <td style="padding-right:2px;word-break:break-word;">${escHtml(truncLabel)}</td>
+            <td style="text-align:center;">${row.quantity}</td>
+            <td style="text-align:right;">${row.price.toFixed(2)}</td>
+            <td style="text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</td>
+        </tr>`;
         row.addons.forEach(a => {
-            itemsHTML += `<div class="rcpt-addon-row">
-                <span>+ ${escHtml(a.name)} ×${a.quantity}</span>
-                <span>${(a.price * a.quantity).toFixed(2)}</span>
-            </div>`;
+            itemsHTML += `<tr style="font-size:9px;opacity:0.85;">
+                <td colspan="2" style="padding-left:6px;">+ ${escHtml(a.name)} ×${a.quantity}</td>
+                <td colspan="2" style="text-align:right;">${(a.price * a.quantity).toFixed(2)}</td>
+            </tr>`;
         });
         if (row.note) {
-            itemsHTML += `<div class="rcpt-note-row">Note: ${escHtml(row.note)}</div>`;
+            itemsHTML += `<tr style="font-size:9px;font-style:italic;">
+                <td colspan="4" style="padding-left:6px;border-left:1px solid #999;color:#555;">Note: ${escHtml(row.note)}</td>
+            </tr>`;
         }
     });
 
-    const receiptHTML = `
-        <div class="rcpt-center">
-            <div class="rcpt-large">DINE WITH DIN CAFETERIA</div>
-            <div class="rcpt-small">Karuhatan, Valenzuela City</div>
-            <div class="rcpt-small">(123) 456-7890</div>
-            <div class="rcpt-small rcpt-bold" style="margin-top:4px;text-transform:uppercase;">Sales Receipt</div>
-            <div class="rcpt-small">[ PAID ]</div>
-        </div>
-        <hr class="rcpt-divider-dash">
-        <div class="rcpt-row"><span class="rcpt-name">Receipt No.:</span><span class="rcpt-right">${escHtml(d.orderNumber)}</span></div>
-        <div class="rcpt-row"><span class="rcpt-name">Date:</span><span class="rcpt-right">${dateStr}</span></div>
-        <div class="rcpt-row"><span class="rcpt-name">Time:</span><span class="rcpt-right">${timeStr}</span></div>
-        <div class="rcpt-row"><span class="rcpt-name">Cashier:</span><span class="rcpt-right">${escHtml(d.cashierName)}</span></div>
-        ${d.customerName ? `<div class="rcpt-row"><span class="rcpt-name">Customer:</span><span class="rcpt-right">${escHtml(d.customerName)}</span></div>` : ''}
-        <div class="rcpt-row"><span class="rcpt-name">Order Type:</span><span class="rcpt-right">${d.orderType === 'dine_in' ? 'Dine In' : 'Take Out'}</span></div>
-        ${d.tableName ? `<div class="rcpt-row"><span class="rcpt-name">Table:</span><span class="rcpt-right">${escHtml(d.tableName)}</span></div>` : ''}
-        <hr class="rcpt-divider-dash">
-        <div class="rcpt-item-row rcpt-bold" style="border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:4px;font-size:10px;text-transform:uppercase;">
-            <span class="rcpt-col-name">Item</span>
-            <span class="rcpt-col-qty">Qty</span>
-            <span class="rcpt-col-price">Price</span>
-            <span class="rcpt-col-total">Total</span>
-        </div>
-        ${itemsHTML}
-        <hr class="rcpt-divider-double">
-        <div class="rcpt-total-row"><span>Subtotal:</span><span>PHP ${d.total.toFixed(2)}</span></div>
-        <div class="rcpt-total-row rcpt-total-grand"><span>TOTAL:</span><span>PHP ${d.total.toFixed(2)}</span></div>
-        <div style="border:1px solid #000;padding:5px 6px;margin:6px 0;font-size:11px;">
-            <div class="rcpt-pay-row"><span>Method:</span><span>CASH</span></div>
-            <div class="rcpt-pay-row"><span>Cash tendered:</span><span>PHP ${d.amountPaid.toFixed(2)}</span></div>
-            <div class="rcpt-pay-row"><span>Change:</span><span>PHP ${d.changeAmt.toFixed(2)}</span></div>
-        </div>
-        <hr class="rcpt-divider-dash">
-        <div class="rcpt-footer-txt">
-            <div class="rcpt-bold" style="font-size:12px;text-transform:uppercase;">Thank you for dining with us!</div>
-            <div>Please come again.</div>
-            <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:9px;">
-                Transaction: ${escHtml(d.orderNumber)}<br>
-                Printed: ${dateStr} ${timeStr}
-            </div>
-        </div>
-    `;
-
-    document.getElementById('receiptPrintArea').innerHTML = receiptHTML;
-    showModal('receiptModal');
-
-    // Auto-print when a printer is connected — fires immediately on modal open
-    setTimeout(() => printReceipt(), 400);
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: 58mm auto; margin: 3mm 2mm; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10px;
+    line-height: 1.6;
+    color: #000;
+    width: 54mm;
+    background: white;
+  }
+  .center  { text-align: center; }
+  .bold    { font-weight: bold; }
+  .large   { font-size: 13px; font-weight: bold; }
+  .small   { font-size: 9px; }
+  .dash    { border: none; border-top: 1px dashed #000; margin: 4px 0; }
+  .solid   { border: none; border-top: 1px solid #000; margin: 4px 0; }
+  .double  { border: none; border-top: 3px double #000; margin: 4px 0; }
+  .meta    { display: flex; justify-content: space-between; padding: 1px 0; }
+  .meta .k { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:3px; }
+  .meta .v { flex-shrink:0; font-weight:bold; }
+  table    { width: 100%; border-collapse: collapse; }
+  table th, table td { padding: 1px 0; vertical-align: top; }
+  .totals  { display: flex; justify-content: space-between; padding: 2px 0; }
+  .totals.grand { font-weight: bold; font-size: 13px; }
+  .pay-box { border: 1px solid #000; padding: 4px 5px; margin: 5px 0; }
+  .pay-row { display: flex; justify-content: space-between; padding: 1px 0; }
+  .footer  { text-align: center; font-size: 9px; line-height: 1.7; margin-top: 4px; }
+  .barcode { text-align: center; font-size: 9px; border-top: 1px dashed #000; margin-top: 5px; padding-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="center">
+    <div class="large">DINE WITH DIN</div>
+    <div class="small" style="font-size:10px;font-weight:bold;">CAFETERIA</div>
+    <div class="small">Karuhatan, Valenzuela City</div>
+    <div class="small">(123) 456-7890</div>
+  </div>
+  <hr class="dash">
+  <div class="center bold" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;">Sales Receipt</div>
+  <div class="center small" style="margin-bottom:3px;">[ PAID ]</div>
+  <hr class="solid">
+  <div class="meta"><span class="k">No.:</span><span class="v">${escHtml(d.orderNumber)}</span></div>
+  <div class="meta"><span class="k">Date:</span><span class="v">${dateStr}</span></div>
+  <div class="meta"><span class="k">Time:</span><span class="v">${timeStr}</span></div>
+  <div class="meta"><span class="k">Cashier:</span><span class="v">${escHtml(d.cashierName)}</span></div>
+  ${d.customerName ? `<div class="meta"><span class="k">Customer:</span><span class="v">${escHtml(d.customerName)}</span></div>` : ''}
+  <div class="meta"><span class="k">Type:</span><span class="v">${d.orderType === 'dine_in' ? 'Dine In' : 'Take Out'}</span></div>
+  ${d.tableName ? `<div class="meta"><span class="k">Table:</span><span class="v">${escHtml(d.tableName)}</span></div>` : ''}
+  <hr class="dash">
+  <table>
+    <thead>
+      <tr class="bold small" style="border-bottom:1px solid #000;text-transform:uppercase;">
+        <th style="width:42%;padding-bottom:2px;">Item</th>
+        <th style="width:10%;text-align:center;padding-bottom:2px;">Qty</th>
+        <th style="width:22%;text-align:right;padding-bottom:2px;">Price</th>
+        <th style="width:26%;text-align:right;padding-bottom:2px;">Total</th>
+      </tr>
+    </thead>
+    <tbody>${itemsHTML}</tbody>
+  </table>
+  <hr class="double">
+  <div class="totals"><span>Subtotal:</span><span>PHP ${d.total.toFixed(2)}</span></div>
+  <div class="totals grand"><span>TOTAL:</span><span>PHP ${d.total.toFixed(2)}</span></div>
+  <div class="pay-box">
+    <div class="pay-row"><span>Method:</span><span>CASH</span></div>
+    <div class="pay-row"><span>Tendered:</span><span>PHP ${d.amountPaid.toFixed(2)}</span></div>
+    <div class="pay-row bold"><span>Change:</span><span>PHP ${d.changeAmt.toFixed(2)}</span></div>
+  </div>
+  <hr class="dash">
+  <div class="footer">
+    <div class="bold" style="font-size:11px;">Thank you!</div>
+    <div>Please come again.</div>
+  </div>
+  <div class="barcode">
+    Txn: ${escHtml(d.orderNumber)}<br>
+    ${dateStr} ${timeStr}
+  </div>
+</body>
+</html>`;
 }
 
-function printReceipt() {
-    const content = document.getElementById('receiptPrintArea').innerHTML;
-
-    // Remove any leftover iframe
+function silentPrintReceipt(d) {
+    // Remove stale frame
     const old = document.getElementById('receiptPrintFrame');
     if (old) old.remove();
 
@@ -2047,61 +2029,19 @@ function printReceipt() {
 
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open();
-    doc.write(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  @page { size: 58mm auto; margin: 3mm 2mm; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 10px;
-    line-height: 1.55;
-    color: #000;
-    width: 54mm;
-    background: white;
-  }
-  .rcpt-center { text-align: center; }
-  .rcpt-bold   { font-weight: bold; }
-  .rcpt-large  { font-size: 13px; font-weight: bold; }
-  .rcpt-small  { font-size: 10px; }
-  .rcpt-divider-dash   { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-  .rcpt-divider-solid  { border: none; border-top: 1px solid #000; margin: 5px 0; }
-  .rcpt-divider-double { border: none; border-top: 3px double #000; margin: 5px 0; }
-  .rcpt-row { display: flex; justify-content: space-between; padding: 1px 0; }
-  .rcpt-row .rcpt-name  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 4px; }
-  .rcpt-row .rcpt-right { flex-shrink: 0; font-weight: bold; }
-  .rcpt-item-row { display: flex; margin-bottom: 4px; }
-  .rcpt-col-name  { flex: 2.5; word-break: break-word; padding-right: 4px; }
-  .rcpt-col-qty   { flex: 0.5; text-align: center; }
-  .rcpt-col-price { flex: 1; text-align: right; }
-  .rcpt-col-total { flex: 1; text-align: right; font-weight: bold; }
-  .rcpt-addon-row { display: flex; justify-content: space-between; font-size: 10px; padding: 1px 0 1px 10px; }
-  .rcpt-note-row  { font-size: 10px; font-style: italic; padding: 1px 0 3px 10px; border-left: 1px solid #999; margin-bottom: 2px; }
-  .rcpt-total-row { display: flex; justify-content: space-between; padding: 2px 0; }
-  .rcpt-total-grand { font-weight: bold; font-size: 13px; }
-  .rcpt-pay-row { display: flex; justify-content: space-between; padding: 2px 0; }
-  .rcpt-footer-txt { text-align: center; font-size: 10px; line-height: 1.7; }
-</style>
-</head>
-<body>${content}</body>
-</html>`);
+    doc.write(buildReceiptHTML(d));
     doc.close();
 
+    // Wait for fonts/layout, then print
     setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        // Clean up after print dialog is dismissed
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        } catch(e) { /* print dialog closed or blocked */ }
+        // Cleanup after 30s max
         iframe.contentWindow.onafterprint = () => iframe.remove();
-        // Fallback removal in case onafterprint doesn't fire
         setTimeout(() => { if (iframe.parentNode) iframe.remove(); }, 30000);
-    }, 300);
-}
-
-function afterReceiptClose() {
-    validateAndRender();
-    closeCartDrawer();
+    }, 400);
 }
 
 // ─────────────────────────────────────────────────────────────────
