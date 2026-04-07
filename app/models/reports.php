@@ -98,14 +98,16 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
 
     // 4. COGS Calculation: Only for items actually kept by customers
     // Refunded items should NOT contribute to COGS at all
-    $cogs_params = [':date' => $date];
+    $cogs_params = [':date' => $date, ':date_refund' => $date];
     $cogs_cid_clause = '';
+    $r_cid_clause = '';
     if ($cashier_id !== null) {
         $cogs_cid_clause = 'AND o.cashier_id = :cid_cogs';
         $cogs_params[':cid_cogs'] = $cashier_id;
+        $r_cid_clause = 'AND o.cashier_id = :cid_refund';
+        $cogs_params[':cid_refund'] = $cashier_id;
     }
     
-    // Calculate COGS of kept items (excluding refunded orders)
     $cogs_stmt = $pdo->prepare("
         SELECT 
             COALESCE(SUM(
@@ -132,7 +134,7 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
               SELECT DISTINCT r.order_id
               FROM refunds r
               WHERE r.order_id IS NOT NULL
-                AND DATE(r.created_at) = :date
+                AND DATE(r.created_at) = :date_refund
                 $r_cid_clause
           )
     ");
@@ -140,6 +142,11 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     $cogs_result = $cogs_stmt->fetch(PDO::FETCH_ASSOC);
     
     // Calculate waste costs separately (include from refunded orders)
+    $waste_params = [':date' => $date];
+    if ($cashier_id !== null) {
+        $waste_params[':cid_w'] = $cashier_id;
+    }
+    
     $waste_stmt = $pdo->prepare("
         SELECT 
             COALESCE(SUM(oi.waste_cost), 0) AS waste_costs
@@ -147,9 +154,9 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
         JOIN orders o ON oi.order_id = o.order_id
         WHERE o.status = 'completed'
           AND DATE(o.completed_at) = :date
-          $cogs_cid_clause
+          $cid_clause2
     ");
-    $waste_stmt->execute($cogs_params);
+    $waste_stmt->execute($waste_params);
     $waste_result = $waste_stmt->fetch(PDO::FETCH_ASSOC);
     
     $base_cogs = (float)$cogs_result['base_cogs'];
@@ -244,7 +251,7 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     $stmt4 = $pdo->prepare("
         SELECT COALESCE(SUM(r.amount), 0) AS total_refunds
         FROM refunds r
-        WHERE r.cashier_id = :cid
+        WHERE r.processed_by = :cid
           AND DATE(r.created_at) = :date
     ");
     $stmt4->execute([':cid' => $cashier_id, ':date' => $date]);
