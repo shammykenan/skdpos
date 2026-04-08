@@ -41,6 +41,10 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
             'PhpOption\\' => 10,
             'PHPMailer\\PHPMailer\\' => 20,
         ),
+        'M' =>
+        array (
+            'Mike42\\' => 7,
+        ),
         'G' =>
         array (
             'GuzzleHttp\\Psr7\\' => 16,
@@ -121,6 +125,11 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'PHPMailer\\PHPMailer\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
+        ),
+        'Mike42\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/mike42/escpos-php/src/Mike42',
+            1 => __DIR__ . '/..' . '/mike42/gfx-php/src/Mike42',
         ),
         'GuzzleHttp\\Psr7\\' =>
         array (
