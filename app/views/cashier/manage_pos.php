@@ -466,15 +466,48 @@
             .menu-item-image, .menu-item-placeholder { height: 105px; }
             .menu-item-body { padding: 0.65rem; }
             .menu-item-name { font-size: 0.8rem; }
-            #paymentModal .modal-dialog { 
-                margin: 1rem auto; 
-                max-width: calc(100% - 2rem); 
-                height: auto;
+            #paymentModal .modal-dialog {
+                margin: 0;
+                max-width: 100%;
+                width: 100%;
+                align-items: flex-end;
             }
-            #paymentModal .modal-content { 
-                border-radius: 20px; 
-                max-height: calc(100vh - 2rem);
+            #paymentModal .modal-content {
+                border-radius: 20px 20px 0 0;
+                max-height: 92vh;
                 overflow-y: auto;
+            }
+            #paymentModal .modal-dialog.modal-dialog-centered {
+                min-height: unset;
+            }
+            .pm-body {
+                padding: 1rem;
+            }
+            .pm-total-amount {
+                font-size: 1.5rem;
+            }
+            .pm-cash-input {
+                font-size: 1.2rem;
+                padding: 0.7rem 1rem 0.7rem 3.5rem;
+            }
+            .pm-footer {
+                padding: 0.85rem 1rem;
+                padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
+            }
+            .pm-confirm-btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.88rem;
+            }
+            .pm-cancel-btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.85rem;
+            }
+            .pm-summary {
+                margin-bottom: 0.85rem;
+            }
+            .pm-total-card {
+                margin-bottom: 0.85rem;
+                padding: 0.9rem 1.1rem;
             }
         }
         @media (max-width: 767.98px) {
@@ -1894,7 +1927,17 @@ async function confirmPaymentAndSubmit() {
         localStorage.removeItem('pos_cart');
         sessionStorage.removeItem('draft_banner_shown');
         validateAndRender();
-
+        // After validateAndRender(); add these lines:
+['customer_name', 'customer_name_m'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+});
+['table_id', 'table_id_m'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+});
+setOrderType('dine_in', 'desktop');
+setOrderType('dine_in', 'mobile');
         hideModal('paymentModal');
 
         btn.disabled = false;
