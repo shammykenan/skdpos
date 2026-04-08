@@ -421,6 +421,12 @@
         .clear-confirm-item { font-size: 0.8rem; color: var(--navy); padding: 0.2rem 0; display: flex; align-items: center; gap: 0.4rem; }
         .clear-confirm-item i { color: var(--danger); font-size: 0.6rem; }
 
+        /* Mobile modal z-index fix - appear above cart drawer */
+        @media (max-width: 991.98px) {
+            .modal { z-index: 1070; }
+            .modal-backdrop { z-index: 1065; }
+        }
+
         /* ════════════════ MOBILE ════════════════ */
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
@@ -460,8 +466,16 @@
             .menu-item-image, .menu-item-placeholder { height: 105px; }
             .menu-item-body { padding: 0.65rem; }
             .menu-item-name { font-size: 0.8rem; }
-            #paymentModal .modal-dialog { margin: 0; max-width: 100%; }
-            #paymentModal .modal-content { border-radius: 20px 20px 0 0; }
+            #paymentModal .modal-dialog { 
+                margin: 1rem auto; 
+                max-width: calc(100% - 2rem); 
+                height: auto;
+            }
+            #paymentModal .modal-content { 
+                border-radius: 20px; 
+                max-height: calc(100vh - 2rem);
+                overflow-y: auto;
+            }
         }
         @media (max-width: 767.98px) {
             .main-content { padding: 1rem; padding-bottom: calc(var(--mobile-bottom-bar) + 1rem); }
@@ -705,8 +719,8 @@
                     <input type="hidden" id="order_type" value="dine_in">
                 </div>
                 <div class="mb-2">
-                    <label class="form-label">Customer Name</label>
-                    <input type="text" class="form-control" id="customer_name" placeholder="e.g. John Santos" autocomplete="off">
+                    <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="customer_name" placeholder="e.g. John Santos" autocomplete="off" required>
                 </div>
                 <div id="tableNumberContainer">
                     <label class="form-label">Table <span class="text-danger">*</span></label>
@@ -807,8 +821,8 @@
                 </div>
             </div>
             <div class="mb-2">
-                <label class="form-label">Customer Name</label>
-                <input type="text" class="form-control" id="customer_name_m" placeholder="e.g. John Santos" autocomplete="off">
+                <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="customer_name_m" placeholder="e.g. John Santos" autocomplete="off" required>
             </div>
             <div id="tableNumberContainerM">
                 <label class="form-label">Table <span class="text-danger">*</span></label>
@@ -1055,7 +1069,7 @@ let lastOrderData      = null;
 const isMobile = () => window.innerWidth < 992;
 
 // ─────────────────────────────────────────────────────────────────
-// TOAST — "Added to order" feedback (no drawer pop)
+// TOAST
 // ─────────────────────────────────────────────────────────────────
 let _toastTimer = null;
 function showAddToast(name) {
@@ -1072,7 +1086,7 @@ function flashCard(itemId) {
     const card = document.querySelector(`.menu-item-card[data-item-id="${itemId}"]`);
     if (!card) return;
     card.classList.remove('just-added');
-    void card.offsetWidth; // reflow
+    void card.offsetWidth;
     card.classList.add('just-added');
     setTimeout(() => card.classList.remove('just-added'), 500);
 }
@@ -1451,7 +1465,6 @@ function renderCart() {
     }
     if (mBtn) mBtn.disabled = hasStockIssues || !showCart;
 
-    // In-cart badges
     const cartCounts = {};
     cart.forEach(r => { cartCounts[r.id] = (cartCounts[r.id] || 0) + r.quantity; });
     document.querySelectorAll('.menu-item-card').forEach(card => {
@@ -1698,7 +1711,6 @@ document.getElementById('addToCartBtn').addEventListener('click', () => {
     if (!c.success) { showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients); return; }
     addToCartWithQuantity(currentItem, adds, qty, note, currentVariantId, currentVariantName);
     hideModal('addonsModal');
-    // NO auto-open drawer — toast handles the feedback
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -1725,11 +1737,11 @@ function openPaymentModal() {
     if (!cart.length) { showErrorModal('Empty Cart', 'Please add items before collecting payment.'); return; }
     const fc = validateCumulative(cart);
     if (!fc.success) { showStockErrorModal('Cannot proceed — stock exceeded', fc.missingIngredients); return; }
-    const { orderType, tableId } = collectOrderData();
+    const { orderType, customerName, tableId } = collectOrderData();
     if (!orderType) { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
+    if (!customerName || customerName.trim() === '') { showErrorModal('Customer Name Required', 'Please enter a customer name.'); return; }
     if (orderType === 'dine_in' && !tableId) { showErrorModal('Table Required', 'Please select a table for dine-in orders.'); return; }
 
-    // Close drawer first on mobile so payment modal sits clean
     if (isMobile()) closeCartDrawer();
 
     _pmTotal = cart.reduce((s, r) => s + (r.price + r.addons.reduce((a, b) => a + b.price * b.quantity, 0)) * r.quantity, 0);
@@ -1833,7 +1845,7 @@ function updateChangeDisplay(amountPaid, hasInput) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// CONFIRM PAYMENT & SUBMIT — silent print, no receipt modal
+// CONFIRM PAYMENT & SUBMIT
 // ─────────────────────────────────────────────────────────────────
 async function confirmPaymentAndSubmit() {
     const amountPaid  = parseFloat(document.getElementById('pmCashInput').value) || 0;
@@ -1878,16 +1890,16 @@ async function confirmPaymentAndSubmit() {
             cashierName:  CASHIER_NAME,
         };
 
-        // Clear cart immediately
         cart = [];
         localStorage.removeItem('pos_cart');
         sessionStorage.removeItem('draft_banner_shown');
         validateAndRender();
 
-        // Close payment modal
         hideModal('paymentModal');
 
-        // Silent ESC/POS 58mm print — no modal shown
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirm & Place Order';
+
         setTimeout(() => silentPrintReceipt(lastOrderData), 300);
 
     } catch (err) {
@@ -1898,127 +1910,198 @@ async function confirmPaymentAndSubmit() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SILENT ESC/POS 58mm RECEIPT PRINT — no modal, hidden iframe
+// RECEIPT — Fixed 58mm, monospace column layout
+// Cols: 32 chars total (label left, value right-aligned)
+// No flexbox. Uses <pre> for guaranteed no-wrap, no-overflow.
 // ─────────────────────────────────────────────────────────────────
-function buildReceiptHTML(d) {
-    const now     = new Date();
-    const dateStr = now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    let itemsHTML = '';
+const COL = 30; // total chars per line for 58mm @ 7pt Courier
+
+function rpad(s, n) {
+    s = String(s);
+    return s.length >= n ? s.substring(0, n) : s + ' '.repeat(n - s.length);
+}
+function lpad(s, n) {
+    s = String(s);
+    return s.length >= n ? s.substring(0, n) : ' '.repeat(n - s.length) + s;
+}
+function row2col(label, value, total) {
+    total = total || COL;
+    label = String(label);
+    value = String(value);
+    const maxLabel = total - value.length - 1;
+    if (label.length > maxLabel) label = label.substring(0, maxLabel - 1) + '.';
+    // Add 4 spaces padding to push labels more to the right
+    return '    ' + rpad(label, maxLabel - 4) + ' ' + value;
+}
+function center(s, total) {
+    total = total || COL;
+    s = String(s);
+    if (s.length >= total) return s.substring(0, total);
+    const pad = Math.floor((total - s.length) / 2);
+    return ' '.repeat(pad) + s;
+}
+function divider(ch, total) {
+    return (ch || '-').repeat(total || COL);
+}
+
+function buildReceiptText(d) {
+    const now     = new Date();
+    const dateStr = now.toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
+    const timeStr = now.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', hour12:true });
+
+    const lines = [];
+
+    // Compact header
+    lines.push(center('DINE WITH DIN'));
+    lines.push(center('CAFETERIA'));
+    lines.push(center('Karuhatan, Valenzuela'));
+    lines.push(center('(123) 456-7890'));
+    lines.push(divider('-'));
+    lines.push(center('SALES RECEIPT'));
+    lines.push(center('[ PAID ]'));
+    lines.push(divider('-'));
+
+    // Compact order info - right side aligned
+    lines.push(row2col('No:', d.orderNumber));
+    lines.push(row2col('Date & Time:', `${dateStr} ${timeStr}`));
+    lines.push(row2col('Cashier:', d.cashierName.substring(0, 12)));
+    if (d.customerName) lines.push(row2col('Customer:', d.customerName.substring(0, 12)));
+    lines.push(row2col('Type:', d.orderType === 'dine_in' ? 'Dine In' : 'Take Out'));
+    if (d.tableName) lines.push(row2col('Table:', d.tableName.substring(0, 12)));
+
+    lines.push(divider('-'));
+
+    // Items with addons/notes below, individual item prices with quantity
     d.items.forEach(row => {
         const addonsTotal = row.addons.reduce((s, a) => s + a.price * a.quantity, 0);
         const lineTotal   = (row.price + addonsTotal) * row.quantity;
-        const label       = row.variantName ? `${row.name} / ${row.variantName}` : row.name;
-        // Truncate long names for 32-char 58mm width
-        const truncLabel  = label.length > 20 ? label.substring(0, 19) + '…' : label;
-        itemsHTML += `<tr>
-            <td style="padding-right:2px;word-break:break-word;">${escHtml(truncLabel)}</td>
-            <td style="text-align:center;">${row.quantity}</td>
-            <td style="text-align:right;">${row.price.toFixed(2)}</td>
-            <td style="text-align:right;font-weight:bold;">${lineTotal.toFixed(2)}</td>
-        </tr>`;
+        const label       = row.variantName ? `${row.name} (${row.variantName})` : row.name;
+        
+        // Main item line: Name indented, Qty x Price right beside name with one space
+        const qtyPrice = `x${row.quantity} ${row.price.toFixed(2)}`;
+        const maxName = COL - qtyPrice.length - 1;
+        const truncName = label.length > maxName ? label.substring(0, maxName - 1) + '.' : label;
+        lines.push('    ' + rpad(truncName, maxName) + qtyPrice);
+
+        // Addons below item
         row.addons.forEach(a => {
-            itemsHTML += `<tr style="font-size:9px;opacity:0.85;">
-                <td colspan="2" style="padding-left:6px;">+ ${escHtml(a.name)} ×${a.quantity}</td>
-                <td colspan="2" style="text-align:right;">${(a.price * a.quantity).toFixed(2)}</td>
-            </tr>`;
+            const ap = (a.price * a.quantity).toFixed(2);
+            const al = `      +${a.name}${a.quantity > 1 ? ` x${a.quantity}` : ''}`;
+            lines.push(rpad(al, COL - ap.length - 1) + ap);
         });
+
+        // Notes below item with proper word wrapping
         if (row.note) {
-            itemsHTML += `<tr style="font-size:9px;font-style:italic;">
-                <td colspan="4" style="padding-left:6px;border-left:1px solid #999;color:#555;">Note: ${escHtml(row.note)}</td>
-            </tr>`;
+            const notePrefix = '      Note: ';
+            const noteText = String(row.note);
+            const maxLineLength = COL - notePrefix.length;
+            
+            // Split note into words and wrap properly
+            const words = noteText.split(' ');
+            let currentLine = '';
+            
+            words.forEach(word => {
+                // If adding this word would exceed line length
+                if (currentLine.length + word.length + 1 > maxLineLength) {
+                    // Push current line if not empty
+                    if (currentLine) {
+                        lines.push(notePrefix + currentLine);
+                        currentLine = '';
+                    }
+                    // Handle words longer than line length
+                    if (word.length > maxLineLength) {
+                        for (let i = 0; i < word.length; i += maxLineLength) {
+                            lines.push(notePrefix + word.substring(i, i + maxLineLength));
+                        }
+                    } else {
+                        currentLine = word;
+                    }
+                } else {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                }
+            });
+            
+            // Push remaining line
+            if (currentLine) {
+                lines.push(notePrefix + currentLine);
+            }
         }
     });
+
+    lines.push(divider('='));
+    
+    // Compact totals with bigger TOTAL font
+    lines.push(row2col('TOTAL:', 'PHP ' + d.total.toFixed(2)));
+    lines.push(row2col('Method:', 'CASH'));
+    lines.push(row2col('Tendered:', 'PHP ' + d.amountPaid.toFixed(2)));
+    lines.push(row2col('Change:', 'PHP ' + d.changeAmt.toFixed(2)));
+    lines.push(divider('-'));
+    lines.push(center('Thank you!'));
+    lines.push(center('Please come again'));
+    lines.push(divider('.'));
+
+    return lines.join('\n');
+}
+
+function buildReceiptHTML(d) {
+    const text = buildReceiptText(d);
+    // Escape for HTML
+    const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 
     return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { size: 58mm auto; margin: 3mm 2mm; }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 10px;
-    line-height: 1.6;
-    color: #000;
-    width: 54mm;
-    background: white;
+  /* ── Page: zero margins, 58mm width, auto height ── */
+  @page {
+    size: 58mm auto;
+    margin: 0;
   }
-  .center  { text-align: center; }
-  .bold    { font-weight: bold; }
-  .large   { font-size: 13px; font-weight: bold; }
-  .small   { font-size: 9px; }
-  .dash    { border: none; border-top: 1px dashed #000; margin: 4px 0; }
-  .solid   { border: none; border-top: 1px solid #000; margin: 4px 0; }
-  .double  { border: none; border-top: 3px double #000; margin: 4px 0; }
-  .meta    { display: flex; justify-content: space-between; padding: 1px 0; }
-  .meta .k { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:3px; }
-  .meta .v { flex-shrink:0; font-weight:bold; }
-  table    { width: 100%; border-collapse: collapse; }
-  table th, table td { padding: 1px 0; vertical-align: top; }
-  .totals  { display: flex; justify-content: space-between; padding: 2px 0; }
-  .totals.grand { font-weight: bold; font-size: 13px; }
-  .pay-box { border: 1px solid #000; padding: 4px 5px; margin: 5px 0; }
-  .pay-row { display: flex; justify-content: space-between; padding: 1px 0; }
-  .footer  { text-align: center; font-size: 9px; line-height: 1.7; margin-top: 4px; }
-  .barcode { text-align: center; font-size: 9px; border-top: 1px dashed #000; margin-top: 5px; padding-top: 4px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 58mm;
+    background: #fff;
+    color: #000;
+  }
+  /* ── Receipt block ── */
+  pre {
+    font-family: "Lucida Console", Monaco, monospace;
+    font-size: 8pt;
+    line-height: 1.2;
+    font-weight: normal;
+    color: #000;
+    background: #fff;
+    white-space: pre;          /* never wrap */
+    overflow: hidden;          /* clip if somehow over */
+    width: 58mm;
+    padding: 2mm 1mm 4mm 1mm; /* top/side/bottom/left */
+    display: block;
+    word-break: normal;
+    word-wrap: normal;
+    letter-spacing: 0;
+  }
+  @media print {
+    @page { size: 58mm auto; margin: 0; }
+    html, body { width: 58mm; }
+    pre {
+      font-size: 7.5pt;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
 </style>
 </head>
-<body>
-  <div class="center">
-    <div class="large">DINE WITH DIN</div>
-    <div class="small" style="font-size:10px;font-weight:bold;">CAFETERIA</div>
-    <div class="small">Karuhatan, Valenzuela City</div>
-    <div class="small">(123) 456-7890</div>
-  </div>
-  <hr class="dash">
-  <div class="center bold" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;">Sales Receipt</div>
-  <div class="center small" style="margin-bottom:3px;">[ PAID ]</div>
-  <hr class="solid">
-  <div class="meta"><span class="k">No.:</span><span class="v">${escHtml(d.orderNumber)}</span></div>
-  <div class="meta"><span class="k">Date:</span><span class="v">${dateStr}</span></div>
-  <div class="meta"><span class="k">Time:</span><span class="v">${timeStr}</span></div>
-  <div class="meta"><span class="k">Cashier:</span><span class="v">${escHtml(d.cashierName)}</span></div>
-  ${d.customerName ? `<div class="meta"><span class="k">Customer:</span><span class="v">${escHtml(d.customerName)}</span></div>` : ''}
-  <div class="meta"><span class="k">Type:</span><span class="v">${d.orderType === 'dine_in' ? 'Dine In' : 'Take Out'}</span></div>
-  ${d.tableName ? `<div class="meta"><span class="k">Table:</span><span class="v">${escHtml(d.tableName)}</span></div>` : ''}
-  <hr class="dash">
-  <table>
-    <thead>
-      <tr class="bold small" style="border-bottom:1px solid #000;text-transform:uppercase;">
-        <th style="width:42%;padding-bottom:2px;">Item</th>
-        <th style="width:10%;text-align:center;padding-bottom:2px;">Qty</th>
-        <th style="width:22%;text-align:right;padding-bottom:2px;">Price</th>
-        <th style="width:26%;text-align:right;padding-bottom:2px;">Total</th>
-      </tr>
-    </thead>
-    <tbody>${itemsHTML}</tbody>
-  </table>
-  <hr class="double">
-  <div class="totals"><span>Subtotal:</span><span>PHP ${d.total.toFixed(2)}</span></div>
-  <div class="totals grand"><span>TOTAL:</span><span>PHP ${d.total.toFixed(2)}</span></div>
-  <div class="pay-box">
-    <div class="pay-row"><span>Method:</span><span>CASH</span></div>
-    <div class="pay-row"><span>Tendered:</span><span>PHP ${d.amountPaid.toFixed(2)}</span></div>
-    <div class="pay-row bold"><span>Change:</span><span>PHP ${d.changeAmt.toFixed(2)}</span></div>
-  </div>
-  <hr class="dash">
-  <div class="footer">
-    <div class="bold" style="font-size:11px;">Thank you!</div>
-    <div>Please come again.</div>
-  </div>
-  <div class="barcode">
-    Txn: ${escHtml(d.orderNumber)}<br>
-    ${dateStr} ${timeStr}
-  </div>
-</body>
+<body><pre>${escaped}</pre></body>
 </html>`;
 }
 
 function silentPrintReceipt(d) {
-    // Remove stale frame
     const old = document.getElementById('receiptPrintFrame');
     if (old) old.remove();
 
@@ -2032,13 +2115,11 @@ function silentPrintReceipt(d) {
     doc.write(buildReceiptHTML(d));
     doc.close();
 
-    // Wait for fonts/layout, then print
     setTimeout(() => {
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch(e) { /* print dialog closed or blocked */ }
-        // Cleanup after 30s max
         iframe.contentWindow.onafterprint = () => iframe.remove();
         setTimeout(() => { if (iframe.parentNode) iframe.remove(); }, 30000);
     }, 400);
