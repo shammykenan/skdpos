@@ -34,7 +34,7 @@ let currentOrdersCache = {};
 let openDetailsOrderId = null;
 let kitchenModalOrderId = null;
 
-let cancelOrderModal, orderDetailsModal, kitchenItemsModal,
+let orderDetailsModal, kitchenItemsModal,
     voidOrderModal, cancelVoidItemModal, finalReceiptModal,
     markServedModal, refundModal;
 
@@ -455,8 +455,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     try {
         if (typeof bootstrap !== 'undefined') {
-            cancelOrderModal    = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
-            orderDetailsModal   = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+                        orderDetailsModal   = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
             kitchenItemsModal   = new bootstrap.Modal(document.getElementById('kitchenItemsModal'));
             voidOrderModal      = new bootstrap.Modal(document.getElementById('voidOrderModal'));
             cancelVoidItemModal = new bootstrap.Modal(document.getElementById('cancelVoidItemModal'));
@@ -468,8 +467,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     } catch (e) { console.error('Modal init error:', e); }
 
-    window._cancelOrderReason    = wireReasonDropdown('cancelOrderReasonSelect',    'cancelOrderReasonText',    'cancelOrderReasonError');
-    window._voidOrderReason      = wireReasonDropdown('voidOrderReasonSelect',      'voidOrderReasonText',      'voidOrderReasonError');
+        window._voidOrderReason      = wireReasonDropdown('voidOrderReasonSelect',      'voidOrderReasonText',      'voidOrderReasonError');
     window._cancelVoidItemReason = wireReasonDropdown('cancelVoidItemReasonSelect', 'cancelVoidItemReasonText', 'cancelVoidItemReasonError');
 
     document.getElementById('voidRefundAmount')?.addEventListener('input', validateRefundInput);
@@ -481,22 +479,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (focused && this.contains(focused)) focused.blur();
     });
     document.getElementById('kitchenItemsModal')?.addEventListener('show.bs.modal', function () { this.removeAttribute('aria-hidden'); });
-    document.getElementById('cancelOrderModal')?.addEventListener('show.bs.modal', () => { window._cancelOrderReason?.reset(); });
-    document.getElementById('voidOrderModal')?.addEventListener('show.bs.modal', () => { window._voidOrderReason?.reset(); resetVoidRefundPanel(); });
+        document.getElementById('voidOrderModal')?.addEventListener('show.bs.modal', () => { window._voidOrderReason?.reset(); resetVoidRefundPanel(); });
     document.getElementById('cancelVoidItemModal')?.addEventListener('show.bs.modal', () => { window._cancelVoidItemReason?.reset(); });
     document.getElementById('cancelVoidItemModal')?.addEventListener('hidden.bs.modal', function () {
         document.getElementById('voidItemRefundSection')?.remove();
         _voidItemTotalPaid  = 0;
         _voidItemRefundCap  = 0;
         _voidItemRefundOpen = false;
-    });
-
-    // Cancel Order submit
-    document.getElementById('cancelOrderSubmitBtn')?.addEventListener('click', function () {
-        const reason = window._cancelOrderReason?.getReason() || '';
-        if (!reason) { window._cancelOrderReason?.showError(); return; }
-        document.getElementById('cancelOrderReasonHidden').value = reason;
-        document.getElementById('cancelOrderForm')?.submit();
     });
 
     // Void Order confirm
@@ -537,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function () {
         cancelVoidItemModal?.hide();
 
         if (pendingItemAction.orderItemId) {
-            await executeCancelVoidItem(
+            await executeVoidRefundItem(
                 pendingItemAction.orderItemId, pendingItemAction.action,
                 pendingItemAction.btn, reason,
                 pendingItemAction.refundAmount, pendingItemAction.refundMethod, pendingItemAction.refundNote
@@ -785,7 +774,7 @@ function updateFilterCounts(counts, total) {
 }
 
 function updateFilterLabel() {
-    const map = { all:'All Orders', pending:'Pending Orders', preparing:'Preparing Orders', ready:'Ready Orders', completed:'Completed Orders', cancelled:'Cancelled Orders', voided:'Voided Orders' };
+    const map = { all:'All Orders', pending:'Pending Orders', preparing:'Preparing Orders', ready:'Ready Orders', completed:'Completed Orders', voided:'Voided Orders' };
     const el  = document.getElementById('currentFilterLabel'); if (el) el.textContent = map[currentFilter] || 'Orders';
 }
 
@@ -865,7 +854,7 @@ function getOrderActionsHTML(order) {
         html += `<button type="button" class="btn btn-success btn-sm mark-served-btn" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-concierge-bell"></i> Mark as Served</button>`;
         if (isAdmin) html += `<button type="button" class="btn btn-sm void-order-btn" style="background:rgba(15,76,92,0.07);color:var(--primary-dark);border:1.5px solid rgba(15,76,92,0.28);border-radius:8px;font-size:0.78rem;font-weight:600;" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-ban"></i> Void Order</button>`;
     } else if (status === 'pending' && (isAdmin || isCashier)) {
-        html += `<button type="button" class="btn btn-danger btn-sm cancel-order-btn" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-times"></i> Cancel</button>`;
+        html += `<button type="button" class="btn btn-sm void-order-btn" style="background:rgba(15,76,92,0.07);color:var(--primary-dark);border:1.5px solid rgba(15,76,92,0.28);border-radius:8px;font-size:0.78rem;font-weight:600;" data-order-id="${orderId}" data-order-number="${escapeHtml(orderNum)}"><i class="fas fa-ban"></i> Void Order</button>`;
     } else if ((status === 'pending' || status === 'preparing') && isCashier && !isAdmin) {
         html += `<span class="badge action-status-badge" style="background:rgba(94,155,158,0.12);color:var(--info);border:1px solid rgba(94,155,158,0.3);font-size:0.75rem;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:0.4rem 0.8rem;">In Kitchen</span>`;
     } else if (status === 'completed') {
@@ -936,11 +925,11 @@ async function updateItemStatus(orderItemId, nextStatus, btn) {
 }
 
 // ============================================
-// CANCEL / VOID ITEM
+// VOID + REFUND ITEM
 // ============================================
-async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
-    const isCancel = action === 'cancel_item';
-    pendingItemAction = { orderItemId, action, itemName, btn, refundAmount:0, refundMethod:'cash', refundNote:'' };
+async function voidRefundOrderItem(orderItemId, action, itemName, btn) {
+    // Always treat as void+refund - no cancel option anymore
+    pendingItemAction = { orderItemId, action: 'void_item', itemName, btn, refundAmount:0, refundMethod:'cash', refundNote:'' };
 
     const titleEl=document.querySelector('#cancelVoidItemModal .modal-title'), iconEl=document.getElementById('cancelVoidItemIcon');
     const headingEl=document.getElementById('cancelVoidItemHeading'), bodyEl=document.getElementById('cancelVoidItemBody');
@@ -950,49 +939,43 @@ async function cancelVoidOrderItem(orderItemId, action, itemName, btn) {
     _voidItemTotalPaid=0; _voidItemRefundCap=0; _voidItemRefundOpen=false;
     document.getElementById('voidItemRefundSection')?.remove();
 
-    if (isCancel) {
-        if (titleEl)   titleEl.innerHTML  = `<i class="fas fa-times-circle me-2" style="color:var(--danger);"></i> Cancel Item`;
-        if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-times-circle"></i>`; iconEl.style.background='rgba(214,64,69,0.10)'; iconEl.style.color='var(--danger)'; }
-        if (headingEl) headingEl.textContent = `Cancel "${itemName}"?`;
-        if (bodyEl)    bodyEl.innerHTML   = `This item has <strong>not been prepared</strong> yet — it will be removed from the order.<br>No stock will be restored (none was deducted).`;
-        if (confirmEl) { confirmEl.className='btn btn-danger'; confirmEl.style.cssText=''; confirmEl.innerHTML='<i class="fas fa-times-circle me-1"></i> Yes, Cancel Item'; }
-    } else {
-        if (titleEl)   titleEl.innerHTML  = `<i class="fas fa-ban me-2" style="color:var(--primary-dark);"></i> Void Item`;
-        if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-ban"></i>`; iconEl.style.background='rgba(15,76,92,0.10)'; iconEl.style.color='var(--primary-dark)'; }
-        if (headingEl) headingEl.textContent = `Void "${itemName}"?`;
-        if (bodyEl)    bodyEl.innerHTML   = `This item was already <strong>prepared</strong>. Ingredients will <strong>NOT be restored</strong> — cost is written off as waste.<br>Sale total updated to exclude this item.`;
-        if (confirmEl) { confirmEl.className='btn'; confirmEl.style.cssText='background:var(--primary);color:white;'; confirmEl.innerHTML='<i class="fas fa-ban me-1"></i> Yes, Void Item'; }
-    }
+    // Always show void+refund interface
+    if (titleEl)   titleEl.innerHTML  = `<i class="fas fa-ban me-2" style="color:var(--primary-dark);"></i> Void + Refund Item`;
+    if (iconEl)    { iconEl.innerHTML = `<i class="fas fa-ban"></i>`; iconEl.style.background='rgba(15,76,92,0.10)'; iconEl.style.color='var(--primary-dark)'; }
+    if (headingEl) headingEl.textContent = `Void & Refund "${itemName}"?`;
+    if (bodyEl)    bodyEl.innerHTML   = `This item will be <strong>voided</strong> from the order and <strong>refunded</strong> to the customer.<br><strong>Waste cost</strong> will be calculated based on item preparation status.`;
+    if (confirmEl) { confirmEl.className='btn'; confirmEl.style.cssText='background:var(--primary);color:white;'; confirmEl.innerHTML='<i class="fas fa-ban me-1"></i> Yes, Void & Refund Item'; }
 
-    if (selEl) { selEl.innerHTML='<option value="">— Loading reasons… —</option>'; await loadReasons(action==='cancel_item'?'cancel_item':'void_item', 'cancelVoidItemReasonSelect'); }
+    if (selEl) { selEl.innerHTML='<option value="">— Loading reasons… —</option>'; await loadReasons('void_item', 'cancelVoidItemReasonSelect'); }
     cancelVoidItemModal?.show();
 
-    if (!isCancel) {
-        _injectVoidItemRefundPanel('loading');
-        try {
-            const orderId = kitchenModalOrderId;
-            if (orderId) {
-                const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
-                const data = await res.json();
-                if (data.success) {
-                    const d = data.data;
-                    _voidItemTotalPaid = parseFloat(d.payment?.amount_paid || 0);
-                    const matchedItem  = (d.items || []).find(i => String(i.order_item_id) === String(orderItemId));
-                    let itemSellingTotal = 0;
-                    if (matchedItem) {
-                        const addonsTotal = (matchedItem.addons || []).reduce((s, a) => s + parseFloat(a.price||0)*parseInt(a.quantity||1), 0);
-                        itemSellingTotal  = Math.round(((parseFloat(matchedItem.unit_price||0)*parseInt(matchedItem.quantity||1))+addonsTotal)*100)/100;
-                    }
-                    _voidItemRefundCap = _voidItemTotalPaid > 0 ? Math.min(itemSellingTotal, _voidItemTotalPaid) : itemSellingTotal;
-                    _injectVoidItemRefundPanel('ready');
-                } else { _injectVoidItemRefundPanel('error'); }
-            } else { _injectVoidItemRefundPanel('no-context'); }
-        } catch (err) { console.error('voidItem refund fetch error:', err); _injectVoidItemRefundPanel('error'); }
-    }
+    // Always inject refund panel
+    _injectVoidItemRefundPanel('loading');
+    try {
+        const orderId = kitchenModalOrderId;
+        if (orderId) {
+            const res  = await fetch(`${ORDER_DETAILS_URL}?order_id=${orderId}`, { headers:{'Cache-Control':'no-cache'} });
+            const data = await res.json();
+            if (data.success) {
+                const d = data.data;
+                _voidItemTotalPaid = parseFloat(d.payment?.amount_paid || 0);
+                const matchedItem  = (d.items || []).find(i => String(i.order_item_id) === String(orderItemId));
+                let itemSellingTotal = 0;
+                if (matchedItem) {
+                    // Use subtotal directly for consistency with PHP backend
+                    const itemSubtotal = parseFloat(matchedItem.subtotal || 0);
+                    const addonsTotal = (matchedItem.addons || []).reduce((s, a) => s + parseFloat(a.price||0)*parseInt(a.quantity||1), 0);
+                    itemSellingTotal = Math.round((itemSubtotal + addonsTotal) * 100) / 100;
+                }
+                _voidItemRefundCap = _voidItemTotalPaid > 0 ? Math.min(itemSellingTotal, _voidItemTotalPaid) : itemSellingTotal;
+                _injectVoidItemRefundPanel('ready');
+            } else { _injectVoidItemRefundPanel('error'); }
+        } else { _injectVoidItemRefundPanel('no-context'); }
+    } catch (err) { console.error('voidItem refund fetch error:', err); _injectVoidItemRefundPanel('error'); }
 }
 
-async function executeCancelVoidItem(orderItemId, action, btn, reason, refundAmount=0, refundMethod='cash', refundNote='') {
-    if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> <span>Processing…</span>'; }
+async function executeVoidRefundItem(orderItemId, action, btn, reason, refundAmount=0, refundMethod='cash', refundNote='') {
+    if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> <span>Processing...</span>'; }
     try {
         const fd = new FormData();
         fd.append('order_item_id', orderItemId); fd.append('action', action); fd.append('reason', reason);
@@ -1011,11 +994,11 @@ async function executeCancelVoidItem(orderItemId, action, btn, reason, refundAmo
             row.setAttribute('data-status', data.order_status);
             const statusCell=row.querySelector('td[data-label="Status"]'), actionsCell=row.querySelector('td[data-label="Actions"]'), totalSpan=row.querySelector('td[data-label="Total"] span');
             if (statusCell) statusCell.innerHTML = getOrderStatusBadge(data.order_status);
-            if (totalSpan) { totalSpan.className=data.order_status==='completed'?'price-total-paid':'price-total-unpaid'; if(data.new_total!==undefined){totalSpan.textContent='₱'+formatPrice(data.new_total);row.setAttribute('data-order-total',data.new_total);} }
+            if (totalSpan) { totalSpan.className=data.order_status==='completed'?'price-total-paid':'price-total-unpaid'; if(data.new_total!==undefined){totalSpan.textContent='?'+formatPrice(data.new_total);row.setAttribute('data-order-total',data.new_total);} }
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id:data.order_id, order_number:row.getAttribute('data-order-number'), total_amount:data.new_total??row.getAttribute('data-order-total'), status:data.order_status });
         }
         if (openDetailsOrderId && String(openDetailsOrderId)===String(data.order_id)) await fetchAndPopulateOrderDetails(data.order_id);
-    } catch (err) { console.error('Cancel/void item error:', err); showErrorModal('Operation Failed', err.message); if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';} }
+    } catch (err) { console.error('Void+refund item error:', err); showErrorModal('Operation Failed', err.message); if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>';} }
 }
 
 // ============================================
@@ -1042,13 +1025,34 @@ async function voidOrder(orderId, orderNumber) {
 
         const d = resp.data;
         _voidOrderTotalPaid = parseFloat(d.payment?.amount_paid || 0);
+        const orderStatus = d.status || 'pending';
 
-        // Compute selling total of ready items
+        // Update payment status display
+        const paymentStatusEl = document.getElementById('voidPaymentStatus');
+        if (paymentStatusEl) {
+            if (_voidOrderTotalPaid > 0) {
+                paymentStatusEl.textContent = `Customer paid: ₱${_voidOrderTotalPaid.toFixed(2)} - refund available`;
+                paymentStatusEl.style.color = 'var(--success)';
+            } else {
+                paymentStatusEl.textContent = 'No payment recorded - no refund needed';
+                paymentStatusEl.style.color = 'var(--warm-gray)';
+            }
+        }
+
+        // Compute selling total of items (all active items for pending orders, ready items for others)
         let itemsSellingTotal = 0;
         (d.items || []).forEach(item => {
-            if (item.item_status !== 'ready') return;
-            const addonsTotal = (item.addons || []).reduce((s,a) => s + parseFloat(a.price||0)*parseInt(a.quantity||1), 0);
-            itemsSellingTotal += (parseFloat(item.unit_price||0) + addonsTotal) * parseInt(item.quantity||1);
+            // Skip voided/cancelled items - they're already processed
+            if (['voided', 'cancelled'].includes(item.item_status)) return;
+            
+            // For pending orders, include all active items since customer paid but order wasn't processed
+            // For other statuses, only include ready items
+            if (orderStatus === 'pending' || item.item_status === 'ready') {
+                // Use subtotal directly for consistency with PHP backend
+                const itemSubtotal = parseFloat(item.subtotal || 0);
+                const addonsTotal = (item.addons || []).reduce((s,a) => s + parseFloat(a.price||0)*parseInt(a.quantity||1), 0);
+                itemsSellingTotal += itemSubtotal + addonsTotal;
+            }
         });
         itemsSellingTotal = Math.round(itemsSellingTotal * 100) / 100;
 
@@ -1058,11 +1062,11 @@ async function voidOrder(orderId, orderNumber) {
 
         if (paidHintEl) paidHintEl.textContent = _voidOrderTotalPaid > 0
             ? `Paid: ₱${_voidOrderTotalPaid.toFixed(2)} · Max refund: ₱${_voidOrderRefundCap.toFixed(2)}`
-            : 'No payment recorded — refund not applicable.';
+            : 'No payment recorded - refund not applicable.';
 
         if (refAmtEl) {
             refAmtEl.disabled    = _voidOrderRefundCap <= 0;
-            refAmtEl.placeholder = _voidOrderRefundCap > 0 ? `0.00 – ${_voidOrderRefundCap.toFixed(2)}` : 'No payment on file';
+            refAmtEl.placeholder = _voidOrderRefundCap > 0 ? `0.00 - ${_voidOrderRefundCap.toFixed(2)}` : 'No payment on file';
             refAmtEl.max         = _voidOrderRefundCap > 0 ? _voidOrderRefundCap.toFixed(2) : '0';
         }
 
@@ -1173,8 +1177,10 @@ function buildRefundItemsList(items) {
     if (!container) return;
     if (!items || items.length === 0) { container.innerHTML='<div style="padding:1rem;text-align:center;color:var(--warm-gray);font-size:0.83rem;">No refundable items.</div>'; return; }
     container.innerHTML = items.map(item => {
+        // Use subtotal directly for consistency with PHP backend
+        const itemSubtotal = parseFloat(item.subtotal || 0);
         const addonsTotal = (item.addons||[]).reduce((s,a)=>s+parseFloat(a.price||0)*parseInt(a.quantity||1),0);
-        const lineTotal   = (parseFloat(item.unit_price||0)*parseInt(item.quantity||1))+addonsTotal;
+        const lineTotal   = itemSubtotal + addonsTotal;
         const label       = item.variant_name_snapshot?`${item.item_name_snapshot||item.item_name} · ${item.variant_name_snapshot}`:(item.item_name_snapshot||item.item_name||'');
         return `<div class="refund-item-row">
             <input type="checkbox" class="refund-item-check" data-item-id="${item.order_item_id}" data-max="${lineTotal.toFixed(2)}" id="ritem_${item.order_item_id}">
@@ -1278,31 +1284,54 @@ function renderKitchenModal(order, items) {
     const bodyEl=document.getElementById('kitchenModalBody');
     if (bodyEl) {
         const activeCount=items.filter(i=>!['cancelled','voided','completed'].includes(i.item_status||'pending')).length;
-        bodyEl.innerHTML=items.length?'<div class="kitchen-modal-items">'+items.map(item=>buildItemCardHTML(item,orderStatus,activeCount)).join('')+'</div>':'<p class="text-muted text-center py-3">No items found.</p>';
+        // Pass payment info to item cards for proper void/refund logic
+        const paymentInfo = order.payment || {};
+        bodyEl.innerHTML=items.length?'<div class="kitchen-modal-items">'+items.map(item=>buildItemCardHTML(item,orderStatus,activeCount,paymentInfo)).join('')+'</div>':'<p class="text-muted text-center py-3">No items found.</p>';
     }
 }
 
-function buildItemCardHTML(item, orderStatus, activeItemCount=99) {
+function buildItemCardHTML(item, orderStatus, activeItemCount=99, paymentInfo) {
     const isAdmin=window.userRole==='admin', isCashier=window.userRole==='cashier', canUpdate=window.userRole==='kitchen'||isAdmin;
     const orderDone=['completed','cancelled','voided'].includes(orderStatus);
     const itemStatus=item.item_status||'pending', isTerminal=['completed','cancelled','voided'].includes(itemStatus);
     const dc={pending:{label:'Pending',icon:'fa-hourglass-half',cls:'item-status-pending'},preparing:{label:'Preparing',icon:'fa-bowl-food',cls:'item-status-preparing'},ready:{label:'Ready',icon:'fa-circle-check',cls:'item-status-ready'},completed:{label:'Completed',icon:'fa-check-double',cls:'item-status-completed'},cancelled:{label:'Cancelled',icon:'fa-times-circle',cls:'item-status-cancelled'},voided:{label:'Voided',icon:'fa-ban',cls:'item-status-voided'}};
     const sc=dc[itemStatus]||dc.pending, badge=`<span class="item-status-badge ${sc.cls}"><i class="fas ${sc.icon}"></i> ${sc.label}</span>`;
     let progressBtn='';
-    if (canUpdate&&!orderDone&&!isTerminal&&itemStatus!=='ready') {
-        const ns=itemStatus==='pending'?'preparing':'ready', bc=itemStatus==='pending'?{label:'Start Cooking',icon:'fa-play',cls:'item-action-start'}:{label:'Mark Ready',icon:'fa-check',cls:'item-action-ready'};
-        progressBtn=`<button type="button" class="item-status-btn ${bc.cls}" data-order-item-id="${item.order_item_id}" data-next-status="${ns}"><i class="fas ${bc.icon}"></i><span>${bc.label}</span></button>`;
+    if (canUpdate&&!orderDone&&!isTerminal) {
+        if (itemStatus==='pending') {
+            const ns='preparing', bc={label:'Start Cooking',icon:'fa-play',cls:'item-action-start'};
+            progressBtn=`<button type="button" class="item-status-btn ${bc.cls}" data-order-item-id="${item.order_item_id}" data-next-status="${ns}"><i class="fas ${bc.icon}"></i><span>${bc.label}</span></button>`;
+        } else if (itemStatus==='preparing') {
+            const ns='ready', bc={label:'Mark Ready',icon:'fa-check',cls:'item-action-ready'};
+            progressBtn=`<button type="button" class="item-status-btn ${bc.cls}" data-order-item-id="${item.order_item_id}" data-next-status="${ns}"><i class="fas ${bc.icon}"></i><span>${bc.label}</span></button>`;
+        }
     }
     const onlyOneLeft=activeItemCount<=1;
+    const hasPayment = paymentInfo && parseFloat(paymentInfo.amount_paid || 0) > 0;
     let adminBtn='';
-    if ((isAdmin||isCashier)&&!orderDone&&!isTerminal&&itemStatus==='pending'&&!onlyOneLeft)
-        adminBtn=`<button type="button" class="item-status-btn item-action-cancel-item" data-order-item-id="${item.order_item_id}" data-action="cancel_item" data-item-name="${escapeHtml(item.item_name||'')}"><i class="fas fa-times"></i><span>Cancel</span></button>`;
-    else if (isAdmin&&!orderDone&&!isTerminal&&itemStatus==='ready'&&!onlyOneLeft)
+    // Show void options for all items when payment is made (pay-first system)
+    if (hasPayment && (isAdmin||isCashier) && !orderDone && !isTerminal && !onlyOneLeft) {
         adminBtn=`<button type="button" class="item-status-btn item-action-void-item" data-order-item-id="${item.order_item_id}" data-action="void_item" data-item-name="${escapeHtml(item.item_name||'')}"><i class="fas fa-ban"></i><span>Void</span></button>`;
+    } 
+    // For unpaid orders, keep existing logic (cancel for pending items)
+    else if (!hasPayment && (isAdmin||isCashier)&&!orderDone&&!isTerminal&&itemStatus==='pending'&&!onlyOneLeft) {
+        adminBtn=`<button type="button" class="item-status-btn item-action-void-item" data-order-item-id="${item.order_item_id}" data-action="void_item" data-item-name="${escapeHtml(item.item_name||'')}"><i class="fas fa-ban"></i><span>Void</span></button>`;
+    } 
+    // For unpaid orders with ready items, show void
+    else if (!hasPayment && isAdmin&&!orderDone&&!isTerminal&&itemStatus==='ready'&&!onlyOneLeft) {
+        adminBtn=`<button type="button" class="item-status-btn item-action-void-item" data-order-item-id="${item.order_item_id}" data-action="void_item" data-item-name="${escapeHtml(item.item_name||'')}"><i class="fas fa-ban"></i><span>Void</span></button>`;
+    }
     const bn=escapeHtml(item.item_name||''), vn=item.variant_name_snapshot||item.current_variant_name||item.variant_name||null;
     const addonsHTML=(item.addons&&item.addons.length)?`<div class="item-addons"><span class="item-addons-label">Add-ons:</span>${item.addons.map(a=>`<span class="item-addon-tag">${escapeHtml(a.addon_name)}${a.quantity>1?` ×${a.quantity}`:''}</span>`).join('')}</div>`:'';
     const noteHTML=(item.item_notes&&item.item_notes.trim())?`<div class="item-card-note-inline"><span class="item-card-note-label">Note:</span><span class="item-card-note-text">${escapeHtml(item.item_notes)}</span></div>`:'';
-    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}"><div class="item-card-header"><div class="item-card-name"><span class="item-name-text">${bn}${vn?`<span class="item-variant-label"> · ${escapeHtml(vn)}</span>`:''}</span><span class="item-qty-badge">×${item.quantity||1}</span></div><div class="item-card-right">${badge}${progressBtn}${adminBtn}</div></div>${addonsHTML}${noteHTML}</div>`;
+    // Add waste cost highlighting for voided items
+    const wasteHighlight = (itemStatus === 'voided' && item.waste_cost === null) 
+        ? '<div class="waste-indicator">No waste cost</div>' 
+        : (item.waste_cost > 0 
+            ? `<div class="waste-indicator">Waste: ${peso(item.waste_cost)}</div>` 
+            : '');
+
+    return `<div class="item-card item-card-${itemStatus}" data-item-id="${item.order_item_id}"><div class="item-card-header"><div class="item-card-name"><span class="item-name-text">${bn}${vn?`<span class="item-variant-label"> · ${escapeHtml(vn)}</span>`:''}</span><span class="item-qty-badge">×${item.quantity||1}</span></div><div class="item-card-right">${badge}${progressBtn}${adminBtn}</div></div>${addonsHTML}${noteHTML}${wasteHighlight}</div>`;
 }
 
 // ============================================
@@ -1893,7 +1922,7 @@ function setupEventListeners() {
         if (e.target.closest('.void-order-btn'))   { const btn=e.target.closest('.void-order-btn'); if(!btn.disabled) voidOrder(btn.dataset.orderId,btn.dataset.orderNumber); }
         if (e.target.closest('.item-status-btn'))  {
             const btn=e.target.closest('.item-status-btn'); if(btn.disabled) return;
-            if (btn.classList.contains('item-action-cancel-item')||btn.classList.contains('item-action-void-item')) { cancelVoidOrderItem(btn.getAttribute('data-order-item-id'),btn.getAttribute('data-action'),btn.getAttribute('data-item-name'),btn); return; }
+            if (btn.classList.contains('item-action-cancel-item')||btn.classList.contains('item-action-void-item')) { voidRefundOrderItem(btn.getAttribute('data-order-item-id'),btn.getAttribute('data-action'),btn.getAttribute('data-item-name'),btn); return; }
             updateItemStatus(btn.getAttribute('data-order-item-id'),btn.getAttribute('data-next-status'),btn);
         }
     });

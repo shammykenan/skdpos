@@ -308,7 +308,20 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
 <div class="main-content">
 
     <div class="page-header">
-        <h1><i class="fas fa-chart-bar"></i> <?= $is_admin ? 'Reports' : 'My Reports' ?></h1>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h1><i class="fas fa-chart-bar"></i> <?= $is_admin ? 'Reports' : 'My Reports' ?></h1>
+            <?php if (!$is_admin && $tab === 'myshift'): ?>
+            <div class="stat-card" style="padding: 0.7rem 1.2rem; min-width: 200px; background: white; border-left: 4px solid var(--warning);">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fas fa-cash-register" style="color:var(--warning); font-size: 1rem;"></i>
+                    <div>
+                        <div class="s-label" style="font-size: 0.7rem; margin-bottom: 0;">Cash to Turn Over</div>
+                        <div class="s-value" style="font-size: 1.1rem; color: var(--dark); font-weight: 600;"><?= peso((float)($data['summary']['net_profit']??0)) ?></div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="<?= $baseUrl ?>/index.php?page=<?= $is_admin ? 'admin_dashboard' : 'manage_pos' ?>">Home</a></li>
@@ -336,20 +349,14 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         $prev = $cmp['previous'];
         $chg  = $cmp['change'];
         $metrics = [
-            'net_revenue'      => ['Revenue',   fn($v) => peso((float)$v)],
-            'total_orders'     => ['Orders',    fn($v) => number_format((int)$v)],
-            'avg_order_value'  => ['Avg Order', fn($v) => peso((float)$v)],
-            'cancelled_orders' => ['Cancelled', fn($v) => number_format((int)$v)],
+            'gross_revenue'    => ['Gross Revenue', fn($v) => peso((float)$v)],
+            'net_revenue'      => ['Net Revenue',   fn($v) => peso((float)$v)],
+            'gross_profit'     => ['Gross Profit',  fn($v) => peso((float)$v)],
+            'net_profit'       => ['Net Profit',    fn($v) => peso((float)$v)],
         ];
         echo '<div class="comparison-grid fade-in">';
         foreach ($metrics as $key => [$label, $fmt]) {
             $badge = isset($chg[$key]) ? pct_badge((float)$chg[$key]) : '';
-            if ($key === 'cancelled_orders' && isset($chg[$key])) {
-                $c     = (float)$chg[$key];
-                $arrow = $c >= 0 ? '▲' : '▼';
-                $cls   = $c >= 0 ? 'badge-danger' : 'badge-success';
-                $badge = '<span class="rpt-badge ' . $cls . '" style="font-size:.7rem;">' . $arrow . ' ' . abs($c) . '%</span>';
-            }
             echo '<div class="compare-card">';
             echo '<div class="compare-label">' . $label . '</div>';
             echo '<div class="compare-current">' . $fmt($cur[$key] ?? 0) . ' ' . $badge . '</div>';
@@ -453,37 +460,38 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="stats-grid fade-in">
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
-            <div class="s-label">My Sales Today</div>
-            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
-            <div class="vat-breakdown">
-                Excl. VAT: <span><?= peso((float)($s['net_revenue_excl_vat']??0)) ?></span>
-                &nbsp;|&nbsp; VAT (12%): <span><?= peso((float)($s['total_vat_collected']??0)) ?></span>
+            <div class="s-label">Gross Revenue</div>
+            <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
+            <div class="s-sub">Sum of all PAID orders</div>
+        </div>
+        <div class="stat-card">
+            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
+            <div class="s-label">Gross Profit</div>
+            <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
+            <div class="profit-breakdown">
+                Gross Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)(($s['gross_revenue']??0) - ($s['gross_profit']??0))) ?></span>
             </div>
         </div>
-        <div class="stat-card c-coral">
-            <div class="s-icon"><i class="fas fa-shopping-cart"></i></div>
-            <div class="s-label">Orders Handled</div>
-            <div class="s-value"><?= number_format($s['total_orders']??0) ?></div>
-            <div class="s-sub">Cancelled: <?= $s['cancelled_orders']??0 ?></div>
-        </div>
         <div class="stat-card c-teal">
-            <div class="s-icon"><i class="fas fa-receipt"></i></div>
-            <div class="s-label">Avg Order Value</div>
-            <div class="s-value"><?= peso((float)($s['avg_order_value']??0)) ?></div>
-            <div class="s-sub">Discounts: <?= peso((float)($s['total_discounts']??0)) ?></div>
+            <div class="s-icon"><i class="fas fa-coins"></i></div>
+            <div class="s-label">Net Revenue</div>
+            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+            <div class="profit-breakdown">
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            </div>
+        </div>
+        <div class="stat-card c-green">
+            <div class="s-icon"><i class="fas fa-boxes"></i></div>
+            <div class="s-label">COGS</div>
+            <div class="s-value"><?= peso((float)(($s['gross_revenue']??0) - ($s['gross_profit']??0))) ?></div>
+            <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
 
         <?php render_net_profit_card($s); ?>
-        <div class="stat-card c-warning">
-            <div class="s-icon"><i class="fas fa-cash-register"></i></div>
-            <div class="s-label">Cash to Turn Over</div>
-            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
-            <div class="s-sub" style="color:var(--warning);font-weight:600;">Print close-out to confirm</div>
-        </div>
     </div>
-
-    <?php if (!empty($data['comparison'])): render_comparison($data['comparison'], 'Yesterday'); endif; ?>
 
     <div class="row g-4">
         <div class="col-lg-6">
@@ -657,42 +665,31 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
             <div class="s-label">Gross Revenue</div>
             <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
-            <div class="vat-breakdown">
-                <div class="vat-label">Excl. VAT:</div>
-                <div class="vat-amount"><?= peso((float)($s['net_revenue_excl_vat']??0)) ?></div>
-                <div class="vat-label">VAT:</div>
-                <div class="vat-amount"><?= peso((float)($s['total_vat_collected']??0)) ?></div>
-            </div>
-            <?php if (($s['total_refunds']??0) > 0): ?>
-            <div class="refund-breakdown">
-                <div class="refund-label">Less: Refunds</div>
-                <div class="refund-amount"><?= peso((float)($s['total_refunds']??0)) ?></div>
-            </div>
-            <?php endif; ?>
-            <?php if (($s['net_revenue_after_refunds']??0) != ($s['net_revenue']??0)): ?>
-            <div class="net-revenue-breakdown">
-                <div class="net-revenue-label">Net Revenue</div>
-                <div class="net-revenue-amount"><?= peso((float)($s['net_revenue_after_refunds']??0)) ?></div>
-            </div>
-            <?php endif; ?>
+            <div class="s-sub">Sum of all PAID orders</div>
         </div>
-        <div class="stat-card c-coral">
-            <div class="s-icon"><i class="fas fa-shopping-cart"></i></div>
-            <div class="s-label">Total Orders</div>
-            <div class="s-value"><?= number_format($s['total_orders']??0) ?></div>
-            <div class="s-sub">Cancelled: <?=$s['cancelled_orders']??0?></div>
+        <div class="stat-card">
+            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
+            <div class="s-label">Gross Profit</div>
+            <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
+            <div class="profit-breakdown">
+                Gross Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)(($s['gross_revenue']??0) - ($s['gross_profit']??0))) ?></span>
+            </div>
         </div>
         <div class="stat-card c-teal">
-            <div class="s-icon"><i class="fas fa-receipt"></i></div>
-            <div class="s-label">Avg Order Value</div>
-            <div class="s-value"><?= peso((float)($s['avg_order_value']??0)) ?></div>
-            <div class="s-sub">Discounts: <?= peso((float)($s['total_discounts']??0)) ?></div>
+            <div class="s-icon"><i class="fas fa-coins"></i></div>
+            <div class="s-label">Net Revenue</div>
+            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+            <div class="profit-breakdown">
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            </div>
         </div>
         <div class="stat-card c-green">
-            <div class="s-icon"><i class="fas fa-user-tie"></i></div>
-            <div class="s-label">Active Cashiers</div>
-            <div class="s-value"><?=$s['active_cashiers']??0?></div>
-            <div class="s-sub"><?= date('M d, Y',strtotime($filter_date)) ?></div>
+            <div class="s-icon"><i class="fas fa-boxes"></i></div>
+            <div class="s-label">COGS</div>
+            <div class="s-value"><?= peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0))) ?></div>
+            <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
 
@@ -809,41 +806,32 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
             <div class="s-label">Gross Revenue</div>
-            <div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div>
-            <div class="vat-breakdown">
-                Excl. VAT: <span><?=peso((float)($s['net_revenue_excl_vat']??0))?></span>
-                &nbsp;|&nbsp; VAT: <span><?=peso((float)($s['total_vat_collected']??0))?></span>
-            </div>
-            <?php if (($s['total_refunds']??0) > 0): ?>
-            <div class="refund-breakdown">
-                <div class="refund-label">Less: Refunds</div>
-                <div class="refund-amount"><?=peso((float)($s['total_refunds']??0))?></div>
-            </div>
-            <?php endif; ?>
-            <?php if (($s['net_revenue_after_refunds']??0) != ($s['net_revenue']??0)): ?>
-            <div class="net-revenue-breakdown">
-                <div class="net-revenue-label">Net Revenue</div>
-                <div class="net-revenue-amount"><?=peso((float)($s['net_revenue_after_refunds']??0))?></div>
-            </div>
-            <?php endif; ?>
+            <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
+            <div class="s-sub">Sum of all PAID orders</div>
         </div>
-        <div class="stat-card c-coral">
-            <div class="s-icon"><i class="fas fa-shopping-cart"></i></div>
-            <div class="s-label">Total Orders</div>
-            <div class="s-value"><?=number_format($s['total_orders']??0)?></div>
-            <div class="s-sub">Cancelled: <?=$s['cancelled_orders']??0?></div>
+        <div class="stat-card">
+            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
+            <div class="s-label">Gross Profit</div>
+            <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
+            <div class="profit-breakdown">
+                Net Revenue: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></span>
+            </div>
         </div>
         <div class="stat-card c-teal">
-            <div class="s-icon"><i class="fas fa-receipt"></i></div>
-            <div class="s-label">Avg Order Value</div>
-            <div class="s-value"><?=peso((float)($s['avg_order_value']??0))?></div>
-            <div class="s-sub">Discounts: <?=peso((float)($s['total_discounts']??0))?></div>
+            <div class="s-icon"><i class="fas fa-coins"></i></div>
+            <div class="s-label">Net Revenue</div>
+            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+            <div class="profit-breakdown">
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            </div>
         </div>
         <div class="stat-card c-green">
-            <div class="s-icon"><i class="fas fa-users"></i></div>
-            <div class="s-label">Active Cashiers</div>
-            <div class="s-value"><?=$s['active_cashiers']??0?></div>
-            <div class="s-sub"><?=$months_list[$filter_month]?> <?=$filter_year?></div>
+            <div class="s-icon"><i class="fas fa-boxes"></i></div>
+            <div class="s-label">COGS</div>
+            <div class="s-value"><?= peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0))) ?></div>
+            <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
 
@@ -969,25 +957,22 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
             <div class="s-label">Gross Revenue <?=$filter_year?></div>
             <div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div>
-            <div class="vat-breakdown">
-                Excl. VAT: <span><?=peso((float)($s['net_revenue_excl_vat']??0))?></span>
-                &nbsp;|&nbsp; VAT: <span><?=peso((float)($s['total_vat_collected']??0))?></span>
-            </div>
-            <?php if (($s['total_refunds']??0) > 0): ?>
-            <div class="refund-breakdown">
-                <div class="refund-label">Less: Refunds</div>
-                <div class="refund-amount"><?=peso((float)($s['total_refunds']??0))?></div>
-            </div>
-            <?php endif; ?>
-            <?php if (($s['net_revenue_after_refunds']??0) != ($s['net_revenue']??0)): ?>
-            <div class="net-revenue-breakdown">
-                <div class="net-revenue-label">Net Revenue</div>
-                <div class="net-revenue-amount"><?=peso((float)($s['net_revenue_after_refunds']??0))?></div>
-            </div>
-            <?php endif; ?>
+            <div class="s-sub">Sum of all PAID orders</div>
         </div>
-        <div class="stat-card c-coral"><div class="s-icon"><i class="fas fa-shopping-cart"></i></div><div class="s-label">Total Orders</div><div class="s-value"><?=number_format($s['total_orders']??0)?></div><div class="s-sub">Discounts: <?=peso((float)($s['total_discounts']??0))?></div></div>
-        <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-receipt"></i></div><div class="s-label">Avg Order Value</div><div class="s-value"><?=peso((float)($s['avg_order_value']??0))?></div></div>
+        <div class="stat-card">
+            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
+            <div class="s-label">Gross Profit <?=$filter_year?></div>
+            <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
+            <div class="profit-breakdown">
+                Net Revenue: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></span>
+            </div>
+        </div>
+        <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-coins"></i></div><div class="s-label">Net Revenue</div><div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div><div class="profit-breakdown">
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            </div></div>
+        <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-boxes"></i></div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></div><div class="s-sub">Cost of items sold</div></div>
         <?php render_waste_card($s); ?>
 
         <?php render_net_profit_card($s); ?>

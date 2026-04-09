@@ -1115,6 +1115,16 @@ function showAddToast(name) {
     _toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
+function showSuccessToast(message) {
+    const el   = document.getElementById('addToast');
+    const text = document.getElementById('addToastText');
+    if (!el) return;
+    if (_toastTimer) clearTimeout(_toastTimer);
+    text.textContent = message;
+    el.classList.add('show');
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
 function flashCard(itemId) {
     const card = document.querySelector(`.menu-item-card[data-item-id="${itemId}"]`);
     if (!card) return;
@@ -1943,6 +1953,9 @@ setOrderType('dine_in', 'mobile');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirm & Place Order';
 
+        // Show success toast
+        showSuccessToast(`Order #${data.order_number} created successfully!`);
+
         setTimeout(() => printReceiptESC(lastOrderData), 300);
 
     } catch (err) {
@@ -1952,11 +1965,26 @@ setOrderType('dine_in', 'mobile');
     }
 }
 async function printReceiptESC(d) {
-    await fetch('index.php?page=print_receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(d)
-    });
+    try {
+        const response = await fetch('index.php?page=print_receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(d)
+        });
+        
+        const result = await response.json();
+        
+        // Handle different printer statuses
+        if (result.status === 'no_printer') {
+            // Silently handle no printer - don't show error to user
+            console.log('No printer available - order created successfully');
+        } else if (result.status === 'printed') {
+            console.log('Receipt printed successfully');
+        }
+    } catch (error) {
+        // Silently handle print errors - don't block order creation
+        console.log('Print error:', error.message);
+    }
 }
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR

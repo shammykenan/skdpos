@@ -8,9 +8,27 @@ use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 // ===== RECEIVE DATA FROM JS =====
 $d = json_decode(file_get_contents("php://input"), true);
 
-// ===== CONNECT =====
-$connector = new WindowsPrintConnector("POS58");
-$printer = new Printer($connector);
+// ===== PRINTER DETECTION =====
+$printerAvailable = false;
+$connector = null;
+$printer = null;
+
+try {
+    // Try to detect if printer is available
+    $connector = new WindowsPrintConnector("POS58");
+    $printer = new Printer($connector);
+    $printerAvailable = true;
+} catch (Exception $e) {
+    // Printer not available, but don't block the order
+    error_log("Printer not available: " . $e->getMessage());
+    $printerAvailable = false;
+}
+
+// If no printer available, return success without printing
+if (!$printerAvailable) {
+    echo json_encode(["status" => "no_printer", "message" => "No printer available - order created successfully"]);
+    exit;
+}
 
 // ===== CONFIG =====
 $COL = 30;
@@ -86,12 +104,21 @@ foreach ($d["items"] as $item) {
     $printer->text(row2col($name, "x{$item['quantity']} " . number_format($item['price'], 2), $COL) . "\n");
 
     foreach ($item["addons"] as $a) {
-    $addonName = "  +" . $a['name'];
-    $printer->text(row2col($addonName, "x{$a['quantity']} " . number_format($a['price'] * $a['quantity'], 2), $COL) . "\n");
+        $addonName = "  +" . $a['name'];
+        $printer->text(row2col($addonName, "x{$a['quantity']} " . number_format($a['price'] * $a['quantity'], 2), $COL) . "\n");
     }
 
     if (!empty($item["note"])) {
         $printer->text("    Note: {$item['note']}\n");
+    }
+
+    // Add waste cost information for voided items
+    if ($item['status'] === 'voided') {
+        if ($item['waste_cost'] === null || $item['waste_cost'] == 0) {
+            $printer->text("    Waste Cost: None (no ingredients used)\n");
+        } else {
+            $printer->text("    Waste Cost: PHP " . number_format($item['waste_cost'], 2) . "\n");
+        }
     }
 }
 

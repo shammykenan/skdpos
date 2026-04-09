@@ -288,3 +288,94 @@ function cancelOrder(PDO $pdo, int $order_id): void {
     $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE order_id = ?");
     $stmt->execute([$order_id]);
 }
+
+// ============================================
+// REFUND HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Get all refunds for an order with details
+ */
+function getOrderRefunds(PDO $pdo, int $order_id): ?array {
+    $stmt = $pdo->prepare("
+        SELECT
+            r.refund_id,
+            r.refund_type,
+            r.order_item_id,
+            r.amount,
+            r.reason,
+            r.refund_method,
+            r.note,
+            r.created_at,
+            u.full_name AS processed_by_name
+        FROM refunds r
+        LEFT JOIN users u ON r.processed_by = u.user_id
+        WHERE r.order_id = ?
+        ORDER BY r.refund_id ASC
+    ");
+    $stmt->execute([$order_id]);
+    $refundRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$refundRows) return null;
+
+    return [
+        'rows'           => $refundRows,
+        'total_refunded' => round((float) array_sum(array_column($refundRows, 'amount')), 2),
+        'count'          => count($refundRows),
+    ];
+}
+
+/**
+ * Check if order has payment and can be refunded
+ */
+function canRefundOrder(PDO $pdo, int $order_id): bool {
+    // Check if order exists and is in refundable status
+    $orderStmt = $pdo->prepare("
+        SELECT status FROM orders WHERE order_id = ? LIMIT 1
+    ");
+    $orderStmt->execute([$order_id]);
+    $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$order) return false;
+    
+    // Completed orders can always be refunded
+    if ($order['status'] === 'completed') return true;
+    
+    // Pending orders can be refunded if payment exists
+    if ($order['status'] === 'pending') {
+        $paymentStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(amount_paid), 0) AS total_paid
+            FROM payments
+            WHERE order_id = ?
+        ");
+        $paymentStmt->execute([$order_id]);
+        $totalPaid = (float) $paymentStmt->fetchColumn();
+        return $totalPaid > 0;
+    }
+    
+    return false;
+}
+
+/**
+ * Calculate maximum refundable amount for an order
+ */
+function getMaxRefundAmount(PDO $pdo, int $order_id): float {
+    $orderStmt = $pdo->prepare("
+        SELECT total_amount FROM orders WHERE order_id = ? LIMIT 1
+    ");
+    $orderStmt->execute([$order_id]);
+    $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$order) return 0.0;
+    
+    $orderTotal = (float) $order['total_amount'];
+    
+    // Calculate already refunded amount
+    $refundedStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0) FROM refunds WHERE order_id = ?
+    ");
+    $refundedStmt->execute([$order_id]);
+    $alreadyRefunded = (float) $refundedStmt->fetchColumn();
+    
+    return max(0.0, round($orderTotal - $alreadyRefunded, 2));
+}

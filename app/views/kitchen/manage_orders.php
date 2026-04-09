@@ -209,10 +209,6 @@
                             <i class="fas fa-check-circle me-1"></i> Completed
                             <span class="filter-count">0</span>
                         </button>
-                        <button class="filter-tab" data-status="cancelled">
-                            <i class="fas fa-times-circle me-1"></i> Cancelled
-                            <span class="filter-count">0</span>
-                        </button>
                         <?php if (hasRole('admin') || hasRole('cashier')): ?>
                         <button class="filter-tab filter-tab-voided" data-status="voided">
                             <i class="fas fa-ban me-1"></i> Voided
@@ -322,65 +318,6 @@
 
 
 <!-- ══════════════════════════════════════════
-     CANCEL ORDER MODAL
-══════════════════════════════════════════ -->
-<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="cancelOrderModalLabel">
-                    <i class="fas fa-exclamation-triangle me-2" style="color:var(--warning);"></i>
-                    Cancel Order
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center mb-3">
-                    <div class="modal-icon danger"><i class="fas fa-times-circle"></i></div>
-                    <h5 class="mb-2">Cancel Order #<span id="cancelOrderNumber"></span>?</h5>
-                    <p class="text-muted mb-0" style="font-size:0.88rem;line-height:1.6;">
-                        This action cannot be undone.<br>
-                        Since the order is <strong>pending</strong>, no stock has been deducted — nothing will be restored.
-                    </p>
-                </div>
-                <div class="mt-3">
-                    <label for="cancelOrderReasonSelect" class="form-label fw-semibold"
-                           style="font-size:0.82rem;color:var(--navy);">
-                        <i class="fas fa-pen-to-square me-1" style="color:var(--primary-light);"></i>
-                        Reason for cancelling <span class="text-danger">*</span>
-                    </label>
-                    <select id="cancelOrderReasonSelect" class="form-select mb-2"
-                            style="border-radius:12px;font-size:0.85rem;border-color:var(--border);">
-                        <option value="">— Select a reason —</option>
-                    </select>
-                    <textarea id="cancelOrderReasonText" class="form-control" rows="2" maxlength="255"
-                              placeholder="Describe the reason in more detail…"
-                              style="border-radius:12px;font-size:0.85rem;resize:none;border-color:var(--border);display:none;"></textarea>
-                    <div id="cancelOrderReasonError"
-                         style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
-                        Please select or enter a reason.
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-arrow-left me-1"></i> Go Back
-                </button>
-                <form method="POST" action="index.php?page=manage_orders" id="cancelOrderForm">
-                    <input type="hidden" name="order_id"      id="cancelOrderId">
-                    <input type="hidden" name="cancel_reason" id="cancelOrderReasonHidden">
-                    <input type="hidden" name="cancel_order"  value="1">
-                    <button type="button" id="cancelOrderSubmitBtn" class="btn btn-danger">
-                        <i class="fas fa-times-circle me-1"></i> Yes, Cancel Order
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ══════════════════════════════════════════
      VOID ORDER MODAL
 ══════════════════════════════════════════ -->
 <div class="modal fade" id="voidOrderModal" tabindex="-1" aria-labelledby="voidOrderModalLabel" aria-hidden="true">
@@ -400,11 +337,12 @@
                     <div class="modal-icon" style="background:rgba(15,76,92,0.10);color:var(--primary-dark);">
                         <i class="fas fa-ban"></i>
                     </div>
-                    <h5 class="mb-1">Void entire Order #<span id="voidOrderNumber"></span>?</h5>
+                    <h5 class="mb-1">Void Order #<span id="voidOrderNumber"></span>?</h5>
                     <p class="text-muted mb-0" style="font-size:0.85rem;line-height:1.6;">
-                        All items are ready but the customer will not pay.<br>
-                        <strong>Ingredients are written off as waste</strong> — stock is NOT restored.<br>
-                        Sale total becomes <strong>₱0</strong>.
+                        This order will be voided and payment will be refunded if applicable.<br>
+                        <strong>Ingredients are written off as waste</strong> - stock is NOT restored.<br>
+                        Sale total becomes <strong>0</strong> but counts as gross revenue.<br>
+                        <span id="voidPaymentStatus" style="color:var(--primary-dark);font-weight:600;">Checking payment status...</span>
                     </p>
                 </div>
 
@@ -553,7 +491,7 @@
             </div>
             <div class="modal-footer border-0 pt-0 pb-3 gap-2 justify-content-center px-4">
                 <button type="button" class="btn btn-outline-secondary flex-fill"
-                        style="border-radius:12px;" data-bs-dismiss="modal">Cancel</button>
+                        style="border-radius:12px;" data-bs-dismiss="modal">Go Back</button>
                 <button type="button" class="btn flex-fill" id="confirmMarkServedBtn"
                         style="background:var(--success);color:white;border-radius:12px;font-weight:700;">
                     <i class="fas fa-check me-1"></i> Yes, Serve It
@@ -821,7 +759,7 @@
 
 
 <!-- ══════════════════════════════════════════
-     CANCEL / VOID ITEM MODAL
+     VOID + REFUND ITEM MODAL
 ══════════════════════════════════════════ -->
 <div class="modal fade" id="cancelVoidItemModal" tabindex="-1" aria-labelledby="cancelVoidItemModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1020,7 +958,7 @@
 
             <div class="modal-footer" style="padding:1rem 1.6rem;border-top:1px solid var(--border);">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-1"></i> Cancel
+                    <i class="fas fa-times me-1"></i> Cancel Refund
                 </button>
                 <button type="button" id="confirmRefundBtn"
                         style="background:var(--success);color:white;border:none;border-radius:10px;

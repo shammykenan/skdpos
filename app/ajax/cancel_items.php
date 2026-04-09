@@ -49,7 +49,7 @@ if ($refund_amount < 0) {
 try {
     $pdo->beginTransaction();
 
-    // ── Fetch item + parent order ─────────────────────────────────────────────
+    // ── Fetch item + parent order in one query ────────────────────────────────
     $stmt = $pdo->prepare("
         SELECT
             oi.order_item_id,
@@ -95,45 +95,86 @@ try {
         exit;
     }
 
-    if ($action === 'void_item' && $item['item_status'] !== 'ready') {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'error' => 'Only ready items can be voided. This item is ' . $item['item_status'] . '.']);
-        exit;
+    // ── Check payment status for order ────────────────────────────────────────
+    $paymentStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount_paid), 0) AS total_paid
+        FROM payments
+        WHERE order_id = ?
+    ");
+    $paymentStmt->execute([$item['order_id']]);
+    $totalPaid = (float) $paymentStmt->fetchColumn();
+
+    // For void_item: validate the item status is voidable
+    if ($action === 'void_item') {
+        $allowedVoidStatuses = ['pending', 'preparing', 'ready'];
+        if (!in_array($item['item_status'], $allowedVoidStatuses)) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'error' => 'Cannot void item with status: ' . $item['item_status'] . '.']);
+            exit;
+        }
+        // If no payment exists, only ready items can be voided (unpaid orders)
+        if ($totalPaid <= 0 && $item['item_status'] !== 'ready') {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'error' => 'Only ready items can be voided for unpaid orders. This item is ' . $item['item_status'] . '.']);
+            exit;
+        }
     }
 
     $order_id        = (int) $item['order_id'];
     $new_item_status = $action === 'cancel_item' ? 'cancelled' : 'voided';
     $itemLabel       = $item['item_name_snapshot'] ?? ('Item #' . $order_item_id);
 
-    // ── 1. Calculate waste cost (void only) ───────────────────────────────────
+    // ── 1. Calculate waste cost ───────────────────────────────────────────────
+    //
+    // WASTE COST RULES (item-level void):
+    //   - pending   → item was NEVER prepared, no ingredients used → waste_cost = NULL
+    //   - preparing → item is being made, ingredients already consumed → waste_cost = cost
+    //   - ready     → item is fully prepared, ingredients consumed → waste_cost = cost
+    //   - cancel    → always NULL (only pending items can be cancelled)
+    //
+    // NOTE: In a pay-first system, payment existing does NOT change whether
+    // ingredients were consumed. Only the kitchen status determines that.
+    // ─────────────────────────────────────────────────────────────────────────
     $wasteCost = null;
 
     if ($action === 'void_item') {
-        $costStmt = $pdo->prepare("
-            SELECT
-                oi.quantity,
-                COALESCE(mv.cost_price, mi.cost_price) AS unit_cost
-            FROM order_items oi
-            JOIN menu_items mi ON oi.item_id = mi.item_id
-            LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
-            WHERE oi.order_item_id = ?
-        ");
-        $costStmt->execute([$order_item_id]);
-        $costRow = $costStmt->fetch(PDO::FETCH_ASSOC);
+        $currentItemStatus = $item['item_status'];
 
-        $itemCost = $costRow ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2) : 0.00;
+        if (in_array($currentItemStatus, ['preparing', 'ready'])) {
+            // Ingredients have been consumed — record waste cost
+            $costStmt = $pdo->prepare("
+                SELECT
+                    oi.quantity,
+                    COALESCE(mv.cost_price, mi.cost_price) AS unit_cost
+                FROM order_items oi
+                JOIN menu_items mi ON oi.item_id = mi.item_id
+                LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
+                WHERE oi.order_item_id = ?
+            ");
+            $costStmt->execute([$order_item_id]);
+            $costRow = $costStmt->fetch(PDO::FETCH_ASSOC);
 
-        $addonStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(price * quantity), 0) AS addon_total
-            FROM order_item_addons
-            WHERE order_item_id = ?
-        ");
-        $addonStmt->execute([$order_item_id]);
-        $addonCost = (float) ($addonStmt->fetchColumn() ?? 0);
+            $itemCost = $costRow
+                ? round((float) $costRow['unit_cost'] * (int) $costRow['quantity'], 2)
+                : 0.00;
 
-        $wasteCost = round($itemCost + $addonCost, 2);
+            $addonStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(a.price * oia.quantity), 0) AS addon_total
+                FROM order_item_addons oia
+                JOIN addons a ON oia.addon_id = a.addon_id
+                WHERE oia.order_item_id = ?
+            ");
+            $addonStmt->execute([$order_item_id]);
+            $addonCost = (float) ($addonStmt->fetchColumn() ?? 0);
 
-        // ── Validate refund cap ───────────────────────────────────────────────
+            $wasteCost = round($itemCost + $addonCost, 2);
+
+        } else {
+            // pending → not prepared yet, no ingredients used → no waste cost
+            $wasteCost = null;
+        }
+
+        // ── Validate refund amount cap ────────────────────────────────────────
         if ($refund_amount > 0) {
             $sellingSubtotal = (float) $item['subtotal'];
 
@@ -146,15 +187,9 @@ try {
             $addonSelling     = (float) $addonSellingStmt->fetchColumn();
             $itemSellingTotal = round($sellingSubtotal + $addonSelling, 2);
 
-            // All remaining payments rows are 'paid' — no status filter needed post-migration
-            $paidStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(amount_paid), 0)
-                FROM payments
-                WHERE order_id = ?
-            ");
-            $paidStmt->execute([$order_id]);
-            $totalPaid = (float) $paidStmt->fetchColumn();
-            $refundCap = $totalPaid > 0 ? min($itemSellingTotal, $totalPaid) : $itemSellingTotal;
+            $refundCap = $totalPaid > 0
+                ? min($itemSellingTotal, $totalPaid)
+                : $itemSellingTotal;
 
             if ($refund_amount > $refundCap + 0.01) {
                 $pdo->rollBack();
@@ -204,8 +239,7 @@ try {
         UPDATE orders SET waste_total = ? WHERE order_id = ?
     ")->execute([$newWasteTotal, $order_id]);
 
-    // ── 4. Record refund in refunds table if amount > 0 (void_item only) ──────
-    // refund_type = 'void_item' distinguishes from void_order and post_sale.
+    // ── 4. Record refund in refunds table (void_item only, amount > 0) ────────
     $refundId = null;
     if ($action === 'void_item' && $refund_amount > 0) {
         $refStmt = $pdo->prepare("
@@ -234,12 +268,15 @@ try {
         'qty'           => (int) $item['quantity'],
         'reason'        => $reason,
         'performed_by'  => (int) $_SESSION['user_id'],
+        'item_status_at_void' => $item['item_status'],
     ];
     if ($action === 'cancel_item') {
-        $logDetails['stock_note'] = 'Item was pending — no stock had been deducted. Nothing restored. No waste.';
+        $logDetails['stock_note'] = 'Item was pending — not yet prepared. No ingredients consumed. No waste.';
     } else {
         $logDetails['waste_cost']    = $wasteCost;
-        $logDetails['stock_note']    = 'Item was ready — ingredients already consumed. Stock NOT restored. Cost written off as waste.';
+        $logDetails['stock_note']    = $item['item_status'] === 'pending'
+            ? 'Item was pending (paid, not yet prepared) — no ingredients consumed. No waste cost.'
+            : 'Item was ' . $item['item_status'] . ' — ingredients already consumed. Cost written off as waste.';
         $logDetails['refund_amount'] = $refund_amount;
         $logDetails['refund_method'] = $refund_amount > 0 ? $refund_method : null;
         $logDetails['refund_note']   = $refund_note ?: null;
