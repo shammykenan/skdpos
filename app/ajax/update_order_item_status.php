@@ -52,6 +52,12 @@ try {
         exit;
     }
 
+    // ── Lock the order row to prevent concurrent modifications ─────────────────
+    $lockStmt = $pdo->prepare("
+        SELECT order_id FROM orders WHERE order_id = ? FOR UPDATE
+    ");
+    $lockStmt->execute([$item['order_id']]);
+
     if (in_array($item['order_status'], ['completed', 'cancelled', 'voided'])) {
         $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => 'Cannot update items on a ' . $item['order_status'] . ' order.']);

@@ -40,6 +40,12 @@ if ($refund_amount < 0) {
 try {
     $pdo->beginTransaction();
 
+    // ── Lock the order row to prevent concurrent modifications ─────────────────
+    $lockStmt = $pdo->prepare("
+        SELECT order_id FROM orders WHERE order_id = ? FOR UPDATE
+    ");
+    $lockStmt->execute([$order_id]);
+
     // ── Fetch order ───────────────────────────────────────────────────────────
     $stmt = $pdo->prepare("
         SELECT order_id, order_number, status, subtotal, total_amount, discount, cashier_id

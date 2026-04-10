@@ -49,6 +49,23 @@ if ($refund_amount < 0) {
 try {
     $pdo->beginTransaction();
 
+    // ── Fetch order_id first to lock it ─────────────────────────────────────────
+    $orderIdStmt = $pdo->prepare("SELECT order_id FROM order_items WHERE order_item_id = ?");
+    $orderIdStmt->execute([$order_item_id]);
+    $order_id = $orderIdStmt->fetchColumn();
+
+    if (!$order_id) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Order item not found.']);
+        exit;
+    }
+
+    // ── Lock the order row to prevent concurrent modifications ─────────────────
+    $lockStmt = $pdo->prepare("
+        SELECT order_id FROM orders WHERE order_id = ? FOR UPDATE
+    ");
+    $lockStmt->execute([$order_id]);
+
     // ── Fetch item + parent order in one query ────────────────────────────────
     $stmt = $pdo->prepare("
         SELECT
@@ -120,7 +137,6 @@ try {
         }
     }
 
-    $order_id        = (int) $item['order_id'];
     $new_item_status = $action === 'cancel_item' ? 'cancelled' : 'voided';
     $itemLabel       = $item['item_name_snapshot'] ?? ('Item #' . $order_item_id);
 

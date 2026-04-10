@@ -526,7 +526,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-value ' . $cls . '">' . peso($gross_profit) . '</div>
             <div class="profit-breakdown">
                 Net Revenue: <span class="pos">' . peso($net_revenue) . '</span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg">' . peso($net_revenue - $gross_profit) . '</span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg">' . peso($s['cogs'] ?? 0) . '</span>
             </div>
         </div>';
     }
@@ -865,7 +865,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
             <div class="profit-breakdown">
                 Gross Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)(($s['gross_revenue']??0) - ($s['gross_profit']??0))) ?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span>
             </div>
         </div>
         <div class="stat-card c-teal">
@@ -880,7 +880,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card c-green">
             <div class="s-icon"><i class="fas fa-boxes"></i></div>
             <div class="s-label">COGS</div>
-            <div class="s-value"><?= peso((float)(($s['gross_revenue']??0) - ($s['gross_profit']??0))) ?></div>
+            <div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div>
             <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
@@ -1006,10 +1006,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         </div>
         <div class="rpt-card-body p-0">
         <?php if(empty($data['low_stock'])): ?>
-            <div class="no-data" style="padding:3rem;">
-                <i class="fas fa-check-circle" style="font-size:2.5rem;color:var(--success);opacity:.7;display:block;margin-bottom:.8rem;"></i>
-                All ingredients are sufficiently stocked.
-            </div>
+            <div class="no-data"><i class="fas fa-check-circle"></i> All ingredients are sufficiently stocked.</div>
         <?php else: ?>
             <div style="overflow-x:auto;"><table class="rpt-table">
                 <thead><tr><th>Ingredient</th><th>Current Stock</th><th>Alert Level</th><th>Unit</th><th>Status</th><th>Last Updated</th></tr></thead>
@@ -1068,7 +1065,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
             <div class="profit-breakdown">
                 Gross Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)(($s['gross_revenue']??0) - ($s['gross_profit']??0))) ?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span>
             </div>
         </div>
         <div class="stat-card c-teal">
@@ -1083,7 +1080,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card c-green">
             <div class="s-icon"><i class="fas fa-boxes"></i></div>
             <div class="s-label">COGS</div>
-            <div class="s-value"><?= peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0))) ?></div>
+            <div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div>
             <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
@@ -1209,7 +1206,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
             <div class="profit-breakdown">
                 Net Revenue: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span>
             </div>
         </div>
         <div class="stat-card c-teal">
@@ -1224,7 +1221,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="stat-card c-green">
             <div class="s-icon"><i class="fas fa-boxes"></i></div>
             <div class="s-label">COGS</div>
-            <div class="s-value"><?= peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0))) ?></div>
+            <div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div>
             <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
@@ -1358,14 +1355,14 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
             <div class="profit-breakdown">
                 Net Revenue: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></span>
+                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span>
             </div>
         </div>
         <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-coins"></i></div><div class="s-label">Net Revenue</div><div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div><div class="profit-breakdown">
                 Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
                 &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
             </div></div>
-        <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-boxes"></i></div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></div><div class="s-sub">Cost of items sold</div></div>
+        <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-boxes"></i></div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)($s['cogs']??0))?></div><div class="s-sub">Cost of items sold</div></div>
         <?php render_waste_card($s); ?>
         <?php render_net_profit_card($s); ?>
     </div>
