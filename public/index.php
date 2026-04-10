@@ -78,7 +78,10 @@ switch ($page) {
         require_once BASE_PATH . '/app/controllers/reset_password_controller.php';
         break;
     case 'print_receipt':
-        require_once BASE_PATH . '/app/controllers/print-receipt.php';
+        require_once BASE_PATH . '/app/print/print-receipt.php';
+        exit;
+    case 'print_closeout':
+        require_once BASE_PATH . '/app/print/print-closeout.php';
         exit;
     case 'logout':
         require_once BASE_PATH . '/config/logout.php';

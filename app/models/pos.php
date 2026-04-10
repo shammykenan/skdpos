@@ -19,7 +19,7 @@ function createOrder(
     float   $total_amount,
     ?int    $table_id = null
 ): int {
-    $order_number = 'SKD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+    $order_number = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
 
     $stmt = $pdo->prepare("
         INSERT INTO orders

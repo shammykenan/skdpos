@@ -63,8 +63,10 @@ date_default_timezone_set("Asia/Manila");
 // ===== HEADER =====
 $printer->setJustification(Printer::JUSTIFY_CENTER);
 $printer->selectPrintMode(Printer::MODE_DOUBLE_WIDTH);
-$printer->text("The Lounge by:\n");
-$printer->text("CJV & TEK\n");
+$printer->selectPrintMode(Printer::MODE_DOUBLE_WIDTH);
+$printer->text("The Lounge\n");
+$printer->selectPrintMode();
+$printer->text("by CJV & TEK\n");
 $printer->selectPrintMode();
 $printer->text("Lias Town Plaza, Marilao\n");
 $printer->text("+63 967 217 5801\n");
@@ -73,7 +75,7 @@ $printer->text(divider('=', $COL) . "\n");
 
 // "SALES RECEIPT" centered — use JUSTIFY_CENTER, no manual center()
 $printer->setJustification(Printer::JUSTIFY_CENTER);
-$printer->text("SALES RECEIPT\n");
+$printer->text("ORDER RECEIPT\n");
 
 // "[ PAID ]" — bold + centered
 $printer->setEmphasis(true);
@@ -146,6 +148,8 @@ $printer->text("Thank you!\n");
 $printer->text("Please come again\n");
 $printer->text("\n"); // spacing below "Please come again"
 $printer->text(divider('.', $COL) . "\n");
+$printer->text("Powered by SKD Software\n");
+$printer->text("\n"); // small gap before cut
 $printer->text("\n"); // small gap before cut
 
 $printer->cut();

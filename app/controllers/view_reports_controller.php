@@ -1,9 +1,9 @@
 <?php
 /**
- * reports_controller.php – v6 (waste-aware)
+ * reports_controller.php – v7 (adminshift tab added)
  *
  * RBAC:
- *   admin   → daily, monthly, yearly, products, staff, audit, consumption, waste
+ *   admin   → daily, monthly, yearly, products, staff, adminshift, audit, consumption, waste
  *   cashier → myshift, closeout, inventory, waste
  *   kitchen → blocked
  */
@@ -24,7 +24,7 @@ $session_uid = (int)($_SESSION['user_id'] ?? 0);
 
 // ── 2. Allowed tabs per role ──────────────────────────────────────────────────
 $allowed_tabs = $is_admin
-    ? ['daily', 'monthly', 'yearly', 'products', 'staff', 'audit', 'consumption', 'waste']
+    ? ['daily', 'monthly', 'yearly', 'products', 'staff', 'adminshift', 'audit', 'consumption', 'waste']
     : ['myshift', 'closeout', 'inventory', 'waste'];
 
 $default_tab = $is_admin ? 'daily' : 'myshift';
@@ -95,6 +95,11 @@ switch ($tab) {
         );
         break;
 
+    // ── ADMIN: My Shift (adminshift) ──────────────────────────────────────────
+    case 'adminshift':
+        $data['closeout'] = rpt_closeout($pdo, $filter_date, $session_uid);
+        break;
+
     // ── ADMIN: Monthly ────────────────────────────────────────────────────────
     case 'monthly':
         $m_ts    = mktime(0, 0, 0, $filter_month, 1, $filter_year);
@@ -153,8 +158,6 @@ switch ($tab) {
         break;
 
     // ── ADMIN + CASHIER: Waste ────────────────────────────────────────────────
-    // Admin sees all cashiers' voided items.
-    // Cashier sees only their own orders' voided items.
     case 'waste':
         $waste_cid           = $is_admin ? null : $session_uid;
         $data['summary']     = rpt_waste_summary($pdo, $range_start, $range_end, $waste_cid);

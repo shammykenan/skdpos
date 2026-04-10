@@ -298,9 +298,6 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     return $row;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CLOSE-OUT  (cashier shift summary)
-// ─────────────────────────────────────────────────────────────────────────────
 function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
 {
     $stmt = $pdo->prepare("
@@ -334,7 +331,7 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     $stmt->execute([':date' => $date, ':cid' => $cashier_id,
                     ':cid_c' => $cashier_id, ':date_c' => $date]);
     $summary = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-
+ 
     // Cash
     $stmt2 = $pdo->prepare("
         SELECT
@@ -352,7 +349,7 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     ");
     $stmt2->execute([':cid' => $cashier_id, ':date' => $date]);
     $cash = $stmt2->fetch(PDO::FETCH_ASSOC) ?: [];
-
+ 
     // Waste — voided items on this cashier's orders today
     $stmt3 = $pdo->prepare("
         SELECT COALESCE(SUM(order_waste), 0)
@@ -372,7 +369,7 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     ");
     $stmt3->execute([':cid' => $cashier_id, ':date' => $date]);
     $waste = (float) $stmt3->fetchColumn();
-
+ 
     // Refunds this cashier processed today
     $stmt4 = $pdo->prepare("
         SELECT COALESCE(SUM(r.amount), 0)
@@ -382,14 +379,63 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     ");
     $stmt4->execute([':cid' => $cashier_id, ':date' => $date]);
     $refunds = (float) $stmt4->fetchColumn();
-
+ 
+    // ── Top 5 items sold this cashier's shift ─────────────────────────────────
+    $stmt5 = $pdo->prepare("
+        SELECT
+            COALESCE(oi.item_name_snapshot, mi.item_name)    AS item_name,
+            oi.variant_name_snapshot                          AS variant_name,
+            SUM(oi.quantity)                                  AS units_sold,
+            COALESCE(SUM(oi.subtotal), 0)                     AS total_revenue
+        FROM order_items oi
+        JOIN orders     o  ON oi.order_id = o.order_id
+        JOIN menu_items mi ON oi.item_id  = mi.item_id
+        WHERE o.cashier_id       = :cid
+          AND DATE(o.created_at) = :date
+          AND o.status IN ('pending', 'preparing', 'ready', 'completed')
+          AND oi.status NOT IN ('cancelled', 'voided')
+          AND EXISTS (
+              SELECT 1 FROM payments px
+              WHERE px.order_id = o.order_id AND px.amount_paid > 0
+          )
+        GROUP BY oi.item_id, oi.variant_id,
+                 oi.item_name_snapshot, mi.item_name, oi.variant_name_snapshot
+        ORDER BY units_sold DESC
+        LIMIT 5
+    ");
+    $stmt5->execute([':cid' => $cashier_id, ':date' => $date]);
+    $top_items = $stmt5->fetchAll(PDO::FETCH_ASSOC);
+ 
+    // ── Orders by hour for this cashier's shift ───────────────────────────────
+    $stmt6 = $pdo->prepare("
+        SELECT
+            HOUR(o.created_at)               AS hour_of_day,
+            COUNT(o.order_id)                AS total_orders,
+            COALESCE(SUM(o.total_amount), 0) AS revenue
+        FROM orders o
+        WHERE o.cashier_id       = :cid
+          AND DATE(o.created_at) = :date
+          AND o.status IN ('pending', 'preparing', 'ready', 'completed')
+          AND EXISTS (
+              SELECT 1 FROM payments px
+              WHERE px.order_id = o.order_id AND px.amount_paid > 0
+          )
+        GROUP BY HOUR(o.created_at)
+        ORDER BY hour_of_day
+    ");
+    $stmt6->execute([':cid' => $cashier_id, ':date' => $date]);
+    $peak_hours = $stmt6->fetchAll(PDO::FETCH_ASSOC);
+ 
     $merged = array_merge($summary, $cash);
     $merged['total_waste_cost']        = $waste;
     $merged['total_refunds']           = $refunds;
     $merged['net_sales_after_refunds'] = round((float)($merged['net_sales'] ?? 0) - $refunds, 2);
-
+    $merged['top_items']               = $top_items;
+    $merged['peak_hours']              = $peak_hours;
+ 
     return $merged;
 }
+ 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MONTHLY SUMMARY

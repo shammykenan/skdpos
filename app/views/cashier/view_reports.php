@@ -1,6 +1,6 @@
 <?php
 /**
- * reports_view.php  – v6 (waste-aware)
+ * reports_view.php  – v8 (adminshift tab added)
  */
 extract($ctx);
 
@@ -23,6 +23,7 @@ $tab_meta = $is_admin ? [
     'yearly'      => ['fas fa-calendar',      'Yearly'],
     'products'    => ['fas fa-utensils',      'Products'],
     'staff'       => ['fas fa-users',         'Staff'],
+    'adminshift'  => ['fas fa-user-shield',   'My Shift'],
     'audit'       => ['fas fa-shield-alt',    'Audit'],
     'consumption' => ['fas fa-boxes',         'Consumption'],
     'waste'       => ['fas fa-trash-alt',     'Waste'],
@@ -86,6 +87,7 @@ body{font-family:'Inter',sans-serif;background:var(--light-bg);color:var(--dark)
 .report-tab.waste-tab.active{background:var(--danger);border-color:var(--danger);box-shadow:0 6px 14px rgba(214,64,69,.25);}
 .report-tab.cashier-tab.active{background:var(--secondary);border-color:var(--secondary);}
 .report-tab.closeout-tab.active{background:var(--navy);border-color:var(--navy);}
+.report-tab.adminshift-tab.active{background:var(--navy);border-color:var(--navy);}
 .filter-bar{background:white;border-radius:20px;border:1px solid rgba(203,213,224,.5);padding:1.1rem 1.5rem;margin-bottom:1.8rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;box-shadow:0 4px 12px rgba(15,76,92,.03);}
 .filter-bar label{font-size:.8rem;font-weight:700;color:var(--warm-gray);margin-bottom:0;}
 .filter-bar .form-control,.filter-bar .form-select{border-radius:12px;border:1.5px solid var(--border);font-size:.9rem;padding:.45rem .9rem;color:var(--dark);}
@@ -148,7 +150,6 @@ table.rpt-table thead th{background:#f2f6fc;border-bottom:2px solid var(--primar
 table.rpt-table tbody td{padding:1rem 1.2rem;vertical-align:middle;border-bottom:1px solid #edf2f7;color:var(--dark);background:white;}
 table.rpt-table tbody tr:hover td{background:#fafcff;}
 table.rpt-table tfoot td{padding:1rem 1.2rem;font-weight:700;background:#f2f6fc;border-top:2px solid var(--primary-light);}
-/* waste-specific table */
 table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--danger);}
 .waste-cost-cell{color:var(--danger);font-weight:600;}
 .rpt-badge{padding:.35rem .9rem;border-radius:30px;font-size:.75rem;font-weight:600;display:inline-block;}
@@ -170,27 +171,147 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
 .consumption-bar{height:8px;border-radius:6px;background:#e2e8f0;margin-top:4px;}
 .consumption-bar-fill{height:100%;border-radius:6px;background:var(--secondary);}
 .recipe-source-note{font-size:.7rem;color:var(--warm-gray);margin-top:2px;}
-.closeout-wrap{max-width:480px;margin:0 auto;}
-.receipt{background:white;border-radius:20px;border:1px solid rgba(203,213,224,.5);box-shadow:0 8px 24px rgba(15,76,92,.06);padding:2rem 2.2rem;}
-.receipt-header{text-align:center;padding-bottom:1.2rem;border-bottom:2px dashed var(--border);margin-bottom:1.4rem;}
-.receipt-header .shop-name{font-size:1.4rem;font-weight:700;color:var(--primary-dark);}
-.receipt-header .shop-sub{font-size:.85rem;color:var(--warm-gray);margin-top:.2rem;}
-.receipt-header .doc-title{font-size:1rem;font-weight:700;color:var(--navy);margin-top:1rem;letter-spacing:.5px;text-transform:uppercase;}
-.receipt-row{display:flex;justify-content:space-between;align-items:baseline;padding:.55rem 0;border-bottom:1px solid rgba(203,213,224,.3);}
-.receipt-row:last-of-type{border-bottom:none;}
-.receipt-row .rl{color:var(--warm-gray);font-size:.9rem;}
-.receipt-row .rv{font-weight:600;color:var(--dark);font-size:.9rem;}
-.receipt-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--primary-dark);padding:.6rem 0 .2rem;border-top:1px dashed var(--border);margin-top:.4rem;}
-.receipt-total{background:var(--primary);color:white;border-radius:14px;padding:1.1rem 1.4rem;margin:1.2rem 0;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;}
-.receipt-total .tl{font-size:.85rem;font-weight:600;opacity:.85;text-transform:uppercase;letter-spacing:.5px;}
-.receipt-total .tv{font-size:1.8rem;font-weight:700;}
-.receipt-waste-box{background:rgba(214,64,69,.06);border:1px solid rgba(214,64,69,.2);border-radius:14px;padding:.9rem 1.4rem;margin:.5rem 0;display:flex;justify-content:space-between;align-items:center;}
-.receipt-waste-box .tl{font-size:.82rem;font-weight:600;color:var(--danger);text-transform:uppercase;letter-spacing:.4px;}
-.receipt-waste-box .tv{font-size:1.3rem;font-weight:700;color:var(--danger);}
-.receipt-sig{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1.8rem;padding-top:1.2rem;border-top:2px dashed var(--border);}
-.sig-block .sig-line{border-bottom:1.5px solid var(--dark);height:40px;margin-bottom:.4rem;}
-.sig-block .sig-label{font-size:.78rem;color:var(--warm-gray);text-align:center;}
-.receipt-footer{text-align:center;margin-top:1.2rem;font-size:.8rem;color:var(--warm-gray);}
+
+/* ── Close-out / Admin Shift specific ───────────────────────────────── */
+.co-wrap { max-width: 980px; margin: 0 auto; }
+.co-hero {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #0d3d50 55%, #102a37 100%);
+    border-radius: 24px;
+    padding: 1.8rem 2.2rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    box-shadow: 0 16px 40px rgba(15,76,92,.3);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.8rem;
+}
+.co-hero::after {
+    content: '₱';
+    position: absolute;
+    right: -10px; top: -20px;
+    font-size: 9rem;
+    font-weight: 900;
+    color: rgba(255,255,255,.04);
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+}
+.co-hero-left { flex: 1; min-width: 0; }
+.co-hero-label {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: rgba(255,255,255,.55);
+    margin-bottom: .5rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+.co-hero-amount {
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -.5px;
+    line-height: 1;
+    color: #fff;
+    word-break: break-all;
+}
+.co-hero-sub { font-size: .8rem; color: rgba(255,255,255,.5); margin-top: .5rem; }
+.co-hero-badge {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 14px;
+    padding: .8rem 1.4rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+.co-hero-badge .hb-val { font-size: 1.6rem; font-weight: 700; color: var(--accent); display: block; }
+.co-hero-badge .hb-lbl { font-size: .68rem; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .8px; }
+.co-waste-strip {
+    background: rgba(214,64,69,.07);
+    border: 1.5px solid rgba(214,64,69,.25);
+    border-radius: 16px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.8rem;
+}
+.co-waste-strip .ws-label { font-size: .82rem; font-weight: 700; color: var(--danger); display: flex; align-items: center; gap: .4rem; }
+.co-waste-strip .ws-amount { font-size: 1.3rem; font-weight: 700; color: var(--danger); }
+.co-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.8rem; }
+@media (max-width: 860px) { .co-cols { grid-template-columns: 1fr; } }
+.co-section { background: white; border-radius: 20px; border: 1px solid rgba(203,213,224,.5); box-shadow: 0 4px 12px rgba(15,76,92,.04); }
+.co-section-head {
+    padding: .9rem 1.3rem;
+    border-bottom: 1px solid rgba(203,213,224,.4);
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+}
+.co-section-head i { color: var(--secondary); font-size: .9rem; }
+.co-section-body { padding: 1rem 1.3rem; }
+.co-row { display: flex; align-items: baseline; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid rgba(203,213,224,.25); gap: .5rem; }
+.co-row:last-child { border-bottom: none; }
+.co-row .cr-label { font-size: .88rem; color: var(--warm-gray); flex: 1; }
+.co-row .cr-value { font-size: .9rem; font-weight: 600; color: var(--dark); text-align: right; white-space: nowrap; }
+.co-row .cr-value.muted { color: var(--warm-gray); font-weight: 400; font-size: .82rem; }
+.co-row .cr-value.neg   { color: var(--danger); }
+.co-items-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.co-items-table td { padding: .45rem .2rem; border-bottom: 1px solid rgba(203,213,224,.25); vertical-align: middle; }
+.co-items-table tr:last-child td { border-bottom: none; }
+.co-items-table .rank { font-size: .7rem; font-weight: 700; color: var(--warm-gray); width: 18px; }
+.co-items-table .iname { color: var(--dark); font-weight: 500; }
+.co-items-table .iname small { display: block; font-size: .72rem; color: var(--warm-gray); font-weight: 400; }
+.co-items-table .iqty { text-align: right; font-weight: 700; color: var(--primary); white-space: nowrap; }
+.co-items-table .irev { text-align: right; color: var(--success); font-weight: 600; white-space: nowrap; font-size: .82rem; }
+.co-peak-bars { display: flex; align-items: flex-end; gap: 5px; height: 80px; padding-top: 4px; }
+.co-peak-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.co-peak-bar { width: 100%; border-radius: 4px 4px 0 0; background: rgba(15,76,92,.55); transition: background .2s; min-height: 3px; }
+.co-peak-bar.peak { background: var(--secondary); }
+.co-peak-lbl { font-size: .6rem; color: var(--warm-gray); white-space: nowrap; }
+.co-peak-count { font-size: .62rem; font-weight: 700; color: var(--primary-dark); }
+.co-sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; padding-top: 1.2rem; border-top: 2px dashed var(--border); }
+@media (max-width: 480px) { .co-sig-row { grid-template-columns: 1fr; gap: 1rem; } }
+.co-sig-block .sig-line { border-bottom: 1.5px solid var(--dark); height: 36px; margin-bottom: .4rem; }
+.co-sig-block .sig-lbl  { font-size: .75rem; color: var(--warm-gray); text-align: center; }
+.btn-co-print {
+    padding: .55rem 1.3rem;
+    border-radius: 40px;
+    font-size: .85rem;
+    font-weight: 600;
+    background: var(--primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    transition: all .18s;
+    text-decoration: none;
+}
+.btn-co-print:hover { background: var(--primary-dark); transform: translateY(-1px); color: white; }
+.btn-co-print.thermal { background: var(--navy); }
+.btn-co-print.thermal:hover { background: #111b30; }
+@media (max-width: 600px) {
+    .co-hero { padding: 1.3rem 1.4rem; }
+    .co-hero::after { display: none; }
+    .co-hero-badge { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem 1rem; }
+    .co-hero-badge .hb-val { font-size: 1.2rem; }
+}
+/* ── end close-out ── */
+
 .site-footer{background:white;border-top:1px solid var(--border);padding:1.4rem 2.2rem;margin-left:var(--sidebar-width);color:var(--warm-gray);}
 .site-footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;}
 .filter-input-date{width:170px;}
@@ -198,7 +319,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
 .filter-input-year{width:100px;}
 .filter-input-range{width:160px;}
 .filter-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
-/* waste reason pill */
 .reason-pill{display:inline-block;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;font-weight:600;background:rgba(214,64,69,.08);color:var(--danger);border:1px solid rgba(214,64,69,.2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 @media (max-width:991.98px){
     .sidebar{transform:translateX(-100%);}
@@ -221,12 +341,10 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     .filter-bar label{margin-bottom:-.3rem;}
     .filter-input-date,.filter-input-month,.filter-input-year,.filter-input-range,.filter-bar .form-control,.filter-bar .form-select{width:100% !important;}
     .filter-actions{width:100%;}
-    .filter-actions .btn-apply,.filter-actions .btn-print,.filter-bar .btn-apply,.filter-bar .btn-print{flex:1;justify-content:center;}
+    .filter-actions .btn-apply,.filter-actions .btn-print,.filter-bar .btn-apply,.filter-bar .btn-print,.filter-bar .btn-co-print{flex:1;justify-content:center;}
     .rpt-card-header{padding:.9rem 1rem;}
     .rpt-card-body{padding:1rem;}
     .rpt-card-body.p-0{padding:0;}
-    .receipt{padding:1.2rem 1rem;}
-    .receipt-total .tv{font-size:1.4rem;}
     .site-footer{padding:1rem 1.2rem;}
     .site-footer-inner{flex-direction:column;align-items:flex-start;gap:.25rem;font-size:.82rem;}
     .page-header h1{font-size:1.4rem;}
@@ -240,7 +358,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     .report-tab i{display:none;}
     .report-tab{padding:.4rem .65rem;font-size:.75rem;}
     .page-header h1{font-size:1.2rem;}
-    .receipt-sig{grid-template-columns:1fr;gap:1rem;}
     .comparison-grid{grid-template-columns:1fr;}
 }
 .fade-in{animation:fadeUp .35s ease forwards;}
@@ -334,7 +451,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="report-tabs">
         <?php foreach ($tab_meta as $key => [$icon, $label]): ?>
         <a href="<?= $baseUrl ?>/index.php?page=reports&tab=<?= $key ?>"
-           class="report-tab <?= $tab===$key?'active':'' ?> <?= $key==='waste'?'waste-tab':'' ?> <?= $key==='closeout'?'closeout-tab':(!$is_admin && $key!=='waste'?'cashier-tab':'') ?>">
+           class="report-tab
+               <?= $tab===$key ? 'active' : '' ?>
+               <?= $key==='waste' ? 'waste-tab' : '' ?>
+               <?= $key==='closeout' ? 'closeout-tab' : '' ?>
+               <?= $key==='adminshift' ? 'adminshift-tab' : '' ?>
+               <?= (!$is_admin && !in_array($key,['waste','closeout','adminshift'])) ? 'cashier-tab' : '' ?>
+           ">
             <i class="<?= $icon ?>"></i> <?= $label ?>
         </a>
         <?php endforeach; ?>
@@ -392,7 +515,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         echo '</tbody></table></div>';
     }
 
-    // Gross profit card — Net Revenue minus COGS of kept items
     function render_gross_profit_card(array $s): void {
         $net_revenue = (float)($s['net_revenue'] ?? 0);
         $gross_profit = (float)($s['gross_profit'] ?? 0);
@@ -409,7 +531,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         </div>';
     }
 
-    // Net profit card — Gross Profit minus additional expenses/waste
     function render_net_profit_card(array $s): void {
         $gross_profit = (float)($s['gross_profit'] ?? 0);
         $waste_cost = (float)($s['total_waste_cost'] ?? 0);
@@ -436,6 +557,280 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-value" style="color:var(--danger);">' . peso($waste) . '</div>
             <div class="s-sub">From voided items only</div>
         </div>';
+    }
+
+    // ── Shared close-out render function (used by both closeout and adminshift tabs) ──
+    function render_closeout_tab(array $co, array $co_items, array $co_hours, string $filter_date, string $thermal_payload_var, bool $is_admin_shift = false): void {
+        $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        $label_suffix = $is_admin_shift ? 'Admin ' : '';
+    ?>
+
+        <!-- Hero -->
+        <div class="co-hero">
+            <div class="co-hero-left">
+                <div class="co-hero-label">
+                    <i class="fas fa-hand-holding-usd"></i> Cash to Turn Over
+                </div>
+                <div class="co-hero-amount">
+                    ₱<?= number_format((float)($co['cash_to_turn_over'] ?? 0), 2) ?>
+                </div>
+                <div class="co-hero-sub">
+                    <?= date('F d, Y', strtotime($filter_date)) ?> &nbsp;·&nbsp;
+                    <?= htmlspecialchars($co['cashier_name'] ?? '—') ?>
+                </div>
+            </div>
+            <div class="co-hero-badge">
+                <span class="hb-val"><?= number_format((int)($co['total_orders'] ?? 0)) ?></span>
+                <span class="hb-lbl">Orders</span>
+            </div>
+            <div class="co-hero-badge">
+                <span class="hb-val"><?= number_format((int)($co['payment_count'] ?? 0)) ?></span>
+                <span class="hb-lbl">Payments</span>
+            </div>
+        </div>
+
+        <!-- Waste strip -->
+        <?php if ((float)($co['total_waste_cost'] ?? 0) > 0): ?>
+        <div class="co-waste-strip">
+            <div class="ws-label"><i class="fas fa-trash-alt"></i> Waste Written Off This Shift</div>
+            <div class="ws-amount">₱<?= number_format((float)$co['total_waste_cost'], 2) ?></div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Row 1: Info + Orders -->
+        <div class="co-cols">
+            <div class="co-section">
+                <div class="co-section-head"><i class="fas fa-user-circle"></i> <?= $is_admin_shift ? 'Admin' : 'Cashier' ?> Info</div>
+                <div class="co-section-body">
+                    <div class="co-row">
+                        <span class="cr-label"><?= $is_admin_shift ? 'Admin' : 'Cashier' ?></span>
+                        <span class="cr-value"><?= htmlspecialchars($co['cashier_name'] ?? '—') ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label">Username</span>
+                        <span class="cr-value muted"><?= htmlspecialchars($co['username'] ?? '—') ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label">Shift Date</span>
+                        <span class="cr-value"><?= date('F d, Y', strtotime($filter_date)) ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label">Report Printed</span>
+                        <span class="cr-value muted"><?= $now->format('h:i A') ?> (PHT)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="co-section">
+                <div class="co-section-head"><i class="fas fa-receipt"></i> Order Summary</div>
+                <div class="co-section-body">
+                    <div class="co-row">
+                        <span class="cr-label">Orders Handled</span>
+                        <span class="cr-value"><?= number_format((int)($co['total_orders'] ?? 0)) ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label">Cancelled Orders</span>
+                        <span class="cr-value <?= ($co['cancelled_orders'] ?? 0) > 0 ? 'neg' : '' ?>">
+                            <?= (int)($co['cancelled_orders'] ?? 0) ?>
+                        </span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label">Payment Transactions</span>
+                        <span class="cr-value"><?= (int)($co['payment_count'] ?? 0) ?></span>
+                    </div>
+                    <?php if (($co['admin_processed_count'] ?? 0) > 0): ?>
+                    <div class="co-row">
+                        <span class="cr-label" style="color:var(--primary-light);">Admin-Processed</span>
+                        <span class="cr-value" style="color:var(--primary-light);">
+                            <i class="fas fa-shield-alt" style="font-size:.7rem;"></i>
+                            <?= (int)$co['admin_processed_count'] ?>
+                        </span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Sales + Cash -->
+        <div class="co-cols">
+            <div class="co-section">
+                <div class="co-section-head"><i class="fas fa-chart-bar"></i> Sales Breakdown</div>
+                <div class="co-section-body">
+                    <div class="co-row">
+                        <span class="cr-label">Gross Sales</span>
+                        <span class="cr-value">₱<?= number_format((float)($co['gross_sales'] ?? 0), 2) ?></span>
+                    </div>
+                    <?php if ((float)($co['total_discounts'] ?? 0) > 0): ?>
+                    <div class="co-row">
+                        <span class="cr-label">Discounts Given</span>
+                        <span class="cr-value neg">−₱<?= number_format((float)$co['total_discounts'], 2) ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <div class="co-row">
+                        <span class="cr-label">Net Sales <small style="font-size:.72rem;">(VAT-incl.)</small></span>
+                        <span class="cr-value">₱<?= number_format((float)($co['net_sales'] ?? 0), 2) ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label" style="padding-left:.8rem;font-size:.82rem;">Excl. VAT</span>
+                        <span class="cr-value muted">₱<?= number_format((float)($co['net_sales_excl_vat'] ?? 0), 2) ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label" style="padding-left:.8rem;font-size:.82rem;">VAT (12%)</span>
+                        <span class="cr-value muted">₱<?= number_format((float)($co['vat_collected'] ?? 0), 2) ?></span>
+                    </div>
+                    <?php if ((float)($co['total_refunds'] ?? 0) > 0): ?>
+                    <div class="co-row">
+                        <span class="cr-label">Refunds Processed</span>
+                        <span class="cr-value neg">−₱<?= number_format((float)$co['total_refunds'], 2) ?></span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="co-section">
+                <div class="co-section-head"><i class="fas fa-coins"></i> Cash Reconciliation</div>
+                <div class="co-section-body">
+                    <div class="co-row">
+                        <span class="cr-label">Cash Received</span>
+                        <span class="cr-value">₱<?= number_format((float)($co['cash_received'] ?? 0), 2) ?></span>
+                    </div>
+                    <div class="co-row">
+                        <span class="cr-label">Change Given</span>
+                        <span class="cr-value neg">−₱<?= number_format((float)($co['change_given'] ?? 0), 2) ?></span>
+                    </div>
+                    <div style="margin-top:.8rem;padding:1rem;background:var(--light-bg);border-radius:14px;border-left:4px solid var(--primary);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+                        <span style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--primary-dark);">
+                            <i class="fas fa-hand-holding-usd me-1"></i> Turn Over
+                        </span>
+                        <span style="font-size:1.4rem;font-weight:800;color:var(--primary-dark);">
+                            ₱<?= number_format((float)($co['cash_to_turn_over'] ?? 0), 2) ?>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Top items + Peak hours -->
+        <?php if (!empty($co_items) || !empty($co_hours)): ?>
+        <div class="co-cols">
+            <div class="co-section">
+                <div class="co-section-head"><i class="fas fa-star"></i> Top Items This Shift</div>
+                <?php if (!empty($co_items)): ?>
+                <div class="co-section-body" style="padding-top:.6rem;">
+                    <table class="co-items-table">
+                        <tbody>
+                        <?php foreach ($co_items as $i => $item): ?>
+                        <tr>
+                            <td class="rank"><?= $i + 1 ?></td>
+                            <td class="iname">
+                                <?= htmlspecialchars($item['item_name']) ?>
+                                <?php if (!empty($item['variant_name'])): ?>
+                                    <small><?= htmlspecialchars($item['variant_name']) ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td class="iqty">×<?= number_format((int)$item['units_sold']) ?></td>
+                            <td class="irev">₱<?= number_format((float)$item['total_revenue'], 2) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php else: ?>
+                <div class="co-section-body"><div class="no-data" style="padding:1.5rem 0;"><i class="fas fa-inbox"></i> No items sold.</div></div>
+                <?php endif; ?>
+            </div>
+            <div class="co-section">
+                <div class="co-section-head"><i class="fas fa-clock"></i> Orders by Hour</div>
+                <?php if (!empty($co_hours)):
+                    $max_orders = max(array_column($co_hours, 'total_orders'));
+                    $peak_hour  = null;
+                    foreach ($co_hours as $h) {
+                        if ((int)$h['total_orders'] === (int)$max_orders) { $peak_hour = (int)$h['hour_of_day']; break; }
+                    }
+                ?>
+                <div class="co-section-body">
+                    <div class="co-peak-bars">
+                    <?php foreach ($co_hours as $h):
+                        $pct     = $max_orders > 0 ? round($h['total_orders'] / $max_orders * 100) : 0;
+                        $hr      = (int)$h['hour_of_day'];
+                        $lbl     = ($hr % 12 ?: 12) . ($hr >= 12 ? 'p' : 'a');
+                        $is_peak = ($hr === $peak_hour);
+                    ?>
+                        <div class="co-peak-bar-wrap">
+                            <span class="co-peak-count"><?= $h['total_orders'] ?></span>
+                            <div class="co-peak-bar <?= $is_peak ? 'peak' : '' ?>"
+                                 style="height:<?= max(3, (int)($pct * 0.72)) ?>px;"
+                                 title="<?= $lbl ?>: <?= $h['total_orders'] ?> orders"></div>
+                            <span class="co-peak-lbl"><?= $lbl ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                    </div>
+                    <?php if ($peak_hour !== null): ?>
+                    <div style="margin-top:.7rem;font-size:.78rem;color:var(--warm-gray);">
+                        <i class="fas fa-fire" style="color:var(--secondary);"></i>
+                        Peak: <?= ($peak_hour % 12 ?: 12) . ($peak_hour >= 12 ? ' PM' : ' AM') ?>
+                        &nbsp;·&nbsp; <?= $max_orders ?> orders
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php else: ?>
+                <div class="co-section-body"><div class="no-data" style="padding:1.5rem 0;"><i class="fas fa-inbox"></i> No data.</div></div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Signature -->
+        <div class="co-section" style="margin-bottom:1.8rem;">
+            <div class="co-section-head"><i class="fas fa-pen"></i> Acknowledgment</div>
+            <div class="co-section-body">
+                <div class="co-sig-row">
+                    <div class="co-sig-block">
+                        <div class="sig-line"></div>
+                        <div class="sig-lbl"><?= $is_admin_shift ? 'Admin' : 'Cashier' ?> Signature &nbsp;·&nbsp; <?= htmlspecialchars($co['cashier_name'] ?? '') ?></div>
+                    </div>
+                    <div class="co-sig-block">
+                        <div class="sig-line"></div>
+                        <div class="sig-lbl">Received By (<?= $is_admin_shift ? 'Owner / Supervisor' : 'Admin / Supervisor' ?>)</div>
+                    </div>
+                </div>
+                <div style="margin-top:1rem;font-size:.78rem;color:var(--warm-gray);text-align:center;">
+                    Dine with Din Cafeteria &copy; <?= date('Y') ?> &nbsp;·&nbsp; Generated <?= $now->format('h:i A') ?> (PHT)
+                </div>
+            </div>
+        </div>
+
+    <?php
+    } // end render_closeout_tab()
+
+    // ── Build thermal payload helper ──────────────────────────────────────────
+    function build_thermal_payload(array $co, array $co_items, string $filter_date): string {
+        $tz  = new DateTimeZone('Asia/Manila');
+        $now = new DateTime('now', $tz);
+        return json_encode([
+            'cashier_name'      => $co['cashier_name']      ?? '—',
+            'username'          => $co['username']           ?? '—',
+            'shift_date'        => date('F d, Y', strtotime($filter_date)),
+            'printed_at'        => $now->format('h:i A') . ' (PHT)',
+            'total_orders'      => (int)($co['total_orders']         ?? 0),
+            'cancelled_orders'  => (int)($co['cancelled_orders']      ?? 0),
+            'payment_count'     => (int)($co['payment_count']         ?? 0),
+            'admin_processed'   => (int)($co['admin_processed_count'] ?? 0),
+            'gross_sales'       => (float)($co['gross_sales']         ?? 0),
+            'total_discounts'   => (float)($co['total_discounts']     ?? 0),
+            'net_sales'         => (float)($co['net_sales']           ?? 0),
+            'net_sales_excl'    => (float)($co['net_sales_excl_vat']  ?? 0),
+            'vat_collected'     => (float)($co['vat_collected']       ?? 0),
+            'total_refunds'     => (float)($co['total_refunds']       ?? 0),
+            'cash_received'     => (float)($co['cash_received']       ?? 0),
+            'change_given'      => (float)($co['change_given']        ?? 0),
+            'cash_to_turn_over' => (float)($co['cash_to_turn_over']   ?? 0),
+            'total_waste_cost'  => (float)($co['total_waste_cost']    ?? 0),
+            'top_items'         => array_map(fn($r) => [
+                'item_name'     => $r['item_name'],
+                'variant_name'  => $r['variant_name'] ?? '',
+                'units_sold'    => (int)$r['units_sold'],
+                'total_revenue' => (float)$r['total_revenue'],
+            ], $co_items),
+        ]);
     }
     ?>
 
@@ -489,7 +884,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
-
         <?php render_net_profit_card($s); ?>
     </div>
 
@@ -528,70 +922,71 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     // CLOSE-OUT (cashier)
     // =========================================================================
     elseif ($tab === 'closeout'):
-        $co  = $data['closeout'] ?? [];
-        $tz  = new DateTimeZone('Asia/Manila');
-        $now = new DateTime('now', $tz);
+        $co       = $data['closeout'] ?? [];
+        $co_items = $co['top_items']  ?? [];
+        $co_hours = $co['peak_hours'] ?? [];
+        $co_thermal_payload = build_thermal_payload($co, $co_items, $filter_date);
     ?>
+
     <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="closeout">
         <label>Date</label>
-        <input type="date" name="date" class="form-control filter-input-date" value="<?= $filter_date ?>" max="<?= $today ?>">
+        <input type="date" name="date" class="form-control filter-input-date"
+               value="<?= $filter_date ?>" max="<?= $today ?>">
         <div class="filter-actions">
             <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Load</button>
-            <button type="button" class="btn-print" onclick="printCloseout()"><i class="fas fa-print"></i> Print Receipt</button>
+            <button type="button" class="btn-co-print" onclick="printCoA4()">
+                <i class="fas fa-print"></i> Print A4
+            </button>
+            <button type="button" class="btn-co-print thermal" onclick="printCoThermal()">
+                <i class="fas fa-receipt"></i> Thermal Print
+            </button>
         </div>
     </form>
-    <div class="closeout-wrap fade-in">
-        <div class="receipt">
-            <div class="receipt-header">
-                <div class="shop-name">Dine with Din</div>
-                <div class="shop-sub">Cafeteria POS System</div>
-                <div class="doc-title">Shift Close-out Report</div>
-            </div>
-            <div class="receipt-section-title">Cashier Info</div>
-            <div class="receipt-row"><span class="rl">Cashier</span><span class="rv"><?= htmlspecialchars($co['cashier_name']??'—') ?></span></div>
-            <div class="receipt-row"><span class="rl">Username</span><span class="rv"><?= htmlspecialchars($co['username']??'—') ?></span></div>
-            <div class="receipt-row"><span class="rl">Date</span><span class="rv"><?= date('F d, Y', strtotime($filter_date)) ?></span></div>
-            <div class="receipt-row"><span class="rl">Printed at</span><span class="rv"><?= $now->format('h:i A') ?> (PHT)</span></div>
-            <div class="receipt-section-title">Order Summary</div>
-            <div class="receipt-row"><span class="rl">Orders handled</span><span class="rv"><?= number_format($co['total_orders']??0) ?></span></div>
-            <div class="receipt-row"><span class="rl">Cancelled orders</span><span class="rv"><?= $co['cancelled_orders']??0 ?></span></div>
-            <div class="receipt-row"><span class="rl">Payment transactions</span><span class="rv"><?= $co['payment_count']??0 ?></span></div>
-            <?php if(($co['admin_processed_count']??0) > 0): ?>
-            <div class="receipt-row">
-                <span class="rl" style="color:var(--primary-light);">Admin-processed payments</span>
-                <span class="rv" style="color:var(--primary-light);"><?= $co['admin_processed_count'] ?></span>
-            </div>
-            <?php endif; ?>
-            <div class="receipt-section-title">Sales Breakdown</div>
-            <div class="receipt-row"><span class="rl">Gross sales</span><span class="rv"><?= peso((float)($co['gross_sales']??0)) ?></span></div>
-            <div class="receipt-row"><span class="rl">Discounts given</span><span class="rv">&ndash; <?= peso((float)($co['total_discounts']??0)) ?></span></div>
-            <div class="receipt-row"><span class="rl">Net sales (VAT-incl.)</span><span class="rv"><?= peso((float)($co['net_sales']??0)) ?></span></div>
-            <div class="receipt-row"><span class="rl" style="color:var(--warm-gray);font-size:.82rem;">Excl. VAT</span><span class="rv" style="color:var(--warm-gray);font-size:.82rem;"><?= peso((float)($co['net_sales_excl_vat']??0)) ?></span></div>
-            <div class="receipt-row"><span class="rl" style="color:var(--warm-gray);font-size:.82rem;">VAT (12%)</span><span class="rv" style="color:var(--warm-gray);font-size:.82rem;"><?= peso((float)($co['vat_collected']??0)) ?></span></div>
-            <div class="receipt-section-title">Cash Reconciliation</div>
-            <div class="receipt-row"><span class="rl">Cash received</span><span class="rv"><?= peso((float)($co['cash_received']??0)) ?></span></div>
-            <div class="receipt-row"><span class="rl">Change given</span><span class="rv">&ndash; <?= peso((float)($co['change_given']??0)) ?></span></div>
-            <div class="receipt-total">
-                <div class="tl">Cash to Turn Over</div>
-                <div class="tv"><?= peso((float)($co['cash_to_turn_over']??0)) ?></div>
-            </div>
-            <?php if (($co['total_waste_cost'] ?? 0) > 0): ?>
-            <div class="receipt-waste-box">
-                <div class="tl"><i class="fas fa-trash-alt me-1"></i> Waste Written Off</div>
-                <div class="tv"><?= peso((float)$co['total_waste_cost']) ?></div>
-            </div>
-            <?php endif; ?>
-            <div class="receipt-sig">
-                <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Cashier Signature</div></div>
-                <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Received By</div></div>
-            </div>
-            <div class="receipt-footer">
-                Thank you for your service today.<br>Dine with Din Cafeteria &copy; <?= date('Y') ?>
-            </div>
-        </div>
+
+    <div class="co-wrap fade-in" id="co-content">
+        <?php render_closeout_tab($co, $co_items, $co_hours, $filter_date, 'co_thermal_payload', false); ?>
     </div>
+
+    <?php
+    // =========================================================================
+    // ADMIN: MY SHIFT (adminshift)
+    // =========================================================================
+    elseif ($tab === 'adminshift'):
+        $co       = $data['closeout'] ?? [];
+        $co_items = $co['top_items']  ?? [];
+        $co_hours = $co['peak_hours'] ?? [];
+        $co_thermal_payload = build_thermal_payload($co, $co_items, $filter_date);
+    ?>
+
+    <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
+        <input type="hidden" name="page" value="reports">
+        <input type="hidden" name="tab"  value="adminshift">
+        <label>Date</label>
+        <input type="date" name="date" class="form-control filter-input-date"
+               value="<?= $filter_date ?>" max="<?= $today ?>">
+        <div class="filter-actions">
+            <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Load</button>
+            <button type="button" class="btn-co-print" onclick="printCoA4()">
+                <i class="fas fa-print"></i> Print A4
+            </button>
+            <button type="button" class="btn-co-print thermal" onclick="printCoThermal()">
+                <i class="fas fa-receipt"></i> Thermal Print
+            </button>
+        </div>
+    </form>
+
+    <?php if (empty($co) || (int)($co['total_orders'] ?? 0) === 0): ?>
+    <div class="no-data" style="padding:4rem 1rem;">
+        <i class="fas fa-user-shield"></i>
+        No orders handled by you on <?= date('F d, Y', strtotime($filter_date)) ?>.
+    </div>
+    <?php else: ?>
+    <div class="co-wrap fade-in" id="co-content">
+        <?php render_closeout_tab($co, $co_items, $co_hours, $filter_date, 'co_thermal_payload', true); ?>
+    </div>
+    <?php endif; ?>
 
     <?php
     // =========================================================================
@@ -692,7 +1087,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
-
         <?php render_net_profit_card($s); ?>
     </div>
 
@@ -834,7 +1228,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-sub">Cost of items sold</div>
         </div>
         <?php render_waste_card($s); ?>
-
         <?php render_net_profit_card($s); ?>
     </div>
 
@@ -974,7 +1367,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             </div></div>
         <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-boxes"></i></div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)(($s['net_revenue']??0) - ($s['gross_profit']??0)))?></div><div class="s-sub">Cost of items sold</div></div>
         <?php render_waste_card($s); ?>
-
         <?php render_net_profit_card($s); ?>
     </div>
 
@@ -1347,7 +1739,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         </div>
     </form>
 
-    <!-- Summary cards -->
     <div class="stats-grid fade-in">
         <div class="stat-card c-danger">
             <div class="s-icon" style="color:var(--danger);"><i class="fas fa-trash-alt"></i></div>
@@ -1371,8 +1762,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
 
     <div id="waste-content">
     <div class="row g-4">
-
-        <!-- Top wasted items -->
         <div class="col-lg-5">
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-fire-alt" style="color:var(--danger);"></i> Top Wasted Items</div></div>
@@ -1406,8 +1795,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 <?php endif; ?>
                 </div>
             </div>
-
-            <!-- Waste by reason -->
             <div class="rpt-card fade-in" style="margin-top:1.5rem;">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-comment-alt" style="color:var(--danger);"></i> Waste by Reason</div></div>
                 <div class="rpt-card-body p-0">
@@ -1430,8 +1817,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 </div>
             </div>
         </div>
-
-        <!-- Full void log -->
         <div class="col-lg-7">
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header">
@@ -1444,13 +1829,9 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 <?php else: ?>
                     <div style="overflow-x:auto;"><table class="rpt-table">
                         <thead><tr>
-                            <th>Date</th>
-                            <th>Order #</th>
+                            <th>Date</th><th>Order #</th>
                             <?php if($is_admin): ?><th>Cashier</th><?php endif; ?>
-                            <th>Item</th>
-                            <th>Qty</th>
-                            <th class="th-waste">Waste Cost</th>
-                            <th>Reason</th>
+                            <th>Item</th><th>Qty</th><th class="th-waste">Waste Cost</th><th>Reason</th>
                         </tr></thead>
                         <tbody>
                         <?php foreach($wi as $row): ?>
@@ -1488,9 +1869,8 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 </div>
             </div>
         </div>
-
     </div>
-    </div><!-- /waste-content -->
+    </div>
 
     <?php endif; // end tab switch ?>
 
@@ -1534,54 +1914,153 @@ function openPrintTab(html) {
     tab.addEventListener('load', function () { URL.revokeObjectURL(url); });
 }
 
-/* ── printCloseout ── */
-function printCloseout() {
-    var tableRows = '';
-    var allNodes  = document.querySelectorAll('.closeout-wrap .receipt-row, .closeout-wrap .receipt-section-title');
-    allNodes.forEach(function(node) {
-        if (node.classList.contains('receipt-section-title')) {
-            tableRows += '<tr><td colspan="2" class="sec-title">' + node.textContent.trim() + '</td></tr>';
-        } else {
-            var lbl = node.querySelector('.rl');
-            var rv  = node.querySelector('.rv');
-            if (!lbl || !rv) return;
-            tableRows += '<tr><td class="lbl">' + lbl.innerText.trim() + '</td><td class="val">' + rv.innerText.trim() + '</td></tr>';
+/* ── Shared thermal + A4 print for both closeout and adminshift tabs ── */
+var _coPayload = <?php
+    if (in_array($tab, ['closeout', 'adminshift'])) {
+        echo $co_thermal_payload ?? 'null';
+    } else {
+        echo 'null';
+    }
+?>;
+
+function printCoThermal() {
+    var payload = _coPayload;
+    if (!payload) { alert('Load the close-out report first.'); return; }
+    var btn = event.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Printing\u2026';
+    fetch('index.php?page=print_closeout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-receipt"></i> Thermal Print';
+        if (res.status === 'no_printer') {
+            alert('No thermal printer detected.\nUse "Print A4" instead.');
+        } else if (res.status !== 'printed') {
+            alert('Print error: ' + (res.message || 'Unknown'));
         }
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-receipt"></i> Thermal Print';
+        alert('Could not reach the print server.\n' + err);
     });
-    var turnover = (document.querySelector('.closeout-wrap .receipt-total .tv') || {innerText:''}).innerText.trim();
-    var wasteBox = document.querySelector('.closeout-wrap .receipt-waste-box');
-    var wasteRow = wasteBox ? '<div class="waste-row"><span>Waste Written Off</span><span style="color:#d64045;font-weight:bold;">' + (wasteBox.querySelector('.tv')||{innerText:''}).innerText.trim() + '</span></div>' : '';
-    var footer   = (document.querySelector('.closeout-wrap .receipt-footer') || {innerText:''}).innerText.trim();
-    if (!tableRows) { alert('No close-out data to print.'); return; }
-    var html =
-        '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Close-out</title>' +
-        '<style>' +
-        'html,body{margin:0;padding:0;background:#fff;}' +
-        '@page{size:80mm auto;margin:5mm 4mm;}' +
-        'body{font-family:"Courier New",Courier,monospace;font-size:11px;line-height:1.55;color:#000;width:72mm;}' +
-        '.c{text-align:center;}.shop{font-size:14px;font-weight:bold;letter-spacing:.5px;}' +
-        '.sub{font-size:9px;color:#555;margin-top:1px;}.title{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin:5px 0 4px;}' +
-        'hr{border:none;border-top:1px dashed #000;margin:5px 0;}' +
-        'table{width:100%;border-collapse:collapse;}td{padding:2px 0;font-size:11px;vertical-align:top;}' +
-        'td.lbl{color:#333;width:58%;}td.val{text-align:right;font-weight:bold;color:#000;width:42%;}' +
-        'td.sec-title{font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;padding:5px 0 1px;border-top:1px dashed #ccc;color:#444;}' +
-        '.total{border:2px solid #000;padding:5px 7px;margin:7px 0;display:flex;justify-content:space-between;align-items:center;}' +
-        '.tl{font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;}.tv{font-size:16px;font-weight:bold;}' +
-        '.waste-row{display:flex;justify-content:space-between;padding:4px 7px;border:1px dashed #d64045;margin:4px 0;font-size:10px;}' +
-        '.sigs{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:10px;padding-top:6px;border-top:1px dashed #000;}' +
-        '.sl{border-bottom:1px solid #000;height:26px;margin-bottom:3px;}.slbl{font-size:8px;text-align:center;color:#444;}' +
-        '.footer{text-align:center;font-size:8px;color:#555;margin-top:7px;padding-top:5px;border-top:1px dashed #000;}' +
-        '</style></head><body>' +
-        '<div class="c"><div class="shop">Dine with Din</div><div class="sub">Cafeteria POS System</div><div class="title">Shift Close-out</div></div>' +
-        '<hr><table>' + tableRows + '</table><hr>' +
-        '<div class="total"><div class="tl">Cash to Turn Over</div><div class="tv">' + turnover + '</div></div>' +
-        wasteRow +
-        '<div class="sigs"><div><div class="sl"></div><div class="slbl">Cashier Signature</div></div><div><div class="sl"></div><div class="slbl">Received By</div></div></div>' +
-        '<div class="footer">' + footer + '</div></body></html>';
-    html = html.replace('</body></html>',
-        '<script>window.addEventListener(\'load\',function(){setTimeout(function(){window.print();},400);});window.addEventListener(\'afterprint\',function(){window.close();});<\/script></body></html>'
-    );
-    openPrintTab(html);
+}
+
+function printCoA4() {
+    var co = _coPayload;
+    if (!co) { alert('Load the close-out report first.'); return; }
+
+    var isAdminShift = <?= $tab === 'adminshift' ? 'true' : 'false' ?>;
+    var docTitle = isAdminShift ? 'Admin Shift Close-out Report' : 'Shift Close-out Report';
+    var sigLabel = isAdminShift ? 'Admin Signature' : 'Cashier Signature';
+
+    function peso(v) { return '\u20b1' + parseFloat(v).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+    function row(l, v, neg) { return '<tr><td class="rl">' + esc(l) + '</td><td class="rv' + (neg?' neg':'') + '">' + v + '</td></tr>'; }
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    var topRows = '';
+    if (co.top_items && co.top_items.length) {
+        co.top_items.forEach(function(item, i) {
+            var name = (i+1) + '. ' + esc(item.item_name) + (item.variant_name ? ' <small>('+esc(item.variant_name)+')</small>' : '');
+            topRows += '<tr><td class="rl">' + name + '</td><td class="rv">\u00d7' + item.units_sold + ' &nbsp;<small style="color:#888;">' + peso(item.total_revenue) + '</small></td></tr>';
+        });
+    }
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + docTitle + '</title>'
+        + '<style>'
+        + '@page{size:A4 portrait;margin:14mm 16mm;}'
+        + '*{box-sizing:border-box;margin:0;padding:0;}'
+        + 'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;}'
+        + '.logo{text-align:center;margin-bottom:4px;}'
+        + '.logo .shop{font-size:18px;font-weight:900;letter-spacing:.3px;color:#0f4c5c;}'
+        + '.logo .sub{font-size:9px;color:#666;margin-top:1px;}'
+        + '.doc-title{text-align:center;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:6px 0 2px;}'
+        + '.printed{text-align:center;font-size:9px;color:#888;margin-bottom:8px;}'
+        + 'hr{border:none;border-top:1.5px solid #000;margin:6px 0;}'
+        + '.hero{border:2px solid #0f4c5c;border-radius:6px;padding:10px 16px;margin:8px 0 12px;display:flex;align-items:center;justify-content:space-between;}'
+        + '.hero .hl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#0f4c5c;}'
+        + '.hero .hv{font-size:22px;font-weight:900;color:#0f4c5c;}'
+        + '.hero .hb{text-align:right;font-size:10px;color:#555;}'
+        + '.hero .hb strong{display:block;font-size:13px;color:#0f4c5c;}'
+        + '.waste-strip{border:1px solid #d64045;border-radius:4px;padding:6px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}'
+        + '.waste-strip .wl{font-size:9px;font-weight:700;color:#d64045;text-transform:uppercase;}'
+        + '.waste-strip .wv{font-size:13px;font-weight:700;color:#d64045;}'
+        + '.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}'
+        + '.box{border:1px solid #ccc;border-radius:4px;}'
+        + '.box-head{background:#f0f4f8;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#0f4c5c;padding:5px 8px;border-bottom:1px solid #ccc;}'
+        + 'table.dt{width:100%;border-collapse:collapse;font-size:10px;}'
+        + 'table.dt td{padding:4px 8px;border-bottom:1px dotted #e0e0e0;vertical-align:top;}'
+        + 'table.dt tr:last-child td{border-bottom:none;}'
+        + 'table.dt td.rl{color:#555;}'
+        + 'table.dt td.rv{text-align:right;font-weight:600;color:#000;}'
+        + 'table.dt td.rv.neg{color:#d64045;}'
+        + '.turnover-box{border:1.5px solid #0f4c5c;border-radius:3px;padding:5px 8px;display:flex;justify-content:space-between;align-items:center;margin:6px 8px;}'
+        + '.turnover-box .tl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#0f4c5c;}'
+        + '.turnover-box .tv{font-size:14px;font-weight:900;color:#0f4c5c;}'
+        + '.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:24mm;margin-top:12px;padding-top:10px;border-top:1.5px dashed #999;}'
+        + '.sig-line{border-bottom:1px solid #000;height:28px;margin-bottom:4px;}'
+        + '.sig-lbl{font-size:8px;color:#666;text-align:center;}'
+        + '.footer{text-align:center;font-size:8px;color:#999;margin-top:12px;padding-top:8px;border-top:1px dashed #ccc;}'
+        + '</style></head><body>'
+        + '<div class="logo"><div class="shop">Dine with Din</div><div class="sub">Cafeteria POS System</div></div>'
+        + '<div class="doc-title">' + docTitle + '</div>'
+        + '<div class="printed">Printed: ' + esc(co.printed_at) + ' &nbsp;|&nbsp; Shift Date: ' + esc(co.shift_date) + '</div>'
+        + '<hr>'
+        + '<div class="hero">'
+        +   '<div><div class="hl">Cash to Turn Over</div><div class="hv">' + peso(co.cash_to_turn_over) + '</div></div>'
+        +   '<div class="hb"><strong>' + co.total_orders + '</strong> Orders<br><strong>' + co.payment_count + '</strong> Payments</div>'
+        + '</div>'
+        + (co.total_waste_cost > 0 ? '<div class="waste-strip"><span class="wl">\u26a0 Waste Written Off</span><span class="wv">' + peso(co.total_waste_cost) + '</span></div>' : '')
+        + '<div class="grid2">'
+        +   '<div class="box"><div class="box-head">' + (isAdminShift ? 'Admin' : 'Cashier') + ' Info</div><table class="dt">'
+        +     row('Name', esc(co.cashier_name))
+        +     row('Username', esc(co.username))
+        +     row('Shift Date', esc(co.shift_date))
+        +   '</table></div>'
+        +   '<div class="box"><div class="box-head">Order Summary</div><table class="dt">'
+        +     row('Orders Handled', co.total_orders)
+        +     row('Cancelled', co.cancelled_orders)
+        +     row('Transactions', co.payment_count)
+        +     (co.admin_processed > 0 ? row('Admin-Processed', co.admin_processed) : '')
+        +   '</table></div>'
+        + '</div>'
+        + '<div class="grid2">'
+        +   '<div class="box"><div class="box-head">Sales Breakdown</div><table class="dt">'
+        +     row('Gross Sales', peso(co.gross_sales))
+        +     (co.total_discounts > 0 ? row('Discounts', '\u2212 ' + peso(co.total_discounts), true) : '')
+        +     row('Net Sales (VAT-incl.)', peso(co.net_sales))
+        +     row('Excl. VAT', peso(co.net_sales_excl))
+        +     row('VAT (12%)', peso(co.vat_collected))
+        +     (co.total_refunds > 0 ? row('Refunds', '\u2212 ' + peso(co.total_refunds), true) : '')
+        +   '</table></div>'
+        +   '<div class="box"><div class="box-head">Cash Reconciliation</div><table class="dt">'
+        +     row('Cash Received', peso(co.cash_received))
+        +     row('Change Given', '\u2212 ' + peso(co.change_given))
+        +   '</table>'
+        +   '<div class="turnover-box"><span class="tl">Turn Over</span><span class="tv">' + peso(co.cash_to_turn_over) + '</span></div>'
+        +   '</div>'
+        + '</div>'
+        + (topRows ? '<div class="box" style="margin-bottom:12px;"><div class="box-head">Top Items This Shift</div><table class="dt">' + topRows + '</table></div>' : '')
+        + '<div class="sig-grid">'
+        +   '<div><div class="sig-line"></div><div class="sig-lbl">' + sigLabel + ' \u2014 ' + esc(co.cashier_name) + '</div></div>'
+        +   '<div><div class="sig-line"></div><div class="sig-lbl">Received By (' + (isAdminShift ? 'Owner / Supervisor' : 'Admin / Supervisor') + ')</div></div>'
+        + '</div>'
+        + '<div class="footer">Dine with Din Cafeteria &copy; ' + new Date().getFullYear() + '</div>'
+        + '</body></html>';
+
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url  = URL.createObjectURL(blob);
+    var tab  = window.open(url, '_blank');
+    if (!tab) { alert('Please allow pop-ups for printing.'); URL.revokeObjectURL(url); return; }
+    tab.addEventListener('load', function () {
+        URL.revokeObjectURL(url);
+        setTimeout(function () { tab.print(); }, 400);
+    });
 }
 
 /* ── printDaily ── */
@@ -1629,39 +2108,39 @@ function printDaily() {
     var d = _dailyData;
     if (!d) { alert('No daily data to print.'); return; }
     var sumRows =
-        row('Report date',           d.date) +
-        row('Printed at',            d.printed_at) +
-        sep() +
-        row('Gross revenue (VAT-incl.)', '₱' + d.gross_revenue, true) +
-        row('Excl. VAT',             '₱' + d.excl_vat) +
-        row('VAT collected (12%)',   '₱' + d.vat_collected) +
-        row('Discounts given',       '- ₱' + d.discounts) +
-        sep() +
-        row('Gross profit',          '₱' + d.gross_profit) +
-        row('Waste written off',     '- ₱' + d.waste_cost) +
-        row('Net profit',            '₱' + d.net_profit, true) +
-        sep() +
-        row('Total orders',          d.total_orders) +
-        row('Cancelled orders',      d.cancelled) +
-        row('Avg order value',       '₱' + d.avg_order) +
-        row('Active cashiers',       d.active_cashiers);
+        row2('Report date',           d.date) +
+        row2('Printed at',            d.printed_at) +
+        sep2() +
+        row2('Gross revenue (VAT-incl.)', '\u20b1' + d.gross_revenue, true) +
+        row2('Excl. VAT',             '\u20b1' + d.excl_vat) +
+        row2('VAT collected (12%)',   '\u20b1' + d.vat_collected) +
+        row2('Discounts given',       '- \u20b1' + d.discounts) +
+        sep2() +
+        row2('Gross profit',          '\u20b1' + d.gross_profit) +
+        row2('Waste written off',     '- \u20b1' + d.waste_cost) +
+        row2('Net profit',            '\u20b1' + d.net_profit, true) +
+        sep2() +
+        row2('Total orders',          d.total_orders) +
+        row2('Cancelled orders',      d.cancelled) +
+        row2('Avg order value',       '\u20b1' + d.avg_order) +
+        row2('Active cashiers',       d.active_cashiers);
 
     var itemSection = '';
     if (d.top_items && d.top_items.length) {
         var itemRows = '';
         d.top_items.forEach(function(item) {
-            itemRows += '<tr><td class="nm">' + esc(item.name) + '</td><td class="r">' + item.sold + '</td><td class="r">₱' + item.revenue + '</td><td class="r">₱' + item.profit + '</td></tr>';
+            itemRows += '<tr><td class="nm">' + esc2(item.name) + '</td><td class="r">' + item.sold + '</td><td class="r">\u20b1' + item.revenue + '</td><td class="r">\u20b1' + item.profit + '</td></tr>';
         });
-        itemSection = sep() + '<div class="sh">Top Items</div>' +
+        itemSection = sep2() + '<div class="sh">Top Items</div>' +
             '<table><thead><tr><th>Item</th><th class="r">Sold</th><th class="r">Revenue</th><th class="r">Gross Profit</th></tr></thead><tbody>' + itemRows + '</tbody></table>';
     }
     var cashSection = '';
     if (d.cashiers && d.cashiers.length) {
         var cashRows = '';
         d.cashiers.forEach(function(c) {
-            cashRows += '<tr><td class="nm">' + esc(c.name) + '</td><td class="r">' + c.orders + '</td><td class="r">₱' + c.sales + '</td><td class="r" style="color:#d64045;">₱' + c.waste + '</td><td class="r">' + c.cancelled + '</td></tr>';
+            cashRows += '<tr><td class="nm">' + esc2(c.name) + '</td><td class="r">' + c.orders + '</td><td class="r">\u20b1' + c.sales + '</td><td class="r" style="color:#d64045;">\u20b1' + c.waste + '</td><td class="r">' + c.cancelled + '</td></tr>';
         });
-        cashSection = sep() + '<div class="sh">Cashier Breakdown</div>' +
+        cashSection = sep2() + '<div class="sh">Cashier Breakdown</div>' +
             '<table><thead><tr><th>Cashier</th><th class="r">Orders</th><th class="r">Sales</th><th class="r">Waste</th><th class="r">Cancelled</th></tr></thead><tbody>' + cashRows + '</tbody></table>';
     }
     var html =
@@ -1686,13 +2165,13 @@ function printDaily() {
     openPrintTab(html);
 }
 
-function row(label, value, highlight) {
+function row2(label, value, highlight) {
     return '<div class="row"><span class="lb">' + label + '</span><span class="vl' + (highlight ? ' hi' : '') + '">' + value + '</span></div>';
 }
-function sep() { return '<hr class="sep">'; }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sep2() { return '<hr class="sep">'; }
+function esc2(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-/* ── printA4 ── */
+/* ── printA4 (generic) ── */
 function printA4(contentId, title) {
     var el = document.getElementById(contentId);
     if (!el) { alert('Nothing to print.'); return; }
@@ -1721,7 +2200,6 @@ function printA4(contentId, title) {
         '.vat-breakdown,.profit-breakdown{font-size:9px;color:#555;margin-top:2px;}' +
         '.waste-cost-cell{color:#d64045;font-weight:bold;}' +
         '.reason-pill{font-size:9px;border:1px solid #d64045;padding:1px 4px;border-radius:2px;color:#d64045;}' +
-        '.receipt-waste-box{border:1px dashed #d64045;padding:4px 8px;margin:4px 0;display:flex;justify-content:space-between;font-size:10px;color:#d64045;}' +
         '</style></head><body>' +
         '<div class="print-title">Dine with Din Cafeteria</div>' +
         '<div class="print-sub">' + title + ' &nbsp;|&nbsp; Printed: <?= (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('M d, Y h:i A') ?> (PHT)</div>' +
