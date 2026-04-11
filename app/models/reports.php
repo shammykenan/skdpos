@@ -81,8 +81,10 @@ define('RPT_ACTIVE_STATUSES', "'pending','preparing','ready','completed'");
 function _rpt_cogs_and_waste(PDO $pdo, string $date_filter, array $params): array
 {
     // ── COGS ─────────────────────────────────────────────────────────────────
-    // Items that were SOLD and KEPT (not cancelled, not voided, not refunded).
-    // Same status scope as gross revenue — all active paid orders.
+    // Only count items where ingredients have actually been deducted.
+    // Deduction happens when kitchen marks an item 'preparing'.
+    // 'pending' items = payment collected but kitchen hasn't started yet
+    //                 = NO ingredients consumed yet = NOT a COGS event yet.
     $cogs_stmt = $pdo->prepare("
         SELECT COALESCE(SUM(
             (COALESCE(mv.cost_price, mi.cost_price) * oi.quantity)
@@ -105,7 +107,7 @@ function _rpt_cogs_and_waste(PDO $pdo, string $date_filter, array $params): arra
               SELECT 1 FROM payments px
               WHERE px.order_id = o.order_id AND px.amount_paid > 0
           )
-          AND oi.status NOT IN ('cancelled', 'voided')
+          AND oi.status IN ('preparing', 'ready', 'completed')
           AND oi.order_item_id NOT IN (
               SELECT r.order_item_id
               FROM refunds r
@@ -116,11 +118,7 @@ function _rpt_cogs_and_waste(PDO $pdo, string $date_filter, array $params): arra
     $cogs_stmt->execute($params);
     $cogs = (float) $cogs_stmt->fetchColumn();
 
-    // ── WASTE ─────────────────────────────────────────────────────────────────
-    // waste_cost IS NOT NULL  → item was preparing/ready when voided, cost recorded.
-    // waste_cost IS NULL      → item was still pending, no ingredients used, no waste.
-    // We do NOT join payments here — waste is an item-level fact independent
-    // of payment structure. We only confirm the order was a real paid order.
+    // ── WASTE (unchanged) ─────────────────────────────────────────────────────
     $waste_stmt = $pdo->prepare("
         SELECT COALESCE(SUM(oi.waste_cost), 0)
         FROM order_items oi
@@ -214,6 +212,7 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
 
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
+    $row['cogs']             = $cogs;
     $row['gross_profit']     = (float) $row['net_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
     $row['net_profit']       = $row['gross_profit'] - $waste;
@@ -413,6 +412,7 @@ function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
     $df_params   = [':df_year' => $year, ':df_month' => $month];
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
+    $row['cogs']             = $cogs;
     $row['gross_profit']     = (float) $row['net_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
     $row['net_profit']       = $row['gross_profit'] - $waste;
@@ -492,6 +492,7 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
     $df_params   = [':df_year' => $year];
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
+    $row['cogs']             = $cogs;
     $row['gross_profit']     = (float) $row['net_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
     $row['net_profit']       = $row['gross_profit'] - $waste;
@@ -1052,6 +1053,8 @@ function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end,
 
         $gross_profit = $net_revenue - $cogs;
         $net_profit   = $gross_profit - $waste;
+
+        $row['cogs'] = $cogs;
 
         return array_merge([
             'total_orders'     => 0, 'gross_revenue'   => 0,

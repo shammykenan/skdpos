@@ -873,7 +873,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-label">Net Revenue</div>
             <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
             <div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
                 &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
             </div>
         </div>
@@ -1073,7 +1073,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-label">Net Revenue</div>
             <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
             <div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
                 &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
             </div>
         </div>
@@ -1214,7 +1214,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="s-label">Net Revenue</div>
             <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
             <div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
                 &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
             </div>
         </div>
@@ -1359,7 +1359,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             </div>
         </div>
         <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-coins"></i></div><div class="s-label">Net Revenue</div><div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div><div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_including_voided']??0)) ?></span>
+                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
                 &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
             </div></div>
         <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-boxes"></i></div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)($s['cogs']??0))?></div><div class="s-sub">Cost of items sold</div></div>
