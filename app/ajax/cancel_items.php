@@ -309,33 +309,41 @@ try {
         $_SERVER['REMOTE_ADDR'] ?? null,
     ]);
 
-    // ── 6. Recalculate order totals ───────────────────────────────────────────
-    $totalsStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(subtotal), 0) AS active_subtotal
-        FROM order_items
-        WHERE order_id = ?
-          AND status NOT IN ('cancelled', 'voided')
-    ");
-    $totalsStmt->execute([$order_id]);
-    $activeSubtotal = (float) $totalsStmt->fetchColumn();
+    // ── 6. Recalculate order totals (cancel only) ─────────────────────────────
+    // Void does NOT reduce total_amount — gross revenue must stay intact.
+    // Only cancellations reduce the order total (item never paid for / refunded).
+    if ($action === 'cancel_item') {
+        $totalsStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(subtotal), 0) AS active_subtotal
+            FROM order_items
+            WHERE order_id = ?
+              AND status NOT IN ('cancelled', 'voided')
+        ");
+        $totalsStmt->execute([$order_id]);
+        $activeSubtotal = (float) $totalsStmt->fetchColumn();
 
-    $addonTotalsStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(oia.price * oia.quantity), 0) AS addon_total
-        FROM order_item_addons oia
-        JOIN order_items oi ON oia.order_item_id = oi.order_item_id
-        WHERE oi.order_id = ?
-          AND oi.status NOT IN ('cancelled', 'voided')
-    ");
-    $addonTotalsStmt->execute([$order_id]);
-    $addonTotal = (float) $addonTotalsStmt->fetchColumn();
+        $addonTotalsStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(oia.price * oia.quantity), 0) AS addon_total
+            FROM order_item_addons oia
+            JOIN order_items oi ON oia.order_item_id = oi.order_item_id
+            WHERE oi.order_id = ?
+              AND oi.status NOT IN ('cancelled', 'voided')
+        ");
+        $addonTotalsStmt->execute([$order_id]);
+        $addonTotal = (float) $addonTotalsStmt->fetchColumn();
 
-    $newSubtotal    = round($activeSubtotal + $addonTotal, 2);
-    $discount       = (float) $item['order_discount'];
-    $newTotalAmount = round(max(0, $newSubtotal - $discount), 2);
+        $newSubtotal    = round($activeSubtotal + $addonTotal, 2);
+        $discount       = (float) $item['order_discount'];
+        $newTotalAmount = round(max(0, $newSubtotal - $discount), 2);
 
-    $pdo->prepare("
-        UPDATE orders SET subtotal = ?, total_amount = ? WHERE order_id = ?
-    ")->execute([$newSubtotal, $newTotalAmount, $order_id]);
+        $pdo->prepare("
+            UPDATE orders SET subtotal = ?, total_amount = ? WHERE order_id = ?
+        ")->execute([$newSubtotal, $newTotalAmount, $order_id]);
+    } else {
+        // void_item: read current totals unchanged for the JSON response
+        $newSubtotal    = (float) $item['subtotal']; // not updated, just for response
+        $newTotalAmount = $newSubtotal - (float) $item['order_discount'];
+    }
 
     // ── 7. Recalculate order status ───────────────────────────────────────────
     $statusCountStmt = $pdo->prepare("

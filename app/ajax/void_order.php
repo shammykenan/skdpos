@@ -223,10 +223,11 @@ try {
     }
 
     // ── Update order ──────────────────────────────────────────────────────────
+    // Do NOT touch subtotal or total_amount on void.
+    // Gross revenue must remain intact — waste is tracked separately via waste_total.
     $ordStmt = $pdo->prepare("
         UPDATE orders
-        SET status = 'voided', void_reason = ?, subtotal = 0, total_amount = 0,
-            waste_total = ?
+        SET status = 'voided', void_reason = ?, waste_total = ?
         WHERE order_id = ?
     ");
     $ordStmt->execute([$reason, $totalWasteCost, $order_id]);
