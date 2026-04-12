@@ -4744,3 +4744,507 @@ body {
     font-size:0.82rem;font-family:inherit;text-align:right;outline:none;
 }
 .refund-item-amount:focus { border-color:var(--primary); }
+
+/* ================================================================
+   manage_orders.css — ITEM ACTION BAR
+   Append these at the very bottom of manage_orders.css
+   ================================================================ */
+
+/* ── Action bar row inside each item card ─────────────────────── */
+.item-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid rgba(203,213,224,0.5);
+    flex-wrap: wrap;
+}
+
+.item-action-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+}
+
+.item-action-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+/* ── Full action buttons (left side) ──────────────────────────── */
+.item-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: none;
+    border-radius: 8px;
+    padding: 0.38rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.item-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.item-action-start {
+    background: #f59e0b;
+    color: white;
+}
+.item-action-start:hover:not(:disabled) {
+    background: #d97706;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(245,158,11,0.35);
+}
+
+.item-action-ready {
+    background: #10b981;
+    color: white;
+}
+.item-action-ready:hover:not(:disabled) {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(16,185,129,0.35);
+}
+
+.item-action-void-item {
+    background: rgba(15,76,92,0.08);
+    color: var(--primary-dark);
+    border: 1.5px solid rgba(15,76,92,0.25);
+}
+.item-action-void-item:hover:not(:disabled) {
+    background: rgba(15,76,92,0.15);
+    border-color: var(--primary);
+}
+
+/* ── Partial buttons (right side — smaller, subdued) ──────────── */
+.item-partial-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 20px;
+    padding: 0.28rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+    opacity: 0.82;
+}
+
+.item-partial-btn:hover:not(:disabled) {
+    opacity: 1;
+    transform: translateY(-1px);
+}
+
+.item-partial-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.item-action-partial-start {
+    background: rgba(245,158,11,0.10);
+    color: #92400e;
+    border: 1.5px solid rgba(245,158,11,0.35);
+}
+.item-action-partial-start:hover:not(:disabled) {
+    background: rgba(245,158,11,0.22);
+    border-color: #f59e0b;
+}
+
+.item-action-partial-void {
+    background: rgba(214,64,69,0.07);
+    color: var(--danger);
+    border: 1.5px solid rgba(214,64,69,0.28);
+}
+.item-action-partial-void:hover:not(:disabled) {
+    background: rgba(214,64,69,0.15);
+    border-color: var(--danger);
+}
+
+/* ── Item card header: name left, badge right ─────────────────── */
+.item-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.item-card-name {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.item-card-badge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+/* ── Larger cards inside kitchen modal ────────────────────────── */
+#kitchenModalBody .item-card {
+    padding: 0.9rem 1.05rem;
+    border-radius: 14px;
+}
+
+#kitchenModalBody .item-name-text {
+    font-size: 0.95rem;
+}
+
+#kitchenModalBody .item-qty-badge {
+    font-size: 0.78rem;
+    padding: 2px 8px;
+}
+
+#kitchenModalBody .item-status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.7rem;
+}
+
+#kitchenModalBody .item-action-btn {
+    padding: 0.42rem 1rem;
+    font-size: 0.8rem;
+}
+
+#kitchenModalBody .item-partial-btn {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.73rem;
+}
+
+#kitchenModalBody .item-addon-tag {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.65rem;
+}
+
+#kitchenModalBody .item-addons-label {
+    font-size: 0.72rem;
+}
+
+#kitchenModalBody .item-card-note-inline {
+    padding: 0.35rem 0.7rem;
+    margin-top: 0.45rem;
+}
+
+#kitchenModalBody .item-card-note-label {
+    font-size: 0.72rem;
+}
+
+#kitchenModalBody .item-card-note-text {
+    font-size: 0.82rem;
+}
+
+/* ── Waste indicator ──────────────────────────────────────────── */
+.waste-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--secondary);
+    background: rgba(255,107,74,0.08);
+    border: 1px solid rgba(255,107,74,0.25);
+    border-radius: 6px;
+    padding: 0.18rem 0.55rem;
+}
+/* ================================================================
+   manage_orders.css — ITEM CARD + UPDATE STATUS MODAL
+   Append to the bottom of manage_orders.css
+   ================================================================ */
+
+/* ── Item card: two-row layout ────────────────────────────────── */
+.item-card {
+    border-radius: 14px;
+    border: 1.5px solid var(--border);
+    background: #fafcff;
+    padding: 0.85rem 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.item-card:hover { box-shadow: 0 3px 12px rgba(15,76,92,0.06); }
+
+.item-card-pending   { border-color: #fde68a; background: #fffdf0; }
+.item-card-preparing { border-color: #93c5fd; background: #f0f7ff; }
+.item-card-ready     { border-color: #6ee7b7; background: #f0fdf6; }
+.item-card-completed { border-color: #6ee7b7; background: #f0fdf6; opacity: 0.8; }
+.item-card-cancelled { border-color: #fca5a5; background: #fff5f5; opacity: 0.7; }
+.item-card-voided    { border-color: rgba(15,76,92,0.22); background: rgba(15,76,92,0.03); opacity: 0.6; }
+
+.item-card-cancelled .item-name-text,
+.item-card-voided    .item-name-text {
+    text-decoration: line-through;
+    color: var(--warm-gray);
+}
+
+/* Header row */
+.item-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.item-card-name {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.item-card-badge-wrap {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Action bar */
+.item-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(203,213,224,0.55);
+    flex-wrap: wrap;
+}
+
+/* Shared base for action buttons */
+.item-card-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: none;
+    border-radius: 8px;
+    padding: 0.38rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+.item-card-action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Update Status — uses CSS var for dynamic color */
+.item-update-status-btn {
+    background: var(--btn-color, var(--primary));
+    color: white;
+    flex: 1 1 auto;
+}
+.item-update-status-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+}
+.btn-next-hint {
+    font-weight: 400;
+    opacity: 0.82;
+    font-size: 0.72rem;
+    margin-left: 0.2rem;
+}
+
+/* Void — muted, teal/dark */
+.item-void-btn {
+    background: rgba(15,76,92,0.07);
+    color: var(--primary-dark);
+    border: 1.5px solid rgba(15,76,92,0.25);
+}
+.item-void-btn:hover:not(:disabled) {
+    background: rgba(15,76,92,0.14);
+    border-color: var(--primary);
+}
+
+/* Waste indicator */
+.waste-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--secondary);
+    background: rgba(255,107,74,0.08);
+    border: 1px solid rgba(255,107,74,0.25);
+    border-radius: 6px;
+    padding: 0.18rem 0.55rem;
+}
+
+/* ── Update Status Modal ──────────────────────────────────────── */
+.us-section {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.us-section:last-child { border-bottom: none; padding-bottom: 0; }
+.us-section:first-child { padding-top: 0; }
+
+.us-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.3rem 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--warm-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.us-divider::before,
+.us-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.us-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+.us-section-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+}
+.us-section-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1.2;
+}
+.us-section-sub {
+    font-size: 0.72rem;
+    color: var(--warm-gray);
+    margin-top: 1px;
+}
+.us-section-avail {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--warm-gray);
+    background: var(--light-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 0.2rem 0.6rem;
+    flex-shrink: 0;
+}
+
+.us-qty-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+.us-qty-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--navy);
+    flex-shrink: 0;
+}
+.us-qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.us-qty-dec,
+.us-qty-inc {
+    background: var(--light-bg);
+    border: none;
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--navy);
+    cursor: pointer;
+    transition: background 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+.us-qty-dec:hover, .us-qty-inc:hover { background: var(--lavender); }
+.us-qty-input {
+    width: 52px;
+    height: 32px;
+    border: none;
+    border-left: 1.5px solid var(--border);
+    border-right: 1.5px solid var(--border);
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--navy);
+    font-family: inherit;
+    outline: none;
+}
+.us-qty-input.us-inp-error {
+    background: rgba(214,64,69,0.08);
+    color: var(--danger);
+    animation: us-shake 0.3s ease;
+}
+@keyframes us-shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-4px); }
+    75%      { transform: translateX(4px); }
+}
+.us-qty-hint {
+    font-size: 0.74rem;
+    color: var(--warm-gray);
+    flex: 1 1 100%;
+    margin-top: -0.3rem;
+    min-height: 1rem;
+}
+
+.us-confirm-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    padding: 0.55rem 1rem;
+    border: none;
+    border-radius: 10px;
+    background: var(--btn-color, var(--primary));
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.15s;
+    justify-content: center;
+    font-family: inherit;
+}
+.us-confirm-btn:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}

@@ -524,7 +524,139 @@
     </div>
 </div>
 
+<div class="modal fade" id="partialActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+    <div class="modal-content" style="border-radius:20px;overflow:hidden;border:none;">
 
+      <div class="modal-header">
+        <h5 class="modal-title" id="partialActionTitle">Partial Action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p id="partialActionBody" class="text-muted mb-3" style="font-size:0.85rem;"></p>
+
+        <!-- Qty selector -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold" style="font-size:0.82rem;">
+            Quantity <span class="text-muted fw-normal" id="partialQtyMax"></span>
+          </label>
+          <input type="number" id="partialQtyInput" class="form-control" min="1" value="1"
+                 style="border-radius:12px;max-width:120px;">
+          <div id="partialQtyFeedback" style="font-size:0.78rem;margin-top:5px;"></div>
+        </div>
+
+        <!-- Reason (partial void only) -->
+        <div id="partialVoidReasonRow" style="display:none;" class="mb-3">
+          <label class="form-label fw-semibold" style="font-size:0.82rem;">
+            Reason <span class="text-danger">*</span>
+          </label>
+          <select id="partialVoidReasonSelect" class="form-select mb-2"
+                  style="border-radius:12px;font-size:0.85rem;">
+            <option value="">— Select a reason —</option>
+          </select>
+          <textarea id="partialVoidReasonText" class="form-control" rows="2" maxlength="255"
+                    placeholder="Details…"
+                    style="border-radius:12px;font-size:0.85rem;resize:none;display:none;"></textarea>
+        </div>
+
+        <!-- Refund (partial void only) -->
+        <div id="partialVoidRefundRow" style="display:none;">
+          <div style="border:1.5px solid var(--border);border-radius:12px;padding:0.85rem 1rem;">
+            <div style="font-size:0.75rem;font-weight:700;color:var(--navy);margin-bottom:0.5rem;">
+              Issue a Refund
+              <span style="font-weight:400;color:var(--warm-gray);">(optional)</span>
+              <span id="partialRefundHint" style="float:right;font-weight:400;color:var(--warm-gray);"></span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
+              <div>
+                <label style="font-size:0.73rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.25rem;">
+                  Amount <span id="partialRefundCap" style="font-weight:400;color:var(--warm-gray);"></span>
+                </label>
+                <div style="position:relative;">
+                  <span style="position:absolute;left:0;top:0;bottom:0;width:30px;display:flex;align-items:center;
+                               justify-content:center;font-weight:700;color:var(--warm-gray);font-size:0.88rem;
+                               background:var(--light-bg);border-radius:9px 0 0 9px;border:1.5px solid var(--border);border-right:none;">₱</span>
+                  <input type="number" id="partialRefundAmount" min="0" step="0.01" placeholder="0.00"
+                         style="width:100%;padding:0.45rem 0.5rem 0.45rem 1.9rem;border:1.5px solid var(--border);
+                                border-radius:9px;font-size:0.85rem;font-family:inherit;outline:none;">
+                </div>
+              </div>
+              <div>
+                <label style="font-size:0.73rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.25rem;">Method</label>
+                <select id="partialRefundMethod"
+                        style="width:100%;padding:0.45rem 0.6rem;border:1.5px solid var(--border);border-radius:9px;
+                               font-size:0.83rem;font-family:inherit;background:white;outline:none;">
+                  <option value="cash">Cash</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:0.55rem;">
+              <label style="font-size:0.73rem;font-weight:600;color:var(--navy);display:block;margin-bottom:0.25rem;">
+                Note <span style="font-weight:400;color:var(--warm-gray);">(optional)</span>
+              </label>
+              <input type="text" id="partialRefundNote" maxlength="200"
+                     style="width:100%;padding:0.45rem 0.6rem;border:1.5px solid var(--border);
+                            border-radius:9px;font-size:0.81rem;font-family:inherit;outline:none;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="confirmPartialActionBtn" class="btn"
+                style="color:white;border-radius:10px;padding:0.5rem 1.3rem;font-weight:700;">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════
+     UPDATE STATUS MODAL
+     Add this to manage_orders.php alongside
+     the other modals
+══════════════════════════════════════════ -->
+<div class="modal fade" id="updateStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;border:none;">
+
+            <div class="modal-header" style="
+                background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+                padding:1.1rem 1.4rem;border-bottom:none;">
+                <div style="display:flex;align-items:center;gap:0.65rem;">
+                    <div style="width:34px;height:34px;background:rgba(255,255,255,0.15);
+                                border-radius:10px;display:flex;align-items:center;
+                                justify-content:center;font-size:0.9rem;color:white;">
+                        <i class="fas fa-arrow-right-long"></i>
+                    </div>
+                    <h5 class="modal-title" id="updateStatusModalTitle"
+                        style="color:white;font-size:0.95rem;font-weight:700;margin:0;
+                               max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        Update Status
+                    </h5>
+                </div>
+                <button type="button" class="btn-close"
+                        style="filter:brightness(0) invert(1);"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body" id="updateStatusModalBody"
+                 style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:0;">
+                <!-- Sections injected by openUpdateStatusModal() -->
+            </div>
+
+            <div class="modal-footer" style="padding:0.85rem 1.4rem;border-top:1px solid var(--border);">
+                <button type="button" class="btn btn-outline-secondary"
+                        style="border-radius:10px;" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
 <!-- ══════════════════════════════════════════
      ORDER DETAILS MODAL
 ══════════════════════════════════════════ -->

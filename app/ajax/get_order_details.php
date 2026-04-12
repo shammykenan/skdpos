@@ -41,6 +41,7 @@ try {
             r.refund_type,
             r.order_item_id,
             r.amount,
+            r.quantity,
             r.reason,
             r.refund_method,
             r.note,
