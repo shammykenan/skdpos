@@ -8,802 +8,791 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>Menu Management - Cafeteria POS</title>
+    <title>Menu Management — Dine with Din</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
     <style>
+        /* ── TOKENS ──────────────────────────────────────────────────────── */
         :root {
-            --primary: #0f4c5c; --primary-dark: #0a3a47; --primary-light: #1f7a8c;
-            --secondary: #ff6b4a; --accent: #fee440; --navy: #1e2f4e;
-            --lavender: #e2e6f0; --light-bg: #f8faff; --warm-gray: #4a5568;
-            --border: #cbd5e0; --success: #2c7a5a; --danger: #d64045;
-            --warning: #f4b942; --info: #5e9b9e; --dark: #1a202c;
-            --sidebar-width: 280px; --topbar-height: 72px;
+            --primary:       #0f4c5c;
+            --primary-dark:  #0a3a47;
+            --primary-light: #1f7a8c;
+            --secondary:     #ff6b4a;
+            --accent:        #fee440;
+            --navy:          #1e2f4e;
+            --lavender:      #e2e6f0;
+            --light-bg:      #f8faff;
+            --warm-gray:     #4a5568;
+            --border:        #cbd5e0;
+            --success:       #2c7a5a;
+            --danger:        #d64045;
+            --warning:       #f4b942;
+            --info:          #5e9b9e;
+            --dark:          #1a202c;
+
+            --success-soft:  #eaf7ef;
+            --danger-soft:   #fdecea;
+            --warning-soft:  #fef8e7;
+            --info-soft:     rgba(94,155,158,0.1);
+
+            --sidebar-w: 260px;
+            --top-h:     64px;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.5; }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
 
         /* ── TOPBAR ─────────────────────────────────────────────────────── */
         .topbar {
-            position: fixed; top: 0; left: 0; right: 0;
-            height: var(--topbar-height);
-            background: white; border-bottom: 1px solid var(--border);
-            z-index: 1040; padding: 0 2rem;
-            box-shadow: 0 4px 12px rgba(15,76,92,0.04);
+            position: fixed; top: 0; left: 0; right: 0; height: var(--top-h);
+            background: #fff; border-bottom: 1px solid var(--border);
+            z-index: 1040; display: flex; align-items: center;
+            padding: 0 1.5rem; gap: 1rem;
+            box-shadow: 0 2px 8px rgba(15,76,92,0.06);
+        }
+        .topbar-brand { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; flex-shrink: 0; }
+        .brand-logo {
+            width: 40px; height: 40px; border-radius: var(--radius-sm);
+            background: #fff; border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .brand-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .brand-text-main { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 1.15rem; color: var(--primary-dark); line-height: 1; white-space: nowrap; }
+        .brand-text-sub  { font-size: 0.65rem; color: var(--secondary); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; white-space: nowrap; }
+
+        .topbar-spacer { flex: 1; }
+
+        .mobile-toggle {
+            display: none; background: none; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 0.4rem 0.65rem;
+            color: var(--primary); cursor: pointer; font-size: 1rem;
+            transition: background 0.15s;
+        }
+        .mobile-toggle:hover { background: var(--lavender); }
+
+        .user-pill {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: var(--light-bg); border: 1px solid var(--border);
+            border-radius: 40px; padding: 0.3rem 0.9rem 0.3rem 0.35rem;
+            cursor: pointer; transition: all 0.15s; text-decoration: none; max-width: 220px;
+        }
+        .user-pill:hover { background: var(--lavender); border-color: var(--primary-light); }
+        .user-avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--primary); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+        }
+        .user-name-text { font-size: 0.82rem; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-caret { color: var(--warm-gray); font-size: 0.65rem; flex-shrink: 0; }
+
+        /* ── SIDEBAR ────────────────────────────────────────────────────── */
+        .sidebar {
+            position: fixed; top: var(--top-h); left: 0; width: var(--sidebar-w);
+            height: calc(100vh - var(--top-h)); background: #fff;
+            border-right: 1px solid var(--border); overflow-y: auto;
+            z-index: 1030; transition: transform 0.25s ease;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .nav-wrap { padding: 1.2rem 0.75rem 2rem; }
+        .nav-section { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--warm-gray); padding: 1.2rem 0.75rem 0.4rem; opacity: 0.7; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.7rem;
+            padding: 0.6rem 0.9rem; border-radius: var(--radius-md);
+            color: var(--warm-gray); font-weight: 500; font-size: 0.88rem;
+            text-decoration: none; transition: all 0.15s; margin: 0.1rem 0;
+        }
+        .nav-link i { width: 20px; text-align: center; font-size: 0.9rem; flex-shrink: 0; transition: color 0.15s; }
+        .nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
+        .nav-link:hover i { color: var(--primary); }
+        .nav-link.active { background: var(--primary); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(15,76,92,0.2); }
+        .nav-link.active i { color: rgba(255,255,255,0.85); }
+
+        /* ── OVERLAY ──────────────────────────────────────────────────── */
+        .sidebar-overlay {
+            display: none; position: fixed; top: var(--top-h); left: 0; right: 0; bottom: 0;
+            background: rgba(15,76,92,0.25); z-index: 1025; backdrop-filter: blur(2px);
+        }
+        .sidebar-overlay.show { display: block; }
+
+        /* ── MAIN ──────────────────────────────────────────────────────── */
+        .main { margin-left: var(--sidebar-w); margin-top: var(--top-h); padding: 2rem 1.75rem; min-height: calc(100vh - var(--top-h)); }
+
+        /* ── PAGE HEADER ────────────────────────────────────────────────── */
+        .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
+        .page-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.75rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
+        .breadcrumb-bar { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--warm-gray); margin-top: 0.3rem; }
+        .breadcrumb-bar a { color: var(--primary-light); text-decoration: none; font-weight: 500; }
+        .breadcrumb-bar a:hover { text-decoration: underline; }
+        .breadcrumb-sep { color: var(--border); }
+
+        /* ── HEADER ACTIONS ─────────────────────────────────────────────── */
+        .head-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+        .btn-primary-action {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: var(--primary); color: #fff;
+            padding: 0.55rem 1.3rem; border-radius: 40px;
+            font-weight: 600; font-size: 0.88rem; border: none; cursor: pointer;
+            transition: all 0.2s; text-decoration: none; white-space: nowrap;
+        }
+        .btn-primary-action:hover { background: var(--primary-dark); color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15,76,92,0.2); }
+        .btn-secondary-action {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: #fff; color: var(--primary);
+            padding: 0.5rem 1.25rem; border-radius: 40px;
+            font-weight: 600; font-size: 0.88rem; border: 2px solid var(--primary);
+            cursor: pointer; transition: all 0.2s; text-decoration: none; white-space: nowrap;
+        }
+        .btn-secondary-action:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
+
+        /* ── ALERTS ──────────────────────────────────────────────────────── */
+        .alert-bar {
+            border-radius: var(--radius-md); padding: 0.85rem 1.2rem;
+            display: flex; align-items: center; gap: 0.65rem;
+            font-size: 0.88rem; font-weight: 500; margin-bottom: 1.5rem;
+            transition: opacity 0.4s;
+        }
+        .alert-bar.success { background: var(--success-soft); color: #1e4a3b; border-left: 4px solid var(--success); }
+        .alert-bar.danger  { background: var(--danger-soft);  color: #9e3a34; border-left: 4px solid var(--danger); }
+        .alert-bar .dismiss { margin-left: auto; cursor: pointer; background: none; border: none; color: inherit; opacity: 0.5; font-size: 1.1rem; padding: 0; }
+        .alert-bar .dismiss:hover { opacity: 1; }
+
+        /* ── STATS GRID ──────────────────────────────────────────────────── */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+        .stat-card {
+            background: #fff; border: 1px solid rgba(203,213,224,0.6);
+            border-radius: var(--radius-lg); padding: 1.25rem 1.35rem;
+            display: flex; align-items: center; gap: 1rem;
+            transition: box-shadow 0.2s, transform 0.2s;
+            position: relative; overflow: hidden;
+        }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary); }
+        .stat-card.c-success::before { background: var(--success); }
+        .stat-card.c-info::before    { background: var(--info); }
+        .stat-card.c-warning::before { background: var(--warning); }
+        .stat-card:hover { box-shadow: 0 8px 24px rgba(15,76,92,0.08); transform: translateY(-2px); }
+        .stat-icon {
+            width: 46px; height: 46px; border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+            background: #f0f5fa; color: var(--primary);
+            border: 1px solid rgba(15,76,92,0.1);
+        }
+        .stat-icon.c-success { background: var(--success-soft); color: var(--success); border-color: rgba(44,122,90,0.15); }
+        .stat-icon.c-info    { background: var(--info-soft);    color: var(--info);    border-color: rgba(94,155,158,0.2); }
+        .stat-icon.c-warning { background: var(--warning-soft); color: var(--warning); border-color: rgba(244,185,66,0.2); }
+        .stat-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--warm-gray); margin-bottom: 0.2rem; }
+        .stat-value { font-size: 1.65rem; font-weight: 800; color: var(--navy); line-height: 1; }
+
+        /* ── TABLE CARD ──────────────────────────────────────────────────── */
+        .table-card {
+            background: #fff; border: 1px solid rgba(203,213,224,0.6);
+            border-radius: var(--radius-xl); overflow: hidden;
+            box-shadow: 0 4px 16px rgba(15,76,92,0.03);
+        }
+        .table-card-header {
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
             display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .table-card-title { font-weight: 700; font-size: 0.95rem; color: var(--navy); display: flex; align-items: center; gap: 0.5rem; }
+        .item-count-badge {
+            background: rgba(15,76,92,0.08); color: var(--primary-dark);
+            font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.65rem; border-radius: 20px;
         }
 
-        /* ── Logo ─────────────────────────────────────────────────────────── */
-        .topbar-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex-shrink: 1; }
-        .topbar .logo {
-            text-decoration: none;
-            display: flex; align-items: center; gap: 0.65rem;
-            min-width: 0;
-        }
-        .logo-img-fallback {
-            width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-            background: var(--primary);
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 1.25rem;
-            box-shadow: 0 4px 10px rgba(15,76,92,0.25);
-            overflow: hidden;
-        }
-        .logo-img-fallback img {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-        }
-        .logo-text-wrap {
-            display: flex; flex-direction: column; line-height: 1.1; min-width: 0;
-        }
-        .logo-text-main {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-weight: 800; font-size: 1.2rem;
-            color: var(--primary-dark);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            letter-spacing: -0.3px;
-        }
-        .logo-text-sub {
-            font-family: 'DM Sans', sans-serif;
-            font-weight: 500; font-size: 0.68rem;
-            color: var(--secondary);
-            text-transform: uppercase; letter-spacing: 1.4px;
+        /* ── DATA TABLE ──────────────────────────────────────────────────── */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table thead th {
+            padding: 0.85rem 1.25rem; text-align: left;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.8px;
+            text-transform: uppercase; color: var(--primary-dark);
+            background: #f2f6fc; border-bottom: 2px solid var(--primary-light);
             white-space: nowrap;
         }
-
-        .mobile-menu-btn {
-            background: white; border: 1px solid var(--border);
-            font-size: 1.2rem; color: var(--primary); cursor: pointer;
-            padding: 0.45rem 0.85rem; border-radius: 12px; transition: all 0.2s;
-            flex-shrink: 0;
+        .data-table thead th:last-child { text-align: right; }
+        .data-table tbody td {
+            padding: 1rem 1.25rem; border-bottom: 1px solid #edf2f7;
+            vertical-align: middle; color: var(--dark); background: #fff;
         }
-        .mobile-menu-btn:hover { background: var(--secondary); border-color: var(--secondary); color: white; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover td { background: #fafcff; }
+        .data-table tbody tr.needs-price td { background: #fff8f8; }
 
-        /* ── Topbar RIGHT cluster ────────────────────────────────────────── */
-        .topbar-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+        /* ── ITEM IMAGE ──────────────────────────────────────────────────── */
+        .item-img { width: 50px; height: 50px; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--border); flex-shrink: 0; }
+        .item-img-ph { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: #f2f6fc; border-radius: var(--radius-md); border: 1px solid var(--border); color: var(--primary-light); font-size: 1.1rem; flex-shrink: 0; }
+        .item-name { font-weight: 700; font-size: 0.9rem; color: var(--navy); }
+        .item-desc { font-size: 0.78rem; color: var(--warm-gray); margin-top: 2px; }
 
-        /* ── User button ─────────────────────────────────────────────────── */
-        .user-btn {
-            color: var(--navy) !important;
-            font-weight: 600;
-            display: flex !important;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.45rem 0.75rem !important;
-            border-radius: 12px !important;
-            border: 1px solid var(--border) !important;
-            background: white;
-            text-decoration: none !important;
-            transition: all 0.2s;
-            flex-shrink: 0;
-            max-width: 200px;
+        /* ── PILLS ───────────────────────────────────────────────────────── */
+        .pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.75rem; border-radius: 30px; white-space: nowrap; }
+        .pill-category    { background: rgba(15,76,92,0.08);  color: var(--primary-dark); }
+        .pill-available   { background: rgba(44,122,90,0.12); color: var(--success); }
+        .pill-unavailable { background: rgba(214,64,69,0.1);  color: var(--danger); }
+        .pill-inactive    { background: rgba(214,64,69,0.1);  color: var(--danger); }
+        .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+        /* ── PRICE CELL ──────────────────────────────────────────────────── */
+        .price-main { font-size: 0.95rem; font-weight: 700; color: var(--success); }
+        .price-cost { font-size: 0.72rem; color: var(--warm-gray); margin-top: 1px; }
+        .needs-price-flag { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600; color: var(--danger); margin-top: 4px; }
+        .btn-variants {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(15,76,92,0.07); color: var(--primary);
+            border: 1px solid rgba(15,76,92,0.15); border-radius: 20px;
+            padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 600;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap; margin-top: 0.4rem;
         }
-        .user-btn:hover { background: var(--lavender); border-color: var(--primary-light) !important; }
-        .user-btn .user-avatar {
-            width: 30px; height: 30px; border-radius: 50%;
-            background: var(--primary);
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 0.8rem; font-weight: 700;
-            flex-shrink: 0;
+        .btn-variants:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        /* ── VARIANT COMPACT LIST ─────────────────────────────────────────── */
+        .variant-list-compact { max-height: 130px; overflow-y: auto; margin-bottom: 0.4rem; }
+        .variant-list-compact::-webkit-scrollbar { width: 3px; }
+        .variant-list-compact::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 3px; }
+        .variant-row-item { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px dashed #edf2f7; font-size: 0.8rem; }
+        .variant-row-item:last-child { border-bottom: none; }
+        .variant-row-name  { font-weight: 600; color: var(--dark); }
+        .variant-row-price { font-weight: 700; color: var(--success); }
+
+        /* ── MARGIN CELL ─────────────────────────────────────────────────── */
+        .margin-val  { font-size: 0.9rem; font-weight: 700; }
+        .margin-ok   { color: var(--success); }
+        .margin-warn { color: var(--warning); }
+        .margin-bad  { color: var(--danger); }
+        .margin-sub  { font-size: 0.72rem; color: var(--warm-gray); margin-top: 1px; }
+
+        /* ── ACTION BUTTONS ──────────────────────────────────────────────── */
+        .action-group { display: flex; gap: 0.4rem; justify-content: flex-end; }
+        .btn-act { width: 34px; height: 34px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; text-decoration: none; }
+        .btn-act-edit { background: #fff3e0; color: #b85a1a; border: 1px solid rgba(244,185,66,0.2); }
+        .btn-act-edit:hover  { background: var(--warning); color: #fff; }
+        .btn-act-del  { background: rgba(214,64,69,0.08); color: var(--danger); border: 1px solid rgba(214,64,69,0.15); }
+        .btn-act-del:hover   { background: var(--danger); color: #fff; }
+
+        /* ── MODALS ──────────────────────────────────────────────────────── */
+        .modal-content { border: none; border-radius: var(--radius-xl); box-shadow: 0 24px 60px rgba(0,0,0,0.12); }
+        .modal-header { border-bottom: 1px solid var(--border); padding: 1.4rem 1.6rem; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+        .modal-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.5rem; }
+        .modal-body { padding: 1.5rem 1.6rem; }
+        .modal-footer { border-top: 1px solid var(--border); padding: 1.2rem 1.6rem; border-radius: 0 0 var(--radius-xl) var(--radius-xl); gap: 0.5rem; }
+
+        .form-label { font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; }
+        .form-control, .form-select {
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 0.6rem 0.9rem; font-size: 0.88rem; font-family: inherit;
+            background: #fff; color: var(--dark);
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .user-btn .user-name {
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            font-size: 0.875rem; font-weight: 600; color: var(--navy);
-            display: block !important;
-        }
-        .user-btn::after { display: none !important; }
-        .user-btn .user-caret { color: var(--warm-gray); font-size: 0.7rem; flex-shrink: 0; }
-
-        /* ── SIDEBAR ─────────────────────────────────────────────────────── */
-        .sidebar { position: fixed; top: var(--topbar-height); left: 0; width: var(--sidebar-width); height: calc(100vh - var(--topbar-height)); background: white; border-right: 1px solid var(--border); overflow-y: auto; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1030; }
-        .sidebar::-webkit-scrollbar { width: 5px; }
-        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
-        .sidebar-nav { padding: 2rem 0.75rem; }
-        .nav-section-title { padding: 0.6rem 1.2rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--warm-gray); letter-spacing: 1.2px; opacity: 0.7; margin-top: 0.8rem; }
-        .nav-item { margin: 0.2rem 0.6rem; }
-        .nav-link { display: flex; align-items: center; padding: 0.8rem 1.2rem; color: var(--warm-gray); text-decoration: none; border-radius: 14px; transition: all 0.2s; font-weight: 500; font-size: 0.95rem; }
-        .nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
-        .nav-link.active { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(15,76,92,0.2); }
-        .nav-link i { width: 24px; margin-right: 0.85rem; font-size: 1.2rem; text-align: center; }
-
-        /* ── MAIN ─────────────────────────────────────────────────────────── */
-        .main-content { margin-left: var(--sidebar-width); margin-top: var(--topbar-height); padding: 2.2rem; min-height: calc(100vh - var(--topbar-height)); }
-        .page-header { margin-bottom: 2.2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
-        .page-header h1 { font-size: 2.1rem; font-weight: 700; color: var(--navy); margin-bottom: 0; display: flex; align-items: center; gap: 0.7rem; }
-        .page-header h1 i { color: var(--secondary); font-size: 2.1rem; }
-        .breadcrumb { background: none; padding: 0.2rem 0; margin: 0; font-size: 0.9rem; }
-        .breadcrumb-item a { color: var(--warm-gray); text-decoration: none; font-weight: 500; }
-        .breadcrumb-item a:hover { color: var(--primary); }
-        .breadcrumb-item.active { color: var(--primary-dark); font-weight: 600; }
-        .header-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-        .btn-add { background: var(--primary); color: white; padding: 0.7rem 1.8rem; border-radius: 40px; font-weight: 600; font-size: 0.95rem; border: none; transition: all 0.2s; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; text-decoration: none; }
-        .btn-add:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 10px 18px rgba(15,76,92,0.25); color: white; }
-        .btn-add-category { background: white; color: var(--primary); padding: 0.7rem 1.6rem; border-radius: 40px; font-weight: 600; font-size: 0.95rem; border: 2px solid var(--primary); transition: all 0.2s; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
-        .btn-add-category:hover { background: var(--primary); color: white; transform: translateY(-2px); }
-
-        /* ── STATS ────────────────────────────────────────────────────────── */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.8rem; margin-bottom: 2.5rem; }
-        .stat-card { background: white; border-radius: 24px; padding: 1.6rem 1.5rem; border: 1px solid rgba(203,213,224,0.5); transition: all 0.25s; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(15,76,92,0.04); display: flex; align-items: center; gap: 1.2rem; }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg,var(--primary),var(--secondary)); }
-        .stat-card.success::before { background: var(--success); }
-        .stat-card.info::before { background: var(--info); }
-        .stat-card.warning::before { background: var(--warning); }
-        .stat-card:hover { transform: translateY(-6px); box-shadow: 0 16px 28px rgba(15,76,92,0.08); }
-        .stat-card .icon { width: 60px; height: 60px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: #f0f5fa; color: var(--primary); border: 1px solid rgba(15,76,92,0.1); flex-shrink: 0; }
-        .stat-card .label { font-size: 0.8rem; color: var(--warm-gray); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
-        .stat-card .value { font-size: 1.9rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
-
-        /* ── CARD ─────────────────────────────────────────────────────────── */
-        .card { background: white; border-radius: 24px; border: 1px solid rgba(203,213,224,0.5); box-shadow: 0 8px 20px rgba(15,76,92,0.02); margin-bottom: 1.8rem; }
-        .card:hover { box-shadow: 0 14px 26px rgba(15,76,92,0.06); }
-        .card-header { background: white; border-bottom: 1px solid rgba(203,213,224,0.5); padding: 1.35rem 1.8rem; border-radius: 24px 24px 0 0; }
-        .card-body { padding: 1.6rem 1.8rem; }
-        .card-title { font-size: 1.18rem; font-weight: 650; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
-
-        /* ── TABLE ────────────────────────────────────────────────────────── */
-        .table-container { overflow-x: auto; }
-        .table { margin: 0; border-collapse: separate; border-spacing: 0; }
-        .table thead th { background: #f2f6fc; border-bottom: 2px solid var(--primary-light); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--primary-dark); padding: 1.1rem 1.2rem; white-space: nowrap; }
-        .table tbody td { padding: 1.2rem 1.2rem; vertical-align: middle; border-bottom: 1px solid #edf2f7; color: var(--dark); background: white; }
-        .table tbody tr:hover td { background-color: #fafcff; }
-
-        /* ── Variant display ─────────────────────────────────────────────── */
-        .variant-prices-compact { max-height: 180px; overflow-y: auto; scrollbar-width: thin; margin-bottom: 0.5rem; }
-        .variant-prices-compact::-webkit-scrollbar { width: 3px; }
-        .variant-prices-compact::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
-        .variant-prices-compact > div { transition: all 0.2s ease; cursor: default; }
-        .variant-prices-compact > div:hover { background: #f8f9fa; padding-left: 5px !important; margin-left: -5px; border-radius: 6px; }
-        .btn-manage-variants { transition: all 0.2s ease; }
-        .btn-manage-variants:hover { background: var(--primary) !important; color: white !important; transform: translateY(-1px); }
-        .btn-manage-variants:hover i { color: white !important; }
-
-        .price-missing-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(214,64,69,0.1); color: var(--danger); border: 1px solid rgba(214,64,69,0.25); border-radius: 20px; padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 600; }
-
-        /* ── ITEM IMAGE ───────────────────────────────────────────────────── */
-        .item-img { width: 54px; height: 54px; object-fit: cover; border-radius: 14px; border: 1px solid var(--border); }
-        .item-img-placeholder { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; background: #f2f6fc; border-radius: 14px; border: 1px solid var(--border); color: var(--primary-light); font-size: 1.2rem; }
-
-        /* ── TAGS ─────────────────────────────────────────────────────────── */
-        .category-tag { display: inline-block; padding: 0.35rem 1rem; background: rgba(15,76,92,0.08); color: var(--primary-dark); border-radius: 30px; font-size: 0.75rem; font-weight: 600; }
-
-        /* ── BADGES ───────────────────────────────────────────────────────── */
-        .badge { padding: 0.45rem 1rem; border-radius: 30px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.3px; }
-        .bg-success { background: var(--success) !important; }
-        .bg-danger  { background: var(--danger)  !important; }
-        .bg-warning { background: var(--warning) !important; color: #1a202c; }
-        .bg-info    { background: var(--info)    !important; }
-
-        /* ── ACTION BUTTONS ───────────────────────────────────────────────── */
-        .action-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
-        .btn-icon { width: 38px; height: 38px; padding: 0; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: #f2f6fc; border: none; color: var(--primary); transition: all 0.15s; cursor: pointer; }
-        .btn-icon:hover { background: var(--secondary); color: white; transform: scale(0.95); }
-        .btn-icon.btn-edit { background: #fff3e0; color: #b85a1a; border: 1px solid rgba(244,185,66,0.2); }
-        .btn-icon.btn-edit:hover { background: var(--warning); color: white; }
-        .btn-icon.btn-delete { background: rgba(214,64,69,0.08); color: var(--danger); border: 1px solid rgba(214,64,69,0.15); }
-        .btn-icon.btn-delete:hover { background: var(--danger); color: white; }
-
-        /* ── MODAL ────────────────────────────────────────────────────────── */
-        .modal { padding-right: 0 !important; }
-        .modal-content { border-radius: 28px; border: none; box-shadow: 0 25px 40px rgba(0,0,0,0.12); }
-        .modal-header { border-bottom: 1px solid var(--border); padding: 1.6rem 1.8rem; border-radius: 28px 28px 0 0; }
-        .modal-body { padding: 1.8rem; }
-        .modal-footer { border-top: 1px solid var(--border); padding: 1.5rem 1.8rem; border-radius: 0 0 28px 28px; }
-        .modal-title { font-size: 1.3rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.6rem; }
-
-        /* ── FORM ─────────────────────────────────────────────────────────── */
-        .form-label { font-weight: 600; color: var(--navy); margin-bottom: 0.5rem; font-size: 0.85rem; }
-        .form-control, .form-select { border: 1px solid var(--border); border-radius: 14px; padding: 0.65rem 1rem; font-size: 0.9rem; transition: all 0.2s; }
-        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15,76,92,0.1); }
-        .input-group-text { background: #f2f6fc; border: 1px solid var(--border); border-radius: 14px 0 0 14px; color: var(--primary-dark); font-weight: 500; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(15,76,92,0.12); }
         .form-control:disabled { background: #f0f4f8; color: #8a9bb0; cursor: not-allowed; }
+        .form-control::placeholder { color: #a0aec0; }
+        .input-group-text { background: #f2f6fc; border: 1px solid var(--border); border-radius: var(--radius-md) 0 0 var(--radius-md); padding: 0.6rem 0.8rem; color: var(--primary-dark); font-weight: 600; font-size: 0.85rem; }
+        .input-group .form-control { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+        .form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+        .form-text { font-size: 0.75rem; color: var(--warm-gray); margin-top: 0.25rem; }
 
-        /* ── PRICING MODE BANNER ──────────────────────────────────────────── */
-        .pricing-mode-banner { border-radius: 14px; padding: 0.85rem 1.1rem; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 0.6rem; transition: all 0.3s; }
-        .pricing-mode-banner.mode-base { background: rgba(44,122,90,0.1); color: var(--success); border: 1px solid rgba(44,122,90,0.25); }
-        .pricing-mode-banner.mode-variant { background: rgba(15,76,92,0.1); color: var(--primary-dark); border: 1px solid rgba(15,76,92,0.25); }
-        .base-price-locked { opacity: 0.5; pointer-events: none; }
-        .base-price-locked .form-control { background: #f0f4f8 !important; }
+        /* ── PRICING BANNERS ────────────────────────────────────────────── */
+        .pricing-banner { border-radius: var(--radius-md); padding: 0.7rem 1rem; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; transition: all 0.2s; }
+        .pricing-banner.base    { background: rgba(44,122,90,0.1);  color: var(--success);      border: 1px solid rgba(44,122,90,0.2); }
+        .pricing-banner.variant { background: rgba(15,76,92,0.08); color: var(--primary-dark); border: 1px solid rgba(15,76,92,0.2); }
 
-        /* ── IMAGE PREVIEW ────────────────────────────────────────────────── */
-        .image-preview-container { border: 1px solid var(--border); border-radius: 16px; padding: 0.75rem; background: #fafcff; }
-        .image-preview { max-width: 100%; max-height: 140px; border-radius: 14px; display: block; margin: 0 auto; }
-        .image-preview-placeholder { border: 2px dashed var(--border); border-radius: 16px; padding: 0.75rem; background: #f8faff; }
+        /* ── MODAL BUTTONS ──────────────────────────────────────────────── */
+        .btn-modal-primary { background: var(--primary); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-modal-primary:hover { background: var(--primary-dark); color: #fff; }
+        .btn-modal-secondary { background: #fff; color: var(--dark); border: 1px solid var(--border); padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; }
+        .btn-modal-secondary:hover { background: var(--light-bg); }
+        .btn-danger-solid { background: var(--danger); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; width: 100%; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }
+        .btn-danger-solid:hover { background: #bb3338; color: #fff; }
 
-        /* ── ALERTS ───────────────────────────────────────────────────────── */
-        .alert { border-radius: 18px; border: none; padding: 1rem 1.5rem; margin-bottom: 1.8rem; }
-        .alert-success { background: rgba(44,122,90,0.12); color: #1e4a3b; border-left: 6px solid var(--success); }
-        .alert-danger  { background: rgba(214,64,69,0.08); color: #9e3a34; border-left: 6px solid var(--danger); }
-        .alert-warning { background: rgba(244,185,66,0.12); color: #7a5a10; border-left: 6px solid var(--warning); }
+        /* ── MANAGE VARIANTS MODAL ──────────────────────────────────────── */
+        .mv-variant-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1.25rem; border-bottom: 1px solid #edf2f7; }
+        .mv-variant-row:last-child { border-bottom: none; }
+        .mv-variant-row:hover { background: #fafcff; }
+        .mv-vname  { font-weight: 700; font-size: 0.88rem; color: var(--navy); }
+        .mv-vprice { font-weight: 700; color: var(--success); font-size: 0.88rem; }
+        .mv-vcost  { font-size: 0.72rem; color: var(--warm-gray); }
+        .mv-act { display: flex; gap: 0.35rem; flex-shrink: 0; }
+        .btn-mv-edit { width: 28px; height: 28px; background: #fff3e0; color: #b85a1a; border: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.72rem; transition: all 0.15s; }
+        .btn-mv-edit:hover { background: var(--warning); color: #fff; }
+        .btn-mv-del  { width: 28px; height: 28px; background: rgba(214,64,69,0.08); color: var(--danger); border: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.72rem; transition: all 0.15s; }
+        .btn-mv-del:hover { background: var(--danger); color: #fff; }
 
-        /* ── CATEGORY MODAL ───────────────────────────────────────────────── */
-        .category-modal-icon { width: 52px; height: 52px; border-radius: 16px; background: rgba(15,76,92,0.08); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: var(--primary); flex-shrink: 0; }
-        .char-counter { font-size: 0.75rem; color: var(--warm-gray); text-align: right; margin-top: 0.3rem; }
-        .char-counter.over { color: var(--danger); font-weight: 600; }
+        #variantInlineForm { border-top: 2px dashed var(--border); padding: 1.25rem; margin-top: 0.5rem; }
+        .vform-title { font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.9rem; display: flex; align-items: center; gap: 0.4rem; }
 
-        /* ── MANAGE VARIANTS MODAL ────────────────────────────────────────── */
-        .variant-row { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem; border-bottom: 1px solid #edf2f7; gap: 0.75rem; }
-        .variant-row:last-child { border-bottom: none; }
-        .variant-row:hover { background: #fafcff; }
-        .variant-row-name { font-weight: 700; color: var(--navy); font-size: 0.92rem; }
-        .variant-row-price { font-weight: 700; color: var(--success); font-size: 0.92rem; }
-        .variant-row-cost { font-size: 0.75rem; color: var(--warm-gray); }
-        .variant-row-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
-        .btn-icon-sm { width: 30px; height: 30px; padding: 0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; border: none; transition: all 0.15s; cursor: pointer; font-size: 0.75rem; }
-        .btn-icon-sm.btn-edit { background: #fff3e0; color: #b85a1a; }
-        .btn-icon-sm.btn-edit:hover { background: var(--warning); color: white; }
-        .btn-icon-sm.btn-delete { background: rgba(214,64,69,0.08); color: var(--danger); }
-        .btn-icon-sm.btn-delete:hover { background: var(--danger); color: white; }
+        /* ── IMAGE PREVIEW ──────────────────────────────────────────────── */
+        .img-preview-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.6rem; background: #fafcff; }
+        .img-preview { max-width: 100%; max-height: 130px; border-radius: var(--radius-sm); display: block; margin: 0 auto; }
+        .img-preview-ph { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 0.75rem; background: var(--light-bg); }
 
-        /* ── INLINE VARIANT FORM ──────────────────────────────────────────── */
-        #variantInlineForm { border-top: 2px dashed var(--border); padding-top: 1.2rem; margin-top: 0.5rem; }
-        .variant-form-title { font-size: 0.85rem; font-weight: 700; color: var(--navy); margin-bottom: 0.9rem; display: flex; align-items: center; gap: 0.4rem; }
+        /* ── CONFIRM MODAL ──────────────────────────────────────────────── */
+        .confirm-icon { width: 64px; height: 64px; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 1rem; }
+        .confirm-icon.danger { background: rgba(214,64,69,0.1); color: var(--danger); }
+        .confirm-note { background: rgba(214,64,69,0.06); border: 1px dashed rgba(214,64,69,0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; font-size: 0.78rem; color: #9e3a34; }
 
-        /* ── DROPDOWN ─────────────────────────────────────────────────────── */
-        .dropdown-menu { border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,0.04); padding: 0.6rem; }
-        .dropdown-item { border-radius: 14px; padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+        /* ── CATEGORY MODAL ─────────────────────────────────────────────── */
+        .cat-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+        .cat-list-item { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 1rem; border-bottom: 1px solid #edf2f7; }
+        .cat-list-item:last-child { border-bottom: none; }
+        .cat-edit-box { background: var(--light-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; margin-top: 0.75rem; }
+        .char-counter { font-size: 0.72rem; color: var(--warm-gray); text-align: right; margin-top: 0.25rem; }
+        .char-counter.over { color: var(--danger); font-weight: 700; }
+
+        /* ── ADD-ITEM VARIANT ROW ─────────────────────────────────────────── */
+        .vadd-row { background: var(--light-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+
+        /* ── DROPDOWN ───────────────────────────────────────────────────── */
+        .dropdown-menu { border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 12px 30px rgba(0,0,0,0.08); padding: 0.5rem; }
+        .dropdown-item { border-radius: var(--radius-sm); font-size: 0.88rem; padding: 0.55rem 1rem; }
         .dropdown-item:hover { background: var(--lavender); color: var(--primary-dark); }
+        .dropdown-item.text-danger:hover { background: rgba(214,64,69,0.08); color: var(--danger); }
 
-        /* ── RESPONSIVE ───────────────────────────────────────────────────── */
-        @media (max-width: 1199.98px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
-
+        /* ── RESPONSIVE ─────────────────────────────────────────────────── */
+        @media (max-width: 1199.98px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+        }
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 1.8rem; }
-            .sidebar-overlay { position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0; background: rgba(15,76,92,0.2); backdrop-filter: blur(3px); z-index: 1025; display: none; }
-            .sidebar-overlay.show { display: block; }
-            .stats-grid { grid-template-columns: repeat(2,1fr); }
-            .topbar { padding: 0 1rem; }
+            .main { margin-left: 0; padding: 1.5rem 1.25rem; }
+            .mobile-toggle { display: flex; align-items: center; }
         }
-
+        /* iPad-specific (768–1024) */
+        @media (min-width: 768px) and (max-width: 1024px) {
+            :root { --sidebar-w: 220px; }
+            .main { padding: 1.5rem; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .data-table thead th, .data-table tbody td { padding: 0.8rem 1rem; }
+        }
         @media (max-width: 767.98px) {
-            .main-content { padding: 1.2rem; }
-            .stats-grid { grid-template-columns: 1fr; }
-            .page-header h1 { font-size: 1.8rem; }
-            .header-actions { width: 100%; }
-            .btn-add, .btn-add-category { flex: 1; justify-content: center; }
-            .topbar { padding: 0 0.85rem; }
-            .logo-img-fallback { width: 36px; height: 36px; font-size: 1.1rem; border-radius: 10px; }
-            .logo-text-main { font-size: 1.05rem; }
-            .logo-text-sub { font-size: 0.62rem; }
-            .user-btn { padding: 0.4rem 0.6rem !important; max-width: 160px; gap: 0.3rem; }
-            .user-btn .user-name { font-size: 0.8rem; }
-            .user-btn .user-avatar { width: 26px; height: 26px; font-size: 0.72rem; }
-            .table thead { display: none; }
-            .table tbody tr { display: block; margin-bottom: 1.2rem; border: 1px solid var(--border); border-radius: 20px; background: white; }
-            .table tbody td { display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1.2rem; border-bottom: 1px solid #edf2f7; }
-            .table tbody td:last-child { border-bottom: none; }
-            .table tbody td::before { content: attr(data-label); font-weight: 700; color: var(--warm-gray); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-            .action-btns { justify-content: flex-end; }
+            .main { padding: 1.25rem 1rem; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+            .page-title { font-size: 1.4rem; }
+            .head-actions { width: 100%; }
+            .btn-primary-action, .btn-secondary-action { flex: 1; justify-content: center; }
+            /* Card-stack table */
+            .data-table thead { display: none; }
+            .data-table tbody tr { display: block; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 1rem; background: #fff; overflow: hidden; }
+            .data-table tbody tr.needs-price { background: #fff8f8; }
+            .data-table tbody td { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #edf2f7; padding: 0.75rem 1rem; }
+            .data-table tbody td:last-child { border-bottom: none; }
+            .data-table tbody td::before { content: attr(data-label); font-weight: 700; color: var(--warm-gray); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; margin-right: 0.5rem; padding-top: 2px; }
+            .table-card { border-radius: var(--radius-lg); }
+            .action-group { justify-content: flex-end; }
             .modal-dialog { margin: 0.5rem; }
         }
-
-        @media (max-width: 480px) {
-            .topbar { padding: 0 0.6rem; }
-            .topbar-right { gap: 0.3rem; }
-            .logo-text-sub { display: none; }
-            .logo-text-main { font-size: 0.95rem; }
-            .user-btn { max-width: 130px; padding: 0.38rem 0.55rem !important; }
-            .user-btn .user-name { font-size: 0.78rem; }
-            .main-content { padding: 1rem; }
+        @media (max-width: 575.98px) {
+            .brand-text-sub { display: none; }
+            .topbar { padding: 0 1rem; }
+            .stat-card { padding: 1rem; gap: 0.75rem; }
+            .stat-value { font-size: 1.35rem; }
         }
 
-        .fade-in { animation: modernFade 0.4s ease forwards; }
-        @keyframes modernFade { from { opacity: 0.6; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        /* ── Animations ─────────────────────────────────────────────────── */
+        .fade-up { animation: fadeUp 0.35s ease forwards; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-up-1 { animation-delay: 0.05s; opacity: 0; }
+        .fade-up-2 { animation-delay: 0.10s; opacity: 0; }
+        .fade-up-3 { animation-delay: 0.15s; opacity: 0; }
+        .fade-up-4 { animation-delay: 0.20s; opacity: 0; }
+        .fade-up-5 { animation-delay: 0.25s; opacity: 0; }
     </style>
 </head>
 <body>
 
 <!-- ── TOPBAR ─────────────────────────────────────────────────────────────── -->
-<div class="topbar">
-    <div class="topbar-left">
-        <button class="mobile-menu-btn d-lg-none" id="menuToggle"><i class="fas fa-bars"></i></button>
-        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo">
-            <!--
-                LOGO IMAGE PLACEHOLDER
-                Replace the div below with:
-                <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din"
-                     style="width:44px;height:44px;border-radius:12px;object-fit:cover;">
-            -->
-            <div class="logo-img-fallback" title="Logo placeholder">
-                <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din"
-                     style="width:44px;height:44px;border-radius:12px;object-fit:cover;">
-            </div>
-            <div class="logo-text-wrap">
-                <span class="logo-text-main">Dine with Din</span>
-                <span class="logo-text-sub">Restaurant Management System</span>
-            </div>
-        </a>
-    </div>
-
-    <div class="topbar-right">
-        <!-- User — avatar + full name, always visible -->
-        <div class="dropdown">
-            <button class="btn user-btn dropdown-toggle"
-                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <span class="user-avatar" aria-hidden="true">
-                    <?php
-                        $fullName = $_SESSION['full_name'] ?? 'Admin';
-                        $parts    = explode(' ', trim($fullName));
-                        $initials = strtoupper(substr($parts[0], 0, 1));
-                        if (count($parts) > 1) $initials .= strtoupper(substr(end($parts), 0, 1));
-                        echo htmlspecialchars($initials);
-                    ?>
-                </span>
-                <span class="user-name"><?= htmlspecialchars($fullName) ?></span>
-                <i class="fas fa-chevron-down user-caret ms-1"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                    <div class="px-3 py-2" style="border-bottom:1px solid var(--border);margin-bottom:0.4rem;">
-                        <div style="font-weight:700;color:var(--navy);font-size:0.9rem;"><?= htmlspecialchars($fullName) ?></div>
-                        <div style="font-size:0.78rem;color:var(--warm-gray);">Administrator</div>
-                    </div>
-                </li>
-                <li><a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout">
-                    <i class="fas fa-sign-out-alt me-2"></i> Logout
-                </a></li>
-            </ul>
+<header class="topbar">
+    <button class="mobile-toggle" id="menuToggle" aria-label="Toggle menu">
+        <i class="fas fa-bars"></i>
+    </button>
+    <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
+        <div class="brand-logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
         </div>
+        <div>
+            <div class="brand-text-main">SKD Software Solutions</div>
+            <div class="brand-text-sub">Web-Based POS Management System</div>
+        </div>
+    </a>
+    <div class="topbar-spacer"></div>
+    <div class="dropdown">
+        <button class="user-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border:none;">
+            <span class="user-avatar">
+                <?php
+                    $fullName = $_SESSION['full_name'] ?? 'Admin';
+                    $parts    = explode(' ', trim($fullName));
+                    $initials = strtoupper(substr($parts[0], 0, 1));
+                    if (count($parts) > 1) $initials .= strtoupper(substr(end($parts), 0, 1));
+                    echo htmlspecialchars($initials);
+                ?>
+            </span>
+            <span class="user-name-text"><?= htmlspecialchars($fullName) ?></span>
+            <i class="fas fa-chevron-down user-caret"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <div class="px-3 py-2" style="border-bottom:1px solid var(--border);margin-bottom:0.4rem;">
+                    <div style="font-weight:700;font-size:0.9rem;color:var(--navy);"><?= htmlspecialchars($fullName) ?></div>
+                    <div style="font-size:0.78rem;color:var(--warm-gray);">Administrator</div>
+                </div>
+            </li>
+            <li><a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout">
+                <i class="fas fa-sign-out-alt me-2"></i> Logout
+            </a></li>
+        </ul>
     </div>
-</div>
+</header>
 
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <!-- ── SIDEBAR ────────────────────────────────────────────────────────────── -->
-<div class="sidebar" id="sidebar">
-    <div class="sidebar-nav">
-        <div class="nav-section-title">DASHBOARD</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a></div>
-        <div class="nav-section-title">MANAGEMENT</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="nav-link active"><i class="fas fa-utensils"></i> Menu Items</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="nav-link"><i class="fas fa-tags"></i> Recipes</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link"><i class="fas fa-boxes"></i> Ingredients</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_addons" class="nav-link"><i class="fas fa-plus-circle"></i> Add-ons</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link"><i class="fas fa-users"></i> User Management</a></div>
-        <div class="nav-section-title">SALES</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link"><i class="fas fa-cash-register"></i> POS System</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link"><i class="fas fa-chart-bar"></i> Reports</a></div>
+<nav class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="nav-wrap">
+        <div class="nav-section">Dashboard</div>
+        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+
+        <div class="nav-section">Management</div>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="nav-link active"><i class="fas fa-utensils"></i> Menu Items</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="nav-link"><i class="fas fa-tags"></i> Recipes</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link"><i class="fas fa-boxes"></i> Ingredients</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_addons" class="nav-link"><i class="fas fa-plus-circle"></i> Add-ons</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link"><i class="fas fa-users"></i> User Management</a>
+
+        <div class="nav-section">Sales</div>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link"><i class="fas fa-cash-register"></i> POS System</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a>
+        <a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link"><i class="fas fa-chart-bar"></i> Reports</a>
     </div>
-</div>
+</nav>
 
-<!-- ── MAIN CONTENT ────────────────────────────────────────────────────────── -->
-<div class="main-content" id="mainContent">
+<!-- ── MAIN ───────────────────────────────────────────────────────────────── -->
+<main class="main" id="mainContent">
 
-    <div class="page-header">
+    <div class="page-head">
         <div>
-            <h1><i class="fas fa-utensils me-2"></i>Menu Management</h1>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="<?= $baseUrl ?>/index.php?page=admin_dashboard">Home</a></li>
-                    <li class="breadcrumb-item active">Menu Items</li>
-                </ol>
-            </nav>
+            <h1 class="page-title">Menu Management</h1>
+            <div class="breadcrumb-bar">
+                <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard">Home</a>
+                <span class="breadcrumb-sep"><i class="fas fa-chevron-right" style="font-size:0.6rem;"></i></span>
+                <span>Menu Items</span>
+            </div>
         </div>
-        <div class="header-actions">
-            <button type="button" class="btn-add-category" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+        <div class="head-actions">
+            <button type="button" class="btn-secondary-action" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
                 <i class="fas fa-folder-plus"></i> Add Category
             </button>
-            <button type="button" class="btn-add" data-bs-toggle="modal" data-bs-target="#addMenuItemModal">
-                <i class="fas fa-plus-circle"></i> Add New Item
+            <button type="button" class="btn-primary-action" data-bs-toggle="modal" data-bs-target="#addMenuItemModal">
+                <i class="fas fa-plus"></i> Add Item
             </button>
         </div>
     </div>
 
     <?php if (!empty($success)): ?>
-        <div class="alert alert-success alert-dismissible fade show fade-in">
-            <i class="fas fa-check-circle me-2"></i><?= htmlspecialchars($success) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="alert-bar success fade-up" role="alert">
+            <i class="fas fa-check-circle"></i>
+            <?= htmlspecialchars($success) ?>
+            <button class="dismiss" aria-label="Close">&times;</button>
         </div>
     <?php endif; ?>
     <?php if (!empty($error)): ?>
-        <div class="alert alert-danger alert-dismissible fade show fade-in">
-            <i class="fas fa-exclamation-circle me-2"></i><?= htmlspecialchars($error) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="alert-bar danger fade-up" role="alert">
+            <i class="fas fa-exclamation-circle"></i>
+            <?= htmlspecialchars($error) ?>
+            <button class="dismiss" aria-label="Close">&times;</button>
         </div>
     <?php endif; ?>
 
     <!-- Stats -->
-    <div class="stats-grid">
-        <div class="stat-card primary fade-in">
-            <div class="icon"><i class="fas fa-utensils"></i></div>
-            <div>
-                <div class="label">Total Items</div>
-                <div class="value"><?= $totalItems ?? 0 ?></div>
-            </div>
+    <div class="stats-row">
+        <div class="stat-card fade-up fade-up-1">
+            <div class="stat-icon"><i class="fas fa-utensils"></i></div>
+            <div><div class="stat-label">Total Items</div><div class="stat-value"><?= $totalItems ?? 0 ?></div></div>
         </div>
-        <div class="stat-card success fade-in" style="animation-delay:.1s">
-            <div class="icon"><i class="fas fa-check-circle"></i></div>
-            <div>
-                <div class="label">Available Items</div>
-                <div class="value"><?= count($availableItems ?? []) ?></div>
-            </div>
+        <div class="stat-card c-success fade-up fade-up-2">
+            <div class="stat-icon c-success"><i class="fas fa-check-circle"></i></div>
+            <div><div class="stat-label">Available</div><div class="stat-value"><?= count($availableItems ?? []) ?></div></div>
         </div>
-        <div class="stat-card info fade-in" style="animation-delay:.2s">
-            <div class="icon"><i class="fas fa-percentage"></i></div>
-            <div>
-                <div class="label">Average Margin</div>
-                <div class="value"><?= number_format($avgProfitMargin ?? 0, 1) ?>%</div>
-            </div>
+        <div class="stat-card c-info fade-up fade-up-3">
+            <div class="stat-icon c-info"><i class="fas fa-percentage"></i></div>
+            <div><div class="stat-label">Avg. Margin</div><div class="stat-value"><?= number_format($avgProfitMargin ?? 0, 1) ?>%</div></div>
         </div>
-        <div class="stat-card warning fade-in" style="animation-delay:.3s">
-            <div class="icon"><i class="fas fa-chart-line"></i></div>
-            <div>
-                <div class="label">Total Profit Potential</div>
-                <div class="value">₱<?= number_format($totalProfit ?? 0, 2) ?></div>
-            </div>
+        <div class="stat-card c-warning fade-up fade-up-4">
+            <div class="stat-icon c-warning"><i class="fas fa-chart-line"></i></div>
+            <div><div class="stat-label">Profit Potential</div><div class="stat-value" style="font-size:1.35rem;">₱<?= number_format($totalProfit ?? 0, 0) ?></div></div>
         </div>
     </div>
 
-    <!-- Menu Table -->
-    <div class="table-container">
-        <table class="table mb-0">
-            <thead>
-                <tr>
-                    <th>Image</th>
-                    <th>Item</th>
-                    <th>Category</th>
-                    <th>Price &amp; Variants</th>
-                    <th>Profit Margin</th>
-                    <th>Status</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($menu_items ?? [] as $item):
-                $variants       = $item['variants']        ?? [];
-                $activeVariants = $item['active_variants'] ?? [];
-                $hasVariants    = $item['has_variants']    ?? false;
-                $basePrice      = $item['base_price']      ?? 0;
-                $costPrice      = $item['cost_price']      ?? 0;
-                $needsPrice     = !$hasVariants && $basePrice <= 0;
-            ?>
-                <tr <?= $needsPrice ? 'style="background:#fff8f8;"' : '' ?>>
-                    <td data-label="Image">
-                        <?php if (!empty($item['image_url'])): ?>
-                            <img src="<?= $baseUrl . '/' . htmlspecialchars($item['image_url']) ?>"
-                                 alt="<?= htmlspecialchars($item['item_name']) ?>" class="item-img">
-                        <?php else: ?>
-                            <div class="item-img-placeholder"><i class="fas fa-image"></i></div>
-                        <?php endif; ?>
-                    </td>
-
-                    <td data-label="Item">
-                        <div class="fw-semibold" style="color:var(--navy);"><?= htmlspecialchars($item['item_name']) ?></div>
-                        <?php if (!empty($item['description'])): ?>
-                            <small class="text-muted d-block"><?= htmlspecialchars(substr($item['description'], 0, 50)) ?><?= strlen($item['description']) > 50 ? '…' : '' ?></small>
-                        <?php endif; ?>
-                        <?php if ($needsPrice): ?>
-                            <span class="price-missing-badge mt-1"><i class="fas fa-exclamation-triangle"></i> Needs base price</span>
-                        <?php endif; ?>
-                    </td>
-
-                    <td data-label="Category">
-                        <span class="category-tag"><?= htmlspecialchars($item['category_name']) ?></span>
-                    </td>
-
-                    <td data-label="Price / Variants">
-                        <?php if ($hasVariants): ?>
-                            <div class="variant-info">
-                                <div class="variant-prices-compact mb-2">
+    <!-- Table -->
+    <div class="table-card fade-up fade-up-5">
+        <div class="table-card-header">
+            <div class="table-card-title">
+                <i class="fas fa-list" style="color:var(--primary-light);"></i>
+                All Menu Items
+                <span class="item-count-badge"><?= $totalItems ?? 0 ?> items</span>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Item</th>
+                        <th>Category</th>
+                        <th>Price &amp; Variants</th>
+                        <th>Margin</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($menu_items ?? [] as $item):
+                    $variants       = $item['variants']        ?? [];
+                    $activeVariants = $item['active_variants'] ?? [];
+                    $hasVariants    = $item['has_variants']    ?? false;
+                    $basePrice      = $item['base_price']      ?? 0;
+                    $costPrice      = $item['cost_price']      ?? 0;
+                    $needsPrice     = !$hasVariants && $basePrice <= 0;
+                ?>
+                    <tr <?= $needsPrice ? 'class="needs-price"' : '' ?>>
+                        <td data-label="Image">
+                            <?php if (!empty($item['image_url'])): ?>
+                                <img src="<?= $baseUrl . '/' . htmlspecialchars($item['image_url']) ?>" alt="<?= htmlspecialchars($item['item_name']) ?>" class="item-img">
+                            <?php else: ?>
+                                <div class="item-img-ph"><i class="fas fa-image"></i></div>
+                            <?php endif; ?>
+                        </td>
+                        <td data-label="Item">
+                            <div class="item-name"><?= htmlspecialchars($item['item_name']) ?></div>
+                            <?php if (!empty($item['description'])): ?>
+                                <div class="item-desc"><?= htmlspecialchars(substr($item['description'], 0, 55)) ?><?= strlen($item['description']) > 55 ? '…' : '' ?></div>
+                            <?php endif; ?>
+                            <?php if ($needsPrice): ?><div class="needs-price-flag"><i class="fas fa-exclamation-triangle"></i> Needs price</div><?php endif; ?>
+                        </td>
+                        <td data-label="Category">
+                            <span class="pill pill-category"><?= htmlspecialchars($item['category_name']) ?></span>
+                        </td>
+                        <td data-label="Price / Variants">
+                            <?php if ($hasVariants): ?>
+                                <div class="variant-list-compact">
                                     <?php
                                     $sorted = $activeVariants;
                                     usort($sorted, fn($a,$b) => $a['price'] <=> $b['price']);
                                     foreach ($sorted as $v): ?>
-                                        <div class="d-flex justify-content-between align-items-center mb-1 pb-1" style="border-bottom:1px dashed #e9ecef;">
-                                            <div>
-                                                <span class="fw-semibold" style="font-size:0.85rem;"><?= htmlspecialchars($v['variant_name']) ?></span>
-                                                <?php if (!$v['is_active']): ?>
-                                                    <span class="badge bg-danger ms-1" style="font-size:0.65rem;">Inactive</span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div class="text-end">
-                                                <span class="fw-bold" style="color:var(--success);font-size:0.9rem;">₱<?= number_format($v['price'], 2) ?></span>
-                                                <br>
-                                                <small class="text-muted" style="font-size:0.7rem;">cost: ₱<?= number_format($v['cost_price'], 2) ?></small>
-                                            </div>
+                                        <div class="variant-row-item">
+                                            <span class="variant-row-name">
+                                                <?= htmlspecialchars($v['variant_name']) ?>
+                                                <?php if (!$v['is_active']): ?><span class="pill pill-inactive" style="font-size:0.65rem;padding:0.15rem 0.5rem;margin-left:4px;">Off</span><?php endif; ?>
+                                            </span>
+                                            <span class="variant-row-price">₱<?= number_format($v['price'], 2) ?></span>
                                         </div>
                                     <?php endforeach; ?>
-                                    <?php if (empty($activeVariants)): ?>
-                                        <div class="text-muted small fst-italic">All variants inactive</div>
-                                    <?php endif; ?>
+                                    <?php if (empty($activeVariants)): ?><div style="font-size:0.78rem;color:var(--warm-gray);font-style:italic;">All inactive</div><?php endif; ?>
                                 </div>
-                                <button type="button"
-                                        class="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2 btn-manage-variants"
-                                        style="background:rgba(15,76,92,0.08);color:var(--primary);border:1px solid rgba(15,76,92,0.15);border-radius:20px;padding:0.4rem;font-weight:600;font-size:0.75rem;"
+                                <button type="button" class="btn-variants"
                                         onclick="openManageVariantsModal(<?= $item['item_id'] ?>, <?= htmlspecialchars(json_encode($item['item_name'])) ?>, <?= htmlspecialchars(json_encode($variants)) ?>)">
-                                    <i class="fas fa-edit"></i>
-                                    Manage Variants (<?= count($variants) ?> total, <?= count($activeVariants) ?> active)
+                                    <i class="fas fa-layer-group"></i> Manage (<?= count($variants) ?> / <?= count($activeVariants) ?> active)
                                 </button>
-                                <div class="mt-1 text-muted" style="font-size:0.72rem;">
-                                    <i class="fas fa-info-circle me-1"></i>Pricing via variants — base price ignored
-                                </div>
+                            <?php elseif ($needsPrice): ?>
+                                <div class="needs-price-flag" style="margin-bottom:0.35rem;"><i class="fas fa-exclamation-triangle"></i> No price set</div>
+                                <button type="button" class="btn-variants"
+                                        onclick="openManageVariantsModal(<?= $item['item_id'] ?>, <?= htmlspecialchars(json_encode($item['item_name'])) ?>, [])">
+                                    <i class="fas fa-plus"></i> Add variants
+                                </button>
+                            <?php else: ?>
+                                <div class="price-main">₱<?= number_format($basePrice, 2) ?></div>
+                                <div class="price-cost">Cost: ₱<?= number_format($costPrice, 2) ?></div>
+                                <button type="button" class="btn-variants"
+                                        onclick="openManageVariantsModal(<?= $item['item_id'] ?>, <?= htmlspecialchars(json_encode($item['item_name'])) ?>, [])">
+                                    <i class="fas fa-plus"></i> Add variants
+                                </button>
+                            <?php endif; ?>
+                        </td>
+                        <td data-label="Margin">
+                            <?php if ($hasVariants && !empty($activeVariants)): ?>
+                                <?php
+                                $margins = array_map(fn($v) => $v['price'] > 0 ? (($v['price'] - $v['cost_price']) / $v['price']) * 100 : 0, $activeVariants);
+                                $minM = min($margins); $maxM = max($margins); $avgM = array_sum($margins)/count($margins);
+                                $cls  = $avgM >= 30 ? 'margin-ok' : ($avgM >= 20 ? 'margin-warn' : 'margin-bad');
+                                ?>
+                                <div class="margin-val <?= $cls ?>"><?= $minM == $maxM ? number_format($minM,1).'%' : number_format($minM,1).'–'.number_format($maxM,1).'%' ?></div>
+                                <div class="margin-sub">avg <?= number_format($avgM,1) ?>%</div>
+                            <?php elseif (!$hasVariants && $basePrice > 0): ?>
+                                <?php $profit = $basePrice - $costPrice; $margin = ($profit / $basePrice) * 100; $cls = $margin >= 30 ? 'margin-ok' : ($margin >= 20 ? 'margin-warn' : 'margin-bad'); ?>
+                                <div class="margin-val <?= $cls ?>"><?= number_format($margin,1) ?>%</div>
+                                <div class="margin-sub">₱<?= number_format($profit,2) ?></div>
+                            <?php else: ?>
+                                <span style="font-size:0.78rem;color:var(--warm-gray);font-style:italic;">N/A</span>
+                            <?php endif; ?>
+                        </td>
+                        <td data-label="Status">
+                            <span class="pill <?= $item['is_available'] ? 'pill-available' : 'pill-unavailable' ?>">
+                                <span class="dot"></span>
+                                <?= $item['is_available'] ? 'Available' : 'Unavailable' ?>
+                            </span>
+                        </td>
+                        <td data-label="Actions" style="text-align:right;">
+                            <div class="action-group">
+                                <a href="<?= $baseUrl ?>/index.php?page=manage_menu&edit=<?= $item['item_id'] ?>" class="btn-act btn-act-edit" title="Edit item"><i class="fas fa-edit"></i></a>
+                                <button type="button" class="btn-act btn-act-del"
+                                        onclick="confirmDeleteItem(<?= $item['item_id'] ?>, '<?= htmlspecialchars(addslashes($item['item_name'])) ?>')"
+                                        title="Delete item"><i class="fas fa-trash"></i></button>
                             </div>
-                        <?php elseif ($needsPrice): ?>
-                            <div class="mb-2">
-                                <span class="price-missing-badge"><i class="fas fa-exclamation-triangle"></i> No price set</span>
-                                <div class="small text-muted mt-1">Edit this item to set a base price.</div>
-                            </div>
-                            <button type="button"
-                                    class="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
-                                    style="background:rgba(15,76,92,0.08);color:var(--primary);border:1px solid rgba(15,76,92,0.15);border-radius:20px;padding:0.4rem;font-weight:600;font-size:0.75rem;"
-                                    onclick="openManageVariantsModal(<?= $item['item_id'] ?>, <?= htmlspecialchars(json_encode($item['item_name'])) ?>, [])">
-                                <i class="fas fa-plus-circle"></i> Add Variants instead
-                            </button>
-                        <?php else: ?>
-                            <div class="mb-2">
-                                <div class="fw-semibold" style="color:var(--success);">₱<?= number_format($basePrice, 2) ?></div>
-                                <div class="small text-muted"><i class="fas fa-tag me-1"></i>Base price (no variants)</div>
-                                <div class="small text-muted"><i class="fas fa-box me-1"></i>Cost: ₱<?= number_format($costPrice, 2) ?></div>
-                            </div>
-                            <button type="button"
-                                    class="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
-                                    style="background:rgba(15,76,92,0.08);color:var(--primary);border:1px solid rgba(15,76,92,0.15);border-radius:20px;padding:0.4rem;font-weight:600;font-size:0.75rem;"
-                                    onclick="openManageVariantsModal(<?= $item['item_id'] ?>, <?= htmlspecialchars(json_encode($item['item_name'])) ?>, [])">
-                                <i class="fas fa-plus-circle"></i> Add Variants
-                            </button>
-                        <?php endif; ?>
-                    </td>
-
-                    <td data-label="Profit Margin">
-                        <?php if ($hasVariants && !empty($activeVariants)): ?>
-                            <?php
-                            $margins = array_map(fn($v) =>
-                                $v['price'] > 0 ? (($v['price'] - $v['cost_price']) / $v['price']) * 100 : 0,
-                            $activeVariants);
-                            $minM = min($margins); $maxM = max($margins); $avgM = array_sum($margins)/count($margins);
-                            ?>
-                            <div class="fw-semibold" style="color:var(--success);">
-                                <?= $minM == $maxM ? number_format($minM,1).'%' : number_format($minM,1).'% – '.number_format($maxM,1).'%' ?>
-                            </div>
-                            <div class="small text-muted">Avg: <?= number_format($avgM,1) ?>%</div>
-                        <?php elseif (!$hasVariants && $basePrice > 0): ?>
-                            <?php
-                            $profit = $basePrice - $costPrice;
-                            $margin = ($profit / $basePrice) * 100;
-                            $cls    = $margin >= 30 ? 'success' : ($margin >= 20 ? 'warning' : 'danger');
-                            ?>
-                            <div class="fw-semibold" style="color:var(--<?= $cls ?>);"><?= number_format($margin,1) ?>%</div>
-                            <div class="small text-muted">Profit: ₱<?= number_format($profit,2) ?></div>
-                        <?php else: ?>
-                            <span class="text-muted small fst-italic">N/A</span>
-                        <?php endif; ?>
-                    </td>
-
-                    <td data-label="Status">
-                        <span class="badge bg-<?= $item['is_available'] ? 'success' : 'danger' ?>">
-                            <?= $item['is_available'] ? 'Available' : 'Unavailable' ?>
-                        </span>
-                    </td>
-
-                    <td data-label="Actions" class="text-end">
-                        <div class="action-btns">
-                            <a href="<?= $baseUrl ?>/index.php?page=manage_menu&edit=<?= $item['item_id'] ?>"
-                               class="btn-icon btn-edit" title="Edit Item">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <button type="button" class="btn-icon btn-delete"
-                                    onclick="confirmDeleteItem(<?= $item['item_id'] ?>, '<?= htmlspecialchars(addslashes($item['item_name'])) ?>')"
-                                    title="Delete Item">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- ═══════ MANAGE VARIANTS MODAL ═══════ -->
+    <!-- ═══ MANAGE VARIANTS MODAL ═══════════════════════════════════════════ -->
     <div class="modal fade" id="manageVariantsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-layer-group me-2" style="color:var(--secondary);"></i>
-                        Variants — <span id="mvItemName"></span>
-                    </h5>
+                    <h5 class="modal-title"><i class="fas fa-layer-group" style="color:var(--secondary);font-size:1rem;"></i> Variants — <span id="mvItemName"></span></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <div class="mx-3 mt-3 mb-0 p-3 rounded-3" id="mvPricingNotice"
-                         style="background:rgba(15,76,92,0.07);border:1px solid rgba(15,76,92,0.15);font-size:0.82rem;color:var(--primary-dark);">
-                        <i class="fas fa-info-circle me-2" style="color:var(--primary);"></i>
-                        <strong>Variant pricing mode.</strong>
-                        Once at least one variant exists, the item's base price is ignored.
-                        All pricing comes from the variants below.
+                    <div class="mx-3 mt-3 p-3 rounded-3" style="background:rgba(15,76,92,0.07);border:1px solid rgba(15,76,92,0.15);font-size:0.82rem;color:var(--primary-dark);">
+                        <i class="fas fa-info-circle me-1" style="color:var(--primary);"></i>
+                        <strong>Variant pricing mode.</strong> Once at least one variant exists, the item's base price is ignored. All pricing comes from variants below.
                     </div>
                     <div id="mvVariantList" style="min-height:60px;"></div>
-                    <div id="variantInlineForm" class="px-4 pb-4 d-none">
-                        <div class="variant-form-title">
-                            <i class="fas fa-plus-circle" style="color:var(--secondary);"></i>
-                            <span id="variantFormTitle">Add New Variant</span>
-                        </div>
+                    <div id="variantInlineForm" class="d-none">
+                        <div class="vform-title"><i class="fas fa-plus-circle" style="color:var(--secondary);"></i><span id="variantFormTitle">Add New Variant</span></div>
                         <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" id="variantForm">
                             <input type="hidden" name="item_id"        id="vf_item_id">
                             <input type="hidden" name="variant_id"     id="vf_variant_id">
                             <input type="hidden" name="variant_action" id="vf_action" value="">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Variant Name <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="vf_name" name="variant_name"
-                                           placeholder="e.g. Small, Large, Spicy" required>
+                            <div class="row g-2">
+                                <div class="col-sm-4">
+                                    <label class="form-label">Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="vf_name" name="variant_name" placeholder="e.g. Small, Spicy" required>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-sm-3">
                                     <label class="form-label">Price <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">₱</span>
-                                        <input type="number" class="form-control" id="vf_price" name="price"
-                                               step="0.01" min="0.01" placeholder="0.00" required>
-                                    </div>
-                                    <small class="text-muted" style="font-size:0.72rem;">Must be &gt; 0</small>
+                                    <div class="input-group"><span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="vf_price" name="price" step="0.01" min="0.01" placeholder="0.00" required></div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-sm-3">
                                     <label class="form-label">Cost</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">₱</span>
-                                        <input type="number" class="form-control" id="vf_cost" name="cost_price"
-                                               step="0.01" min="0" placeholder="0.00" value="0">
-                                    </div>
+                                    <div class="input-group"><span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="vf_cost" name="cost_price" step="0.01" min="0" placeholder="0.00" value="0"></div>
                                 </div>
-                                <div class="col-md-2 d-flex align-items-end pb-1">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="vf_active"
-                                               name="is_active" value="1" checked>
-                                        <label class="form-check-label small fw-bold" for="vf_active">Active</label>
+                                <div class="col-sm-2 d-flex align-items-end pb-1">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="vf_active" name="is_active" value="1" checked>
+                                        <label class="form-check-label" for="vf_active" style="font-size:0.8rem;font-weight:600;">Active</label>
                                     </div>
                                 </div>
                             </div>
                             <div class="d-flex gap-2 mt-3 justify-content-end">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelVariantForm()">Cancel</button>
-                                <button type="submit" class="btn btn-primary btn-sm" id="vf_submit_btn">
-                                    <i class="fas fa-plus me-1"></i> Add Variant
-                                </button>
+                                <button type="button" class="btn-modal-secondary" onclick="cancelVariantForm()">Cancel</button>
+                                <button type="submit" class="btn-modal-primary" id="vf_submit_btn"><i class="fas fa-plus me-1"></i> Add Variant</button>
                             </div>
                         </form>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" onclick="showAddVariantForm()">
-                        <i class="fas fa-plus-circle me-2"></i>Add Variant
-                    </button>
+                    <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn-modal-primary" onclick="showAddVariantForm()"><i class="fas fa-plus me-1"></i> Add Variant</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- DELETE VARIANT CONFIRM MODAL -->
+    <!-- ═══ DELETE VARIANT MODAL ════════════════════════════════════════════ -->
     <div class="modal fade" id="deleteVariantModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
             <div class="modal-content">
                 <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body text-center pt-0">
-                    <div style="width:70px;height:70px;border-radius:22px;background:rgba(214,64,69,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1.2rem;">
-                        <i class="fas fa-trash"></i>
-                    </div>
-                    <h4 style="color:var(--navy);font-weight:700;" class="mb-2">Delete Variant?</h4>
-                    <p class="text-muted mb-1">You are about to delete:</p>
-                    <p id="deleteVariantName" style="color:var(--danger);font-size:1.05rem;font-weight:600;" class="mb-3"></p>
-                    <div class="p-3 rounded-3 mb-1" style="background:rgba(214,64,69,0.06);border:1px dashed rgba(214,64,69,0.3);">
-                        <small class="text-muted">
-                            <i class="fas fa-exclamation-triangle me-1" style="color:var(--danger)"></i>
-                            If this is the last variant, the item switches back to base-price mode and
-                            <strong>you will need to set a base price</strong>.
-                        </small>
-                    </div>
+                <div class="modal-body text-center" style="padding:1rem 1.6rem 1.25rem;">
+                    <div class="confirm-icon danger"><i class="fas fa-trash"></i></div>
+                    <h5 style="font-family:'Fraunces',serif;font-weight:700;color:var(--navy);margin-bottom:0.5rem;">Delete Variant?</h5>
+                    <p style="font-size:0.85rem;color:var(--warm-gray);margin-bottom:0.5rem;">You're about to delete:</p>
+                    <p id="deleteVariantName" style="color:var(--danger);font-weight:700;font-size:1rem;margin-bottom:1rem;"></p>
+                    <div class="confirm-note"><i class="fas fa-exclamation-triangle me-1"></i>If this is the last variant, the item reverts to base-price mode and you'll need to set a base price.</div>
                 </div>
-                <div class="modal-footer" style="border-top:none;gap:0.75rem;">
-                    <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal">Cancel</button>
+                <div class="modal-footer" style="border-top:none;">
+                    <button type="button" class="btn-modal-secondary" style="flex:1;" data-bs-dismiss="modal">Cancel</button>
                     <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" style="flex:1;">
                         <input type="hidden" name="delete_variant" value="1">
                         <input type="hidden" name="variant_id" id="deleteVariantId">
-                        <button type="submit" class="btn w-100"
-                                style="background:var(--danger);color:white;border:none;border-radius:40px;padding:0.6rem;">
-                            <i class="fas fa-trash me-2"></i> Yes, Delete
-                        </button>
+                        <button type="submit" class="btn-danger-solid"><i class="fas fa-trash me-1"></i> Delete</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- DELETE MENU ITEM CONFIRM MODAL -->
+    <!-- ═══ DELETE MENU ITEM MODAL ══════════════════════════════════════════ -->
     <div class="modal fade" id="deleteMenuItemModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
             <div class="modal-content">
                 <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body text-center pt-0">
-                    <div style="width:70px;height:70px;border-radius:22px;background:rgba(214,64,69,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1.2rem;">
-                        <i class="fas fa-trash"></i>
-                    </div>
-                    <h4 style="color:var(--navy);font-weight:700;" class="mb-2">Delete Menu Item?</h4>
-                    <p class="text-muted mb-1">You are about to delete:</p>
-                    <p id="deleteMenuItemName" style="color:var(--danger);font-size:1.05rem;font-weight:600;" class="mb-3"></p>
-                    <div class="p-3 rounded-3 mb-1" style="background:rgba(214,64,69,0.06);border:1px dashed rgba(214,64,69,0.3);">
-                        <small class="text-muted">
-                            <i class="fas fa-exclamation-triangle me-1" style="color:var(--danger)"></i>
-                            This also deletes all variants. Cannot be undone.
-                        </small>
-                    </div>
+                <div class="modal-body text-center" style="padding:1rem 1.6rem 1.25rem;">
+                    <div class="confirm-icon danger"><i class="fas fa-trash"></i></div>
+                    <h5 style="font-family:'Fraunces',serif;font-weight:700;color:var(--navy);margin-bottom:0.5rem;">Delete Menu Item?</h5>
+                    <p style="font-size:0.85rem;color:var(--warm-gray);margin-bottom:0.5rem;">You're about to delete:</p>
+                    <p id="deleteMenuItemName" style="color:var(--danger);font-weight:700;font-size:1rem;margin-bottom:1rem;"></p>
+                    <div class="confirm-note"><i class="fas fa-exclamation-triangle me-1"></i>This also removes all variants and cannot be undone.</div>
                 </div>
-                <div class="modal-footer" style="border-top:none;gap:0.75rem;">
-                    <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal">Cancel</button>
+                <div class="modal-footer" style="border-top:none;">
+                    <button type="button" class="btn-modal-secondary" style="flex:1;" data-bs-dismiss="modal">Cancel</button>
                     <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" style="flex:1;">
                         <input type="hidden" name="delete_menu_item" value="1">
                         <input type="hidden" name="item_id" id="deleteMenuItemId">
-                        <button type="submit" class="btn w-100"
-                                style="background:var(--danger);color:white;border:none;border-radius:40px;padding:0.6rem;">
-                            <i class="fas fa-trash me-2"></i> Yes, Delete
-                        </button>
+                        <button type="submit" class="btn-danger-solid"><i class="fas fa-trash me-1"></i> Yes, Delete</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ADD CATEGORY MODAL -->
+    <!-- ═══ ADD CATEGORY MODAL ══════════════════════════════════════════════ -->
     <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        <div class="category-modal-icon me-2"><i class="fas fa-folder-plus"></i></div>
-                        Add New Category
-                    </h5>
+                    <h5 class="modal-title"><i class="fas fa-folder-plus" style="color:var(--secondary);font-size:1rem;"></i> Categories</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" id="addCategoryForm" novalidate>
                     <div class="modal-body">
                         <input type="hidden" name="add_category" value="1">
-                        <div class="mb-1">
-                            <label for="modal_category_name" class="form-label">Category Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="modal_category_name" name="category_name"
-                                   placeholder="e.g., Hot Beverages, Snacks…" maxlength="80" required autocomplete="off">
-                            <div class="char-counter" id="catCharCounter">0 / 80</div>
-                            <div class="invalid-feedback">Please enter a category name.</div>
-                        </div>
-                        <div id="dupWarning" class="alert alert-danger py-2 px-3 mt-3 mb-0 d-none">
+                        <label for="modal_category_name" class="form-label">New Category Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="modal_category_name" name="category_name"
+                               placeholder="e.g. Hot Beverages, Snacks…" maxlength="80" required autocomplete="off">
+                        <div class="char-counter" id="catCharCounter">0 / 80</div>
+                        <div id="dupWarning" class="alert-bar danger d-none mt-2" style="padding:0.6rem 0.9rem;font-size:0.8rem;margin-bottom:0;">
                             <i class="fas fa-exclamation-triangle me-1"></i> A category with this name already exists.
                         </div>
-                        <div class="mt-4">
-                            <div class="form-label mb-2">Existing Categories</div>
+                        <div style="margin-top:1.25rem;">
+                            <div class="form-label">Existing Categories</div>
                             <?php if (empty($categories)): ?>
-                                <p class="text-muted fst-italic" style="font-size:.85rem;">No categories yet.</p>
+                                <p style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;">No categories yet.</p>
                             <?php else: ?>
-                                <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:14px;">
+                                <div class="cat-list">
                                     <?php foreach ($categories as $cat): ?>
-                                        <div class="d-flex align-items-center justify-content-between px-3 py-2" style="border-bottom:1px solid #edf2f7;">
-                                            <span style="font-size:.88rem;color:var(--navy);font-weight:500;"><?= htmlspecialchars($cat['category_name']) ?></span>
-                                            <div class="d-flex gap-2">
-                                                <button type="button" class="btn-icon btn-edit" style="width:30px;height:30px;font-size:.75rem;"
+                                        <div class="cat-list-item">
+                                            <span style="font-size:0.88rem;font-weight:600;color:var(--navy);"><?= htmlspecialchars($cat['category_name']) ?></span>
+                                            <div style="display:flex;gap:0.35rem;">
+                                                <button type="button" class="btn-act btn-act-edit"
                                                         onclick="catEditInline(<?= $cat['category_id'] ?>, <?= htmlspecialchars(json_encode($cat['category_name'])) ?>)">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
@@ -811,9 +800,7 @@
                                                       onsubmit="return confirm('Delete \'<?= htmlspecialchars(addslashes($cat['category_name'])) ?>\'?')">
                                                     <input type="hidden" name="delete_category" value="1">
                                                     <input type="hidden" name="category_id" value="<?= $cat['category_id'] ?>">
-                                                    <button type="submit" class="btn-icon" style="width:30px;height:30px;font-size:.75rem;background:#fff0f0;color:var(--danger);border:1px solid rgba(214,64,69,0.2);">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
+                                                    <button type="submit" class="btn-act btn-act-del"><i class="fas fa-trash"></i></button>
                                                 </form>
                                             </div>
                                         </div>
@@ -821,210 +808,188 @@
                                 </div>
                             <?php endif; ?>
                         </div>
-                        <div id="catEditSection" class="mt-3 p-3 d-none" style="background:#f8faff;border:1px solid var(--border);border-radius:14px;">
+                        <div id="catEditSection" class="cat-edit-box d-none">
                             <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu">
                                 <input type="hidden" name="update_category" value="1">
                                 <input type="hidden" name="category_id" id="editCatId">
-                                <label class="form-label mb-1" style="font-size:.82rem;">Rename Category</label>
+                                <label class="form-label" style="font-size:0.78rem;">Rename Category</label>
                                 <div class="d-flex gap-2">
-                                    <input type="text" class="form-control" name="category_name" id="editCatName" maxlength="80" required style="border-radius:10px;">
-                                    <button type="submit" class="btn btn-primary btn-sm px-3" style="border-radius:10px;white-space:nowrap;"><i class="fas fa-save me-1"></i> Save</button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" style="border-radius:10px;" onclick="document.getElementById('catEditSection').classList.add('d-none')">Cancel</button>
+                                    <input type="text" class="form-control" name="category_name" id="editCatName" maxlength="80" required>
+                                    <button type="submit" class="btn-modal-primary" style="white-space:nowrap;"><i class="fas fa-save me-1"></i> Save</button>
+                                    <button type="button" class="btn-modal-secondary" onclick="document.getElementById('catEditSection').classList.add('d-none')">Cancel</button>
                                 </div>
                             </form>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" id="saveCategoryBtn">
-                            <i class="fas fa-folder-plus me-2"></i>Add Category
-                        </button>
+                        <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn-modal-primary" id="saveCategoryBtn"><i class="fas fa-folder-plus me-1"></i> Add Category</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- ADD MENU ITEM MODAL -->
+    <!-- ═══ ADD MENU ITEM MODAL ═════════════════════════════════════════════ -->
     <div class="modal fade" id="addMenuItemModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2" style="color:var(--secondary);"></i>Add New Menu Item</h5>
+                    <h5 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--secondary);font-size:1rem;"></i> Add New Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="addItemForm">
                     <div class="modal-body">
                         <input type="hidden" name="add_menu_item" value="1">
-                        <div class="mb-3">
-                            <label class="form-label">Item Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="item_name" placeholder="e.g., Caramel Macchiato" required>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="item_name" placeholder="e.g. Caramel Macchiato" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Category <span class="text-danger">*</span></label>
+                                <select class="form-select" name="category_id" required>
+                                    <option value="">Select…</option>
+                                    <?php foreach ($categories ?? [] as $category): ?>
+                                        <option value="<?= $category['category_id'] ?>"><?= htmlspecialchars($category['category_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="2" placeholder="Enter item description"></textarea>
+                            <textarea class="form-control" name="description" rows="2" placeholder="Short description…"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select class="form-select" name="category_id" required>
-                                <option value="">Select Category</option>
-                                <?php foreach ($categories ?? [] as $category): ?>
-                                    <option value="<?= $category['category_id'] ?>"><?= htmlspecialchars($category['category_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="pricing-mode-banner mode-base mb-3" id="pricingModeBanner">
+                        <div class="pricing-banner base" id="pricingModeBanner">
                             <i class="fas fa-tag"></i>
-                            <span id="pricingModeText">Base price mode — enter a price below.</span>
+                            <span id="pricingModeText">Base price mode — enter a selling price below.</span>
                         </div>
                         <div id="basePriceSection" class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Base Price <span class="text-danger" id="basePriceRequired">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="basePriceInput" name="base_price"
-                                           step="0.01" min="0.01" placeholder="0.00" required>
-                                </div>
-                                <small class="text-muted" id="basePriceHint">Required — must be &gt; 0</small>
+                                <div class="input-group"><span class="input-group-text">₱</span>
+                                <input type="number" class="form-control" id="basePriceInput" name="base_price" step="0.01" min="0.01" placeholder="0.00" required></div>
+                                <div class="form-text" id="basePriceHint">Required — must be &gt; 0</div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Base Cost</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="baseCostInput" name="cost_price"
-                                           step="0.01" min="0" placeholder="0.00" value="">
-                                </div>
-                                <small class="text-muted">0 or greater</small>
+                                <div class="input-group"><span class="input-group-text">₱</span>
+                                <input type="number" class="form-control" id="baseCostInput" name="cost_price" step="0.01" min="0" placeholder="0.00"></div>
                             </div>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0 fw-semibold">
-                                    <i class="fas fa-layer-group me-1" style="color:var(--primary);"></i>
-                                    Variants <span class="text-muted fw-normal">(optional)</span>
-                                </label>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="addVariantBtn">
-                                    <i class="fas fa-plus me-1"></i> Add Variant
-                                </button>
+                                <label class="form-label mb-0">Variants <span style="font-weight:500;color:var(--warm-gray);">(optional)</span></label>
+                                <button type="button" class="btn-secondary-action" style="padding:0.35rem 0.9rem;font-size:0.8rem;" id="addVariantBtn"><i class="fas fa-plus me-1"></i> Add Variant</button>
                             </div>
                             <div id="variantsContainer"></div>
                         </div>
-                        <div class="mb-3">
+                        <div>
                             <label class="form-label">Item Image</label>
                             <input type="file" class="form-control" id="modal_image" name="image" accept="image/*">
-                            <small class="text-muted d-block mt-1">Max 2MB. JPG, PNG, GIF, WebP</small>
-                            <div class="image-preview-placeholder mt-2 d-none" id="modalImagePreviewContainer">
-                                <img id="modalImagePreview" class="image-preview" alt="Preview">
+                            <div class="form-text">Max 2 MB — JPG, PNG, GIF, WebP</div>
+                            <div class="img-preview-ph mt-2 d-none" id="modalImagePreviewContainer">
+                                <img id="modalImagePreview" class="img-preview" alt="Preview">
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Add Item</button>
+                        <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-modal-primary"><i class="fas fa-plus me-1"></i> Add Item</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- EDIT MENU ITEM MODAL -->
+    <!-- ═══ EDIT MENU ITEM MODAL ════════════════════════════════════════════ -->
     <?php if (isset($item_to_edit) && !empty($item_to_edit)): ?>
     <?php
         $edit_variants     = array_values(array_filter($menu_items ?? [], fn($i) => $i['item_id'] == $item_to_edit['item_id']));
         $edit_has_variants = !empty($edit_variants) && ($edit_variants[0]['has_variants'] ?? false);
     ?>
     <div class="modal fade" id="editMenuItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-edit me-2" style="color:var(--secondary);"></i>Edit Menu Item</h5>
+                    <h5 class="modal-title"><i class="fas fa-edit" style="color:var(--secondary);font-size:1rem;"></i> Edit Item</h5>
                     <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn-close"></a>
                 </div>
                 <form method="POST" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="item_id" value="<?= $item_to_edit['item_id'] ?>">
                         <input type="hidden" name="update_menu_item" value="1">
-                        <div class="mb-3">
-                            <label class="form-label">Item Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="item_name"
-                                   value="<?= htmlspecialchars($item_to_edit['item_name']) ?>" required>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="item_name" value="<?= htmlspecialchars($item_to_edit['item_name']) ?>" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Category <span class="text-danger">*</span></label>
+                                <select class="form-select" name="category_id" required>
+                                    <option value="">Select…</option>
+                                    <?php foreach ($categories ?? [] as $category): ?>
+                                        <option value="<?= $category['category_id'] ?>" <?= ($item_to_edit['category_id'] == $category['category_id']) ? 'selected' : '' ?>><?= htmlspecialchars($category['category_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Description</label>
                             <textarea class="form-control" name="description" rows="2"><?= htmlspecialchars($item_to_edit['description'] ?? '') ?></textarea>
                         </div>
                         <?php if ($edit_has_variants): ?>
-                            <div class="alert alert-warning mb-3 py-2 px-3" style="font-size:0.85rem;">
-                                <i class="fas fa-layer-group me-2"></i>
-                                <strong>This item uses variant pricing.</strong>
-                                Base price is ignored while variants exist.
-                                Manage variants from the main table.
+                            <div class="pricing-banner variant mb-3">
+                                <i class="fas fa-layer-group"></i>
+                                <strong>Variant pricing active.</strong> Base price is ignored while variants exist. Manage variants from the table.
                             </div>
                         <?php endif; ?>
-                        <div class="row g-3 mb-3" id="editBasePriceSection" <?= $edit_has_variants ? 'style="opacity:0.5;pointer-events:none;"' : '' ?>>
+                        <div class="row g-3 mb-3" id="editBasePriceSection" <?= $edit_has_variants ? 'style="opacity:0.45;pointer-events:none;"' : '' ?>>
                             <div class="col-md-6">
                                 <label class="form-label">Base Price <?= !$edit_has_variants ? '<span class="text-danger">*</span>' : '' ?></label>
-                                <div class="input-group">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" name="base_price"
-                                           value="<?= $edit_has_variants ? '' : htmlspecialchars($item_to_edit['base_price'] ?? '') ?>"
-                                           step="0.01" min="0"
-                                           <?= !$edit_has_variants ? 'required' : 'placeholder="N/A — variants active"' ?>>
-                                </div>
-                                <small class="text-muted"><?= $edit_has_variants ? 'Overridden by variants' : 'Used only if no variants exist' ?></small>
+                                <div class="input-group"><span class="input-group-text">₱</span>
+                                <input type="number" class="form-control" name="base_price"
+                                       value="<?= $edit_has_variants ? '' : htmlspecialchars($item_to_edit['base_price'] ?? '') ?>"
+                                       step="0.01" min="0"
+                                       <?= !$edit_has_variants ? 'required' : 'placeholder="N/A — variants active"' ?>></div>
+                                <div class="form-text"><?= $edit_has_variants ? 'Overridden by variants' : 'Used only if no variants exist' ?></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Base Cost</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" name="cost_price"
-                                           value="<?= $edit_has_variants ? '' : htmlspecialchars($item_to_edit['cost_price'] ?? 0) ?>"
-                                           step="0.01" min="0"
-                                           <?= $edit_has_variants ? 'placeholder="N/A — variants active"' : '' ?>>
-                                </div>
+                                <div class="input-group"><span class="input-group-text">₱</span>
+                                <input type="number" class="form-control" name="cost_price"
+                                       value="<?= $edit_has_variants ? '' : htmlspecialchars($item_to_edit['cost_price'] ?? 0) ?>"
+                                       step="0.01" min="0"
+                                       <?= $edit_has_variants ? 'placeholder="N/A — variants active"' : '' ?>></div>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select class="form-select" name="category_id" required>
-                                <option value="">Select Category</option>
-                                <?php foreach ($categories ?? [] as $category): ?>
-                                    <option value="<?= $category['category_id'] ?>"
-                                            <?= ($item_to_edit['category_id'] == $category['category_id']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($category['category_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Item Image</label>
                             <?php if (!empty($item_to_edit['image_url'])): ?>
-                                <div class="image-preview-container mb-3">
-                                    <img src="<?= $baseUrl . '/' . htmlspecialchars($item_to_edit['image_url']) ?>" alt="Current" class="image-preview">
+                                <div class="img-preview-wrap mb-2">
+                                    <img src="<?= $baseUrl . '/' . htmlspecialchars($item_to_edit['image_url']) ?>" alt="Current" class="img-preview">
                                 </div>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="delete_image" value="1" id="deleteImage">
-                                    <label class="form-check-label text-danger small" for="deleteImage">Remove current image</label>
+                                    <label class="form-check-label" style="font-size:0.82rem;color:var(--danger);" for="deleteImage">Remove current image</label>
                                 </div>
                             <?php endif; ?>
                             <input type="file" class="form-control" id="edit_image" name="image" accept="image/*">
-                            <small class="text-muted d-block mt-1">Max 2MB. Leave empty to keep current image.</small>
-                            <div class="image-preview-placeholder mt-2 d-none" id="editImagePreviewContainer">
-                                <img id="editImagePreview" class="image-preview" alt="Preview">
+                            <div class="form-text">Max 2 MB. Leave empty to keep current image.</div>
+                            <div class="img-preview-ph mt-2 d-none" id="editImagePreviewContainer">
+                                <img id="editImagePreview" class="img-preview" alt="Preview">
                             </div>
                         </div>
-                        <div class="mb-3">
+                        <div>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="edit_is_available"
-                                       name="is_available" value="1"
-                                       <?= $item_to_edit['is_available'] ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="edit_is_available">Available for ordering</label>
+                                <input class="form-check-input" type="checkbox" id="edit_is_available" name="is_available" value="1" <?= $item_to_edit['is_available'] ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="edit_is_available" style="font-size:0.88rem;font-weight:600;">Available for ordering</label>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn btn-outline-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Update Item</button>
+                        <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn-modal-secondary">Cancel</a>
+                        <button type="submit" class="btn-modal-primary"><i class="fas fa-save me-1"></i> Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -1037,11 +1002,11 @@
     </script>
     <?php endif; ?>
 
-</div><!-- /main-content -->
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ── Sidebar ───────────────────────────────────────────────────
+/* ── Sidebar ──────────────────────────────────────────────────────── */
 document.getElementById('menuToggle')?.addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('show');
     document.getElementById('sidebarOverlay').classList.toggle('show');
@@ -1051,281 +1016,246 @@ document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
     document.getElementById('sidebarOverlay').classList.remove('show');
 });
 
-// ── Image previews ────────────────────────────────────────────
-document.getElementById('modal_image')?.addEventListener('change', function(e) {
-    const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = e => {
-        document.getElementById('modalImagePreview').src = e.target.result;
-        document.getElementById('modalImagePreviewContainer').classList.remove('d-none');
-    };
-    r.readAsDataURL(file);
+/* ── Alert dismiss ────────────────────────────────────────────────── */
+document.querySelectorAll('.alert-bar .dismiss').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.alert-bar').remove());
 });
-document.getElementById('edit_image')?.addEventListener('change', function(e) {
-    const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = e => {
-        document.getElementById('editImagePreview').src = e.target.result;
-        document.getElementById('editImagePreviewContainer').classList.remove('d-none');
-    };
-    r.readAsDataURL(file);
-});
+setTimeout(() => {
+    document.querySelectorAll('.alert-bar').forEach(a => { a.style.opacity = '0'; });
+    setTimeout(() => document.querySelectorAll('.alert-bar').forEach(a => a.remove()), 400);
+}, 6000);
 
-// ── Delete menu item ──────────────────────────────────────────
+/* ── Image previews ───────────────────────────────────────────────── */
+function wirePreview(inputId, previewId, wrapperId) {
+    document.getElementById(inputId)?.addEventListener('change', function(e) {
+        const file = e.target.files[0]; if (!file) return;
+        const r = new FileReader();
+        r.onload = ev => {
+            document.getElementById(previewId).src = ev.target.result;
+            document.getElementById(wrapperId).classList.remove('d-none');
+        };
+        r.readAsDataURL(file);
+    });
+}
+wirePreview('modal_image', 'modalImagePreview', 'modalImagePreviewContainer');
+wirePreview('edit_image',  'editImagePreview',  'editImagePreviewContainer');
+
+/* ── Delete modals ────────────────────────────────────────────────── */
 function confirmDeleteItem(id, name) {
     document.getElementById('deleteMenuItemId').value = id;
     document.getElementById('deleteMenuItemName').textContent = name;
     new bootstrap.Modal(document.getElementById('deleteMenuItemModal')).show();
 }
-
-// ── Delete variant ────────────────────────────────────────────
 function confirmDeleteVariant(id, name) {
     document.getElementById('deleteVariantId').value = id;
     document.getElementById('deleteVariantName').textContent = name;
     bootstrap.Modal.getInstance(document.getElementById('manageVariantsModal'))?.hide();
-    setTimeout(() => new bootstrap.Modal(document.getElementById('deleteVariantModal')).show(), 250);
+    setTimeout(() => new bootstrap.Modal(document.getElementById('deleteVariantModal')).show(), 260);
 }
 
-// ── Add Item Modal — Pricing Mode Logic ───────────────────────
+/* ── Add Item — Pricing Mode ──────────────────────────────────────── */
 let variantCounter = 0;
 
 function setBasePriceMode(hasVariants) {
-    const banner    = document.getElementById('pricingModeBanner');
-    const section   = document.getElementById('basePriceSection');
-    const bpInput   = document.getElementById('basePriceInput');
-    const bcInput   = document.getElementById('baseCostInput');
-    const bpHint    = document.getElementById('basePriceHint');
-    const bpReq     = document.getElementById('basePriceRequired');
-    const modeText  = document.getElementById('pricingModeText');
-
+    const banner   = document.getElementById('pricingModeBanner');
+    const section  = document.getElementById('basePriceSection');
+    const bpInput  = document.getElementById('basePriceInput');
+    const bcInput  = document.getElementById('baseCostInput');
+    const bpHint   = document.getElementById('basePriceHint');
+    const bpReq    = document.getElementById('basePriceRequired');
+    const modeText = document.getElementById('pricingModeText');
     if (hasVariants) {
-        banner.className  = 'pricing-mode-banner mode-variant mb-3';
+        banner.className = 'pricing-banner variant';
         banner.querySelector('i').className = 'fas fa-layer-group';
-        modeText.textContent = 'Variant pricing active — base price is ignored and will be set to NULL.';
-        section.classList.add('base-price-locked');
-        bpInput.disabled  = true; bcInput.disabled  = true;
-        bpInput.value     = ''; bcInput.value     = '';
+        modeText.textContent = 'Variant pricing active — base price will be set to NULL.';
+        section.style.opacity = '0.45'; section.style.pointerEvents = 'none';
+        bpInput.disabled = true; bcInput.disabled = true;
+        bpInput.value = ''; bcInput.value = '';
         bpInput.removeAttribute('required'); bpInput.removeAttribute('min');
         bpReq.style.display = 'none';
-        bpHint.textContent  = 'Overridden by variants — will be stored as NULL';
-        bpHint.style.color  = 'var(--primary)';
+        bpHint.textContent = 'Overridden by variants';
     } else {
-        banner.className  = 'pricing-mode-banner mode-base mb-3';
+        banner.className = 'pricing-banner base';
         banner.querySelector('i').className = 'fas fa-tag';
         modeText.textContent = 'Base price mode — enter a selling price below.';
-        section.classList.remove('base-price-locked');
-        bpInput.disabled  = false; bcInput.disabled  = false;
+        section.style.opacity = ''; section.style.pointerEvents = '';
+        bpInput.disabled = false; bcInput.disabled = false;
         bpInput.setAttribute('required', 'required');
         bpInput.setAttribute('min', '0.01');
         bpReq.style.display = '';
-        bpHint.textContent  = 'Required — must be > 0';
-        bpHint.style.color  = '';
+        bpHint.textContent = 'Required — must be > 0';
     }
 }
-
-function getVariantCount() {
-    return document.querySelectorAll('#variantsContainer .variant-row-add').length;
-}
+function getVariantCount() { return document.querySelectorAll('#variantsContainer .vadd-row').length; }
 function refreshPricingMode() { setBasePriceMode(getVariantCount() > 0); }
 
-function escHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
-function addVariantRow(name='',price='',cost='',isActive=true) {
+function addVariantRow(name='', price='', cost='', isActive=true) {
     const container = document.getElementById('variantsContainer');
-    const rowId     = `vrow_${variantCounter++}`;
-    const checked   = isActive ? 'checked' : '';
+    const rowId = `vrow_${variantCounter++}`;
     container.insertAdjacentHTML('beforeend', `
-        <div class="variant-row-add card mb-2" id="${rowId}" style="border-radius:14px;border:1px solid var(--border);">
-            <div class="card-body py-2 px-3">
-                <div class="row g-2 align-items-center">
-                    <div class="col-md-4">
-                        <input type="text" class="form-control form-control-sm" name="variant_names[]"
-                               placeholder="Name (e.g. Small)" value="${escHtml(name)}" required>
+        <div class="vadd-row" id="${rowId}">
+            <div class="row g-2 align-items-center">
+                <div class="col-sm-4">
+                    <input type="text" class="form-control form-control-sm" name="variant_names[]"
+                           placeholder="Name (e.g. Small)" value="${escHtml(name)}" required>
+                </div>
+                <div class="col-sm-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">₱</span>
+                        <input type="number" class="form-control" name="variant_prices[]"
+                               step="0.01" min="0.01" placeholder="Price" value="${escHtml(price)}" required>
                     </div>
-                    <div class="col-md-3">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">₱</span>
-                            <input type="number" class="form-control" name="variant_prices[]"
-                                   step="0.01" min="0.01" placeholder="Price" value="${escHtml(price)}" required>
-                        </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">₱</span>
+                        <input type="number" class="form-control" name="variant_costs[]"
+                               step="0.01" min="0" placeholder="Cost" value="${escHtml(cost)}">
                     </div>
-                    <div class="col-md-3">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">₱</span>
-                            <input type="number" class="form-control" name="variant_costs[]"
-                                   step="0.01" min="0" placeholder="Cost (opt.)" value="${escHtml(cost)}">
-                        </div>
+                </div>
+                <div class="col-sm-2 d-flex align-items-center gap-2">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" name="variant_active[]" value="1" ${isActive ? 'checked' : ''}>
                     </div>
-                    <div class="col-md-2 d-flex align-items-center gap-2">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" name="variant_active[]" value="1" ${checked}>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-auto"
-                                onclick="removeVariantRow('${rowId}')" title="Remove variant">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
+                    <button type="button" class="btn-act btn-act-del ms-auto" onclick="removeVariantRow('${rowId}')">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
         </div>
     `);
     refreshPricingMode();
 }
-
 function removeVariantRow(rowId) {
     document.getElementById(rowId)?.remove();
     refreshPricingMode();
 }
-
 document.getElementById('addVariantBtn')?.addEventListener('click', () => addVariantRow());
-
-document.getElementById('addMenuItemModal')?.addEventListener('hidden.bs.modal', function () {
+document.getElementById('addMenuItemModal')?.addEventListener('hidden.bs.modal', function() {
     document.getElementById('variantsContainer').innerHTML = '';
     variantCounter = 0;
     document.getElementById('addItemForm').reset();
     document.getElementById('modalImagePreviewContainer').classList.add('d-none');
     refreshPricingMode();
 });
-document.getElementById('addMenuItemModal')?.addEventListener('shown.bs.modal', function () {
-    refreshPricingMode();
-});
+document.getElementById('addMenuItemModal')?.addEventListener('shown.bs.modal', () => refreshPricingMode());
 
-// ── Manage Variants Modal ─────────────────────────────────────
-let _mvCurrentItemId   = null;
-let _mvCurrentItemName = null;
-
+/* ── Manage Variants Modal ────────────────────────────────────────── */
+let _mvItemId = null;
 function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function openManageVariantsModal(itemId, itemName, variants) {
-    _mvCurrentItemId   = itemId;
-    _mvCurrentItemName = itemName;
+    _mvItemId = itemId;
     document.getElementById('mvItemName').textContent = itemName;
     renderVariantList(variants);
     cancelVariantForm();
     new bootstrap.Modal(document.getElementById('manageVariantsModal')).show();
 }
-
 function renderVariantList(variants) {
-    const container = document.getElementById('mvVariantList');
+    const c = document.getElementById('mvVariantList');
     if (!variants || variants.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4" style="color:var(--warm-gray);">
-                <i class="fas fa-layer-group fa-2x mb-2" style="opacity:.3;"></i>
-                <p class="mb-0 small">No variants yet. Click "Add Variant" to create size or type options.</p>
-                <p class="small text-muted mt-1">Until a variant is added, the item uses its base price.</p>
-            </div>`;
+        c.innerHTML = `<div style="text-align:center;padding:2rem 1.5rem;color:var(--warm-gray);">
+            <i class="fas fa-layer-group" style="font-size:2rem;opacity:.2;display:block;margin-bottom:0.5rem;"></i>
+            <p style="font-size:0.85rem;margin:0;">No variants yet. Click "Add Variant" to create size or type options.</p>
+            <p style="font-size:0.78rem;opacity:.7;margin-top:0.25rem;">Until a variant is added, the item uses its base price.</p>
+        </div>`;
         return;
     }
     let html = '';
     variants.forEach(v => {
         const profit = v.price - v.cost_price;
         const margin = v.price > 0 ? ((profit / v.price) * 100).toFixed(1) : '0.0';
-        const statusBadge = v.is_active
-            ? `<span class="badge" style="background:rgba(44,122,90,0.12);color:var(--success);">Active</span>`
-            : `<span class="badge" style="background:rgba(214,64,69,0.1);color:var(--danger);">Inactive</span>`;
+        const statusHtml = v.is_active
+            ? `<span class="pill pill-available" style="font-size:0.68rem;padding:0.2rem 0.55rem;"><span class="dot"></span>Active</span>`
+            : `<span class="pill pill-unavailable" style="font-size:0.68rem;padding:0.2rem 0.55rem;"><span class="dot"></span>Inactive</span>`;
         html += `
-        <div class="variant-row">
+        <div class="mv-variant-row">
             <div style="flex:1;min-width:0;">
-                <div class="variant-row-name">${esc(v.variant_name)}</div>
-                <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                    <span class="variant-row-price">₱${parseFloat(v.price).toFixed(2)}</span>
-                    <span class="variant-row-cost">Cost: ₱${parseFloat(v.cost_price).toFixed(2)}</span>
-                    <span class="variant-row-cost">Margin: ${margin}%</span>
+                <div class="mv-vname">${esc(v.variant_name)}</div>
+                <div style="display:flex;gap:0.75rem;margin-top:3px;flex-wrap:wrap;">
+                    <span class="mv-vprice">₱${parseFloat(v.price).toFixed(2)}</span>
+                    <span class="mv-vcost">Cost ₱${parseFloat(v.cost_price).toFixed(2)}</span>
+                    <span class="mv-vcost">Margin ${margin}%</span>
                 </div>
             </div>
-            <div>${statusBadge}</div>
-            <div class="variant-row-actions">
-                <button type="button" class="btn-icon-sm btn-edit" title="Edit"
+            <div>${statusHtml}</div>
+            <div class="mv-act">
+                <button type="button" class="btn-mv-edit"
                         onclick="showEditVariantForm(${v.variant_id}, '${v.variant_name.replace(/'/g,"\\'")}', ${v.price}, ${v.cost_price}, ${v.is_active ? 1 : 0})">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button type="button" class="btn-icon-sm btn-delete" title="Delete"
+                <button type="button" class="btn-mv-del"
                         onclick="confirmDeleteVariant(${v.variant_id}, '${v.variant_name.replace(/'/g,"\\'")}')">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>`;
     });
-    container.innerHTML = html;
+    c.innerHTML = html;
 }
-
 function showAddVariantForm() {
     document.getElementById('variantFormTitle').textContent = 'Add New Variant';
     document.getElementById('vf_submit_btn').innerHTML = '<i class="fas fa-plus me-1"></i> Add Variant';
-    document.getElementById('vf_item_id').value   = _mvCurrentItemId;
+    document.getElementById('vf_item_id').value    = _mvItemId;
     document.getElementById('vf_variant_id').value = '';
-    document.getElementById('vf_name').value  = '';
-    document.getElementById('vf_price').value = '';
-    document.getElementById('vf_cost').value  = '0';
+    document.getElementById('vf_name').value   = '';
+    document.getElementById('vf_price').value  = '';
+    document.getElementById('vf_cost').value   = '0';
     document.getElementById('vf_active').checked = true;
     document.getElementById('vf_action').value = 'add';
     document.getElementById('variantInlineForm').classList.remove('d-none');
     document.getElementById('vf_name').focus();
 }
-
 function showEditVariantForm(variantId, name, price, cost, isActive) {
     document.getElementById('variantFormTitle').textContent = 'Edit Variant';
     document.getElementById('vf_submit_btn').innerHTML = '<i class="fas fa-save me-1"></i> Update Variant';
-    document.getElementById('vf_item_id').value   = _mvCurrentItemId;
+    document.getElementById('vf_item_id').value    = _mvItemId;
     document.getElementById('vf_variant_id').value = variantId;
-    document.getElementById('vf_name').value  = name;
-    document.getElementById('vf_price').value = price;
-    document.getElementById('vf_cost').value  = cost;
+    document.getElementById('vf_name').value   = name;
+    document.getElementById('vf_price').value  = price;
+    document.getElementById('vf_cost').value   = cost;
     document.getElementById('vf_active').checked = isActive == 1;
     document.getElementById('vf_action').value = 'update';
     document.getElementById('variantInlineForm').classList.remove('d-none');
     document.getElementById('vf_name').focus();
 }
-
 function cancelVariantForm() {
     document.getElementById('variantInlineForm').classList.add('d-none');
     document.getElementById('vf_action').value = '';
     document.getElementById('vf_variant_id').value = '';
 }
 
-// ── Category modal ────────────────────────────────────────────
-(function () {
-    const catNameInput    = document.getElementById('modal_category_name');
-    const charCounter     = document.getElementById('catCharCounter');
-    const dupWarning      = document.getElementById('dupWarning');
-    const saveCategoryBtn = document.getElementById('saveCategoryBtn');
-    const addCategoryForm = document.getElementById('addCategoryForm');
+/* ── Category modal ───────────────────────────────────────────────── */
+(function() {
+    const catInput = document.getElementById('modal_category_name');
+    const counter  = document.getElementById('catCharCounter');
+    const dupWarn  = document.getElementById('dupWarning');
+    const saveBtn  = document.getElementById('saveCategoryBtn');
+    const form     = document.getElementById('addCategoryForm');
+    const existing = new Set(<?php echo json_encode(array_map(fn($c) => strtolower($c['category_name']), $categories ?? [])); ?>);
 
-    const existingCategories = new Set(<?php
-        echo json_encode(array_map(fn($c) => strtolower($c['category_name']), $categories ?? []));
-    ?>);
-
-    catNameInput?.addEventListener('input', function () {
+    catInput?.addEventListener('input', function() {
         const len = this.value.length;
-        charCounter.textContent = `${len} / 80`;
-        charCounter.classList.toggle('over', len >= 80);
-        const isDup = existingCategories.has(this.value.trim().toLowerCase());
-        dupWarning.classList.toggle('d-none', !isDup);
-        catNameInput.classList.remove('is-invalid');
+        counter.textContent = `${len} / 80`;
+        counter.classList.toggle('over', len >= 80);
+        dupWarn.classList.toggle('d-none', !existing.has(this.value.trim().toLowerCase()));
+        catInput.classList.remove('is-invalid');
     });
-
-    saveCategoryBtn?.addEventListener('click', function () {
-        const name = catNameInput.value.trim();
-        if (!name) { catNameInput.classList.add('is-invalid'); catNameInput.focus(); return; }
-        if (existingCategories.has(name.toLowerCase())) { dupWarning.classList.remove('d-none'); catNameInput.focus(); return; }
-        catNameInput.classList.remove('is-invalid');
-        addCategoryForm.submit();
+    saveBtn?.addEventListener('click', function() {
+        const name = catInput.value.trim();
+        if (!name) { catInput.classList.add('is-invalid'); catInput.focus(); return; }
+        if (existing.has(name.toLowerCase())) { dupWarn.classList.remove('d-none'); catInput.focus(); return; }
+        catInput.classList.remove('is-invalid');
+        form.submit();
     });
-
-    catNameInput?.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); saveCategoryBtn.click(); }
-    });
-
-    document.getElementById('addCategoryModal')?.addEventListener('hidden.bs.modal', function () {
-        addCategoryForm.reset();
-        catNameInput.classList.remove('is-invalid');
-        dupWarning.classList.add('d-none');
-        charCounter.textContent = '0 / 80';
-        charCounter.classList.remove('over');
+    catInput?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); } });
+    document.getElementById('addCategoryModal')?.addEventListener('hidden.bs.modal', function() {
+        form.reset(); catInput.classList.remove('is-invalid');
+        dupWarn.classList.add('d-none'); counter.textContent = '0 / 80'; counter.classList.remove('over');
     });
 })();
 
@@ -1336,13 +1266,8 @@ function catEditInline(id, name) {
     document.getElementById('editCatName').focus();
 }
 
-// ── Auto-dismiss alerts ───────────────────────────────────────
-setTimeout(() => {
-    document.querySelectorAll('.alert').forEach(a => { try { new bootstrap.Alert(a).close(); } catch {} });
-}, 6000);
-
-// ── Clean up Bootstrap modal artefacts ───────────────────────
-document.addEventListener('hidden.bs.modal', function () {
+/* ── Clean up Bootstrap modal artifacts ───────────────────────────── */
+document.addEventListener('hidden.bs.modal', function() {
     if (document.querySelector('.modal.show')) return;
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
     document.body.classList.remove('modal-open');

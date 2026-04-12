@@ -411,8 +411,8 @@
         </span>
       </div>
       <div class="logo-text">
-        <div class="logo-name">Cafeteria POS</div>
-        <div class="logo-sub">Management System</div>
+        <div class="brand-text-main">SKD Software Solutions</div>
+            <div class="brand-text-sub">Web-Based POS Management System</div>
       </div>
     </div>
 

@@ -7,6 +7,10 @@ require_once __DIR__ . '/../core/tableHelper.php';
 
 header('Content-Type: application/json');
 
+// Ensure PDO exceptions are enabled (critical for error catching)
+// If your db.php already does this, you can remove the next line.
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
 if (!hasRole('cashier') && !hasRole('admin')) {
     echo json_encode(['success' => false, 'error' => 'Access denied. Cashier or admin only.']);
     exit;
@@ -50,30 +54,34 @@ try {
         exit;
     }
 
-    // ── Mark order as completed ───────────────────────────────────────────────
-    $pdo->prepare("
-        UPDATE orders
-        SET status = 'completed', completed_at = NOW()
-        WHERE order_id = ?
-    ")->execute([$order_id]);
+    // ── Mark order as completed (only if status is still 'ready') ─────────────
+    $stmt = $pdo->prepare("
+        UPDATE orders 
+        SET status = 'completed', completed_at = NOW() 
+        WHERE order_id = ? AND status = 'ready'
+    ");
+    $stmt->execute([$order_id]);
 
-    // ── Mark all non-terminal items as completed ───────────────────────────────
-    // Exclude 'cancelled' and 'voided' — those are terminal and must not be overwritten.
+    // CRITICAL FIX: verify that the update actually changed a row
+    if ($stmt->rowCount() === 0) {
+        throw new Exception("Order status could not be updated. The order may have already been completed or is no longer 'ready'.");
+    }
+
+    // ── Mark all non‑terminal items as completed ─────────────────────────────
     $pdo->prepare("
         UPDATE order_items
         SET status = 'completed'
-        WHERE order_id = ?
-          AND status NOT IN ('cancelled', 'voided')
+        WHERE order_id = ? AND status NOT IN ('cancelled', 'voided')
     ")->execute([$order_id]);
 
-    // ── Free table if dine-in ─────────────────────────────────────────────────
+    // ── Free table if dine‑in ────────────────────────────────────────────────
     $pdo->prepare("
         UPDATE tables
         SET status = 'available', current_order_id = NULL
         WHERE current_order_id = ?
     ")->execute([$order_id]);
 
-    // ── Audit log ─────────────────────────────────────────────────────────────
+    // ── Audit log ────────────────────────────────────────────────────────────
     $pdo->prepare("
         INSERT INTO activity_logs (user_id, action, details, ip_address)
         VALUES (?, 'mark_served', ?, ?)

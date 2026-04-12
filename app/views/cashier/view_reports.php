@@ -1,6 +1,6 @@
 <?php
 /**
- * reports_view.php  – v8 (adminshift tab added)
+ * reports_view.php  – v10 (fully responsive + UX improvements)
  */
 extract($ctx);
 
@@ -38,423 +38,703 @@ $tab_meta = $is_admin ? [
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reports &ndash; Cafeteria POS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+<title>Reports &ndash; Dine with Din</title>
 <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
+/* ── TOKENS ─────────────────────────────────────────────────────────── */
 :root {
-    --primary:#0f4c5c; --primary-dark:#0a3a47; --primary-light:#1f7a8c;
-    --secondary:#ff6b4a; --accent:#fee440;
-    --navy:#1e2f4e; --lavender:#e2e6f0; --light-bg:#f8faff;
-    --warm-gray:#4a5568; --border:#cbd5e0;
-    --success:#2c7a5a; --danger:#d64045; --warning:#f4b942; --info:#5e9b9e;
-    --dark:#1a202c;
-    --sidebar-width:280px; --topbar-height:72px;
+    --primary:       #0f4c5c;
+    --primary-dark:  #0a3a47;
+    --primary-light: #1f7a8c;
+    --secondary:     #ff6b4a;
+    --accent:        #fee440;
+    --navy:          #1e2f4e;
+    --lavender:      #e2e6f0;
+    --light-bg:      #f8faff;
+    --warm-gray:     #4a5568;
+    --border:        #cbd5e0;
+    --success:       #2c7a5a;
+    --danger:        #d64045;
+    --warning:       #f4b942;
+    --info:          #5e9b9e;
+    --dark:          #1a202c;
+    --success-soft:  #eaf7ef;
+    --danger-soft:   #fdecea;
+    --warning-soft:  #fef8e7;
+    --info-soft:     rgba(94,155,158,0.1);
+    --sidebar-w:     260px;
+    --top-h:         64px;
+    --radius-sm:     8px;
+    --radius-md:     12px;
+    --radius-lg:     18px;
+    --radius-xl:     24px;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:var(--light-bg);color:var(--dark);font-size:14px;}
-.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-height);background:white;border-bottom:1px solid var(--border);z-index:1040;padding:0 2rem;box-shadow:0 4px 12px rgba(15,76,92,.04);display:flex;align-items:center;justify-content:space-between;}
-.topbar .logo{font-size:1.6rem;font-weight:700;color:var(--primary-dark);text-decoration:none;display:flex;align-items:center;gap:.65rem;}
-.topbar .logo i{font-size:1.9rem;color:var(--secondary);}
-.topbar .logo span{background:linear-gradient(135deg,var(--primary),var(--navy));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.mobile-menu-btn{background:white;border:1px solid var(--border);font-size:1.4rem;color:var(--primary);cursor:pointer;padding:.5rem 1rem;border-radius:12px;transition:all .2s;}
-.mobile-menu-btn:hover{background:var(--secondary);border-color:var(--secondary);color:white;}
-.sidebar{position:fixed;top:var(--topbar-height);left:0;width:var(--sidebar-width);height:calc(100vh - var(--topbar-height));background:white;border-right:1px solid var(--border);overflow-y:auto;z-index:1030;transition:transform .25s cubic-bezier(.4,0,.2,1);}
-.sidebar-nav{padding:2rem .75rem;}
-.nav-section-title{padding:.6rem 1.2rem;font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--warm-gray);letter-spacing:1.2px;opacity:.7;margin-top:.8rem;}
-.nav-item{margin:.2rem .6rem;}
-.nav-link{display:flex;align-items:center;padding:.8rem 1.2rem;color:var(--warm-gray);text-decoration:none;border-radius:14px;transition:all .2s;font-weight:500;font-size:.95rem;}
-.nav-link:hover{background:var(--lavender);color:var(--primary-dark);}
-.nav-link.active{background:var(--primary);color:white;box-shadow:0 6px 12px rgba(15,76,92,.2);}
-.nav-link i{width:24px;margin-right:.85rem;font-size:1.2rem;}
-.sidebar-overlay{position:fixed;top:var(--topbar-height);left:0;right:0;bottom:0;background:rgba(15,76,92,.2);backdrop-filter:blur(3px);z-index:1025;display:none;}
-.sidebar-overlay.show{display:block;}
-.main-content{margin-left:var(--sidebar-width);margin-top:var(--topbar-height);padding:2.2rem;min-height:calc(100vh - var(--topbar-height));}
-.page-header{margin-bottom:2rem;}
-.page-header h1{font-size:2.1rem;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:.7rem;}
-.page-header h1 i{color:var(--secondary);}
-.breadcrumb{background:none;padding:.2rem 0;margin:0;font-size:.9rem;}
-.breadcrumb-item a{color:var(--warm-gray);text-decoration:none;font-weight:500;}
-.breadcrumb-item.active{color:var(--primary-dark);font-weight:600;}
-.report-tabs{display:flex;gap:.5rem;flex-wrap:wrap;background:white;padding:1rem 1.2rem;border-radius:20px;border:1px solid rgba(203,213,224,.5);box-shadow:0 4px 12px rgba(15,76,92,.03);margin-bottom:1.8rem;}
-.report-tab{padding:.55rem 1.2rem;border-radius:40px;font-size:.85rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border);color:var(--warm-gray);background:transparent;text-decoration:none;transition:all .18s;display:flex;align-items:center;gap:.4rem;}
-.report-tab:hover{border-color:var(--primary-light);color:var(--primary);}
-.report-tab.active{background:var(--primary);color:white;border-color:var(--primary);box-shadow:0 6px 14px rgba(15,76,92,.2);}
-.report-tab.waste-tab.active{background:var(--danger);border-color:var(--danger);box-shadow:0 6px 14px rgba(214,64,69,.25);}
-.report-tab.cashier-tab.active{background:var(--secondary);border-color:var(--secondary);}
-.report-tab.closeout-tab.active{background:var(--navy);border-color:var(--navy);}
-.report-tab.adminshift-tab.active{background:var(--navy);border-color:var(--navy);}
-.filter-bar{background:white;border-radius:20px;border:1px solid rgba(203,213,224,.5);padding:1.1rem 1.5rem;margin-bottom:1.8rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;box-shadow:0 4px 12px rgba(15,76,92,.03);}
-.filter-bar label{font-size:.8rem;font-weight:700;color:var(--warm-gray);margin-bottom:0;}
-.filter-bar .form-control,.filter-bar .form-select{border-radius:12px;border:1.5px solid var(--border);font-size:.9rem;padding:.45rem .9rem;color:var(--dark);}
-.filter-bar .form-control:focus,.filter-bar .form-select:focus{border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(15,76,92,.08);}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1.5rem;margin-bottom:2rem;}
-.stat-card{background:white;border-radius:20px;padding:1.5rem;border:1px solid rgba(203,213,224,.5);box-shadow:0 6px 16px rgba(15,76,92,.04);position:relative;overflow:hidden;}
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--primary),var(--secondary));}
-.stat-card.c-coral::before{background:var(--secondary);}
-.stat-card.c-teal::before{background:var(--info);}
-.stat-card.c-green::before{background:var(--success);}
-.stat-card.c-warning::before{background:var(--warning);}
-.stat-card.c-danger::before{background:var(--danger);}
-.stat-card.c-netprofit::before{background:linear-gradient(90deg,var(--success),var(--info));}
-.s-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:1rem;background:linear-gradient(145deg,#f0f5fa,white);color:var(--primary);border:1px solid rgba(15,76,92,.1);}
-.s-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--warm-gray);margin-bottom:.4rem;}
-.s-value{font-size:1.9rem;font-weight:700;color:var(--navy);line-height:1.1;word-break:break-word;overflow-wrap:anywhere;}
-.s-value.negative{color:var(--danger);}
-.s-value.positive{color:var(--success);}
-.s-sub{font-size:.82rem;color:var(--warm-gray);margin-top:.4rem;}
-.s-compare{font-size:.78rem;margin-top:.3rem;}
-.vat-breakdown{font-size:.78rem;color:var(--warm-gray);margin-top:.3rem;padding:.3rem .6rem;background:rgba(15,76,92,.04);border-radius:8px;border-left:3px solid var(--primary-light);}
-.vat-breakdown span{font-weight:600;color:var(--primary-dark);}
-.refund-breakdown{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
-.refund-breakdown .refund-label{font-size:0.75rem;color:var(--warm-gray);margin-bottom:2px;}
-.refund-breakdown .refund-amount{font-weight:600;color:var(--danger);}
-.net-revenue-breakdown{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
-.net-revenue-breakdown .net-revenue-label{font-size:0.8rem;font-weight:600;color:var(--primary-dark);}
-.net-revenue-breakdown .net-revenue-amount{font-weight:700;color:var(--success);font-size:1.1rem;}
-@media (max-width: 768px) {
-    .refund-breakdown .refund-amount, .net-revenue-breakdown .net-revenue-amount { font-size: 1rem; }
-    .net-revenue-breakdown .net-revenue-label { font-size: 0.75rem; }
-    .refund-breakdown .refund-label { font-size: 0.7rem; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+/* ── TOPBAR ─────────────────────────────────────────────────────────── */
+.topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--top-h);
+    background: #fff; border-bottom: 1px solid var(--border);
+    z-index: 1040; display: flex; align-items: center;
+    padding: 0 1.5rem; gap: 1rem;
+    box-shadow: 0 2px 8px rgba(15,76,92,0.06);
+}
+.topbar-brand { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; flex-shrink: 0; }
+.brand-logo {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    background: #fff; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; flex-shrink: 0;
+}
+.brand-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.brand-text-main { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 1.15rem; color: var(--primary-dark); line-height: 1; white-space: nowrap; }
+.brand-text-sub  { font-size: 0.65rem; color: var(--secondary); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; white-space: nowrap; }
+.topbar-spacer { flex: 1; }
+.mobile-toggle {
+    display: none; background: none; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 0.4rem 0.65rem;
+    color: var(--primary); cursor: pointer; font-size: 1rem;
+    transition: background 0.15s;
+}
+.mobile-toggle:hover { background: var(--lavender); }
+.user-pill {
+    display: flex; align-items: center; gap: 0.5rem;
+    background: var(--light-bg); border: 1px solid var(--border);
+    border-radius: 40px; padding: 0.3rem 0.9rem 0.3rem 0.35rem;
+    cursor: pointer; transition: all 0.15s; text-decoration: none; max-width: 220px;
+}
+.user-pill:hover { background: var(--lavender); border-color: var(--primary-light); }
+.user-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--primary); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+}
+.user-name-text { font-size: 0.82rem; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-caret { color: var(--warm-gray); font-size: 0.65rem; flex-shrink: 0; }
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────────── */
+.sidebar {
+    position: fixed; top: var(--top-h); left: 0; width: var(--sidebar-w);
+    height: calc(100vh - var(--top-h)); background: #fff;
+    border-right: 1px solid var(--border); overflow-y: auto;
+    z-index: 1030; transition: transform 0.25s ease;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.nav-wrap { padding: 1.2rem 0.75rem 2rem; }
+.nav-section { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--warm-gray); padding: 1.2rem 0.75rem 0.4rem; opacity: 0.7; }
+.nav-link {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.6rem 0.9rem; border-radius: var(--radius-md);
+    color: var(--warm-gray); font-weight: 500; font-size: 0.88rem;
+    text-decoration: none; transition: all 0.15s; margin: 0.1rem 0;
+}
+.nav-link i { width: 20px; text-align: center; font-size: 0.9rem; flex-shrink: 0; transition: color 0.15s; }
+.nav-link:hover { background: var(--lavender); color: var(--primary-dark); }
+.nav-link:hover i { color: var(--primary); }
+.nav-link.active { background: var(--primary); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(15,76,92,0.2); }
+.nav-link.active i { color: rgba(255,255,255,0.85); }
+.sidebar-overlay {
+    display: none; position: fixed; top: var(--top-h); left: 0; right: 0; bottom: 0;
+    background: rgba(15,76,92,0.25); z-index: 1025; backdrop-filter: blur(2px);
+}
+.sidebar-overlay.show { display: block; }
+
+/* ── MAIN ────────────────────────────────────────────────────────────── */
+.main { margin-left: var(--sidebar-w); margin-top: var(--top-h); padding: 2rem 1.75rem; min-height: calc(100vh - var(--top-h)); }
+
+/* ── PAGE HEADER ─────────────────────────────────────────────────────── */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
+.page-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.75rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.breadcrumb-bar { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--warm-gray); margin-top: 0.3rem; }
+.breadcrumb-bar a { color: var(--primary-light); text-decoration: none; font-weight: 500; }
+.breadcrumb-bar a:hover { text-decoration: underline; }
+.breadcrumb-sep { color: var(--border); }
+
+/* ── DROPDOWN ────────────────────────────────────────────────────────── */
+.dropdown-menu { border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 12px 30px rgba(0,0,0,0.08); padding: 0.5rem; }
+.dropdown-item { border-radius: var(--radius-sm); font-size: 0.88rem; padding: 0.55rem 1rem; }
+.dropdown-item:hover { background: var(--lavender); color: var(--primary-dark); }
+.dropdown-item.text-danger:hover { background: rgba(214,64,69,0.08); color: var(--danger); }
+
+/* ── REPORT TABS (horizontal scroll on mobile) ───────────────────────── */
+.report-tabs-wrap {
+    background: #fff; border: 1px solid rgba(203,213,224,0.6);
+    border-radius: var(--radius-xl); padding: 0.75rem 1rem;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 4px 12px rgba(15,76,92,0.03);
+    display: flex; gap: 0.4rem;
+}
+@media (max-width: 767.98px) {
+    .report-tabs-wrap {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        padding-bottom: 0.5rem;
+    }
+    .report-tab { flex: 0 0 auto; }
+}
+.report-tab {
+    padding: 0.5rem 1.1rem; border-radius: 40px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    border: 1.5px solid transparent; color: var(--warm-gray);
+    background: transparent; text-decoration: none;
+    transition: all 0.18s; display: flex; align-items: center; gap: 0.4rem;
+    white-space: nowrap;
+}
+.report-tab:hover { background: var(--lavender); color: var(--primary-dark); border-color: var(--primary-light); }
+.report-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 12px rgba(15,76,92,0.2); }
+.report-tab.waste-tab.active { background: var(--danger); border-color: var(--danger); box-shadow: 0 4px 12px rgba(214,64,69,0.2); }
+.report-tab.closeout-tab.active,
+.report-tab.adminshift-tab.active { background: var(--navy); border-color: var(--navy); }
+.report-tab.cashier-tab.active { background: var(--secondary); border-color: var(--secondary); }
+
+/* ── FILTER BAR (improved mobile stacking) ───────────────────────────── */
+.filter-bar {
+    background: #fff; border: 1px solid rgba(203,213,224,0.6);
+    border-radius: var(--radius-xl); padding: 1rem 1.4rem;
+    margin-bottom: 1.75rem; display: flex; align-items: center;
+    gap: 0.9rem; flex-wrap: wrap;
+    box-shadow: 0 4px 12px rgba(15,76,92,0.03);
+}
+.filter-bar label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--warm-gray); margin-bottom: 0; flex-shrink: 0; }
+.filter-bar .form-control,
+.filter-bar .form-select {
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    font-size: 0.88rem; padding: 0.5rem 0.85rem; font-family: inherit;
+    background: var(--light-bg); color: var(--dark);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.filter-bar .form-control:focus,
+.filter-bar .form-select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(15,76,92,0.1); background: #fff; }
+.filter-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
+.filter-input-date   { width: 165px; }
+.filter-input-month  { width: 145px; }
+.filter-input-year   { width: 95px; }
+.filter-input-range  { width: 155px; }
+
+/* ── BUTTONS (touch friendly) ───────────────────────────────────────── */
+.btn-apply, .btn-print, .btn-co-print {
+    padding: 0.5rem 1.3rem; border-radius: 40px; font-size: 0.85rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    transition: all 0.18s; cursor: pointer; font-family: inherit;
+    white-space: nowrap; border: none;
+}
+.btn-apply { background: var(--primary); color: #fff; }
+.btn-apply:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 6px 14px rgba(15,76,92,0.2); }
+.btn-print { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
+.btn-print:hover { background: var(--primary); color: #fff; }
+.btn-co-print { background: var(--primary); color: #fff; }
+.btn-co-print.thermal { background: var(--navy); }
+.btn-co-print:hover { background: var(--primary-dark); transform: translateY(-1px); color: #fff; }
+
+/* ── STAT CARDS ──────────────────────────────────────────────────────── */
+.stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem; margin-bottom: 1.75rem;
+}
+.stat-card {
+    background: #fff; border: 1px solid rgba(203,213,224,0.6);
+    border-radius: var(--radius-lg); padding: 1.25rem 1.35rem;
+    display: flex; align-items: center; gap: 1rem;
+    position: relative; overflow: hidden;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary); }
+.stat-card.c-coral::before   { background: var(--secondary); }
+.stat-card.c-teal::before    { background: var(--info); }
+.stat-card.c-green::before   { background: var(--success); }
+.stat-card.c-warning::before { background: var(--warning); }
+.stat-card.c-danger::before  { background: var(--danger); }
+.stat-card.c-netprofit::before { background: linear-gradient(90deg, var(--success), var(--info)); }
+.stat-card:hover { box-shadow: 0 8px 24px rgba(15,76,92,0.08); transform: translateY(-2px); }
+.s-icon {
+    width: 46px; height: 46px; border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+    background: #f0f5fa; color: var(--primary);
+    border: 1px solid rgba(15,76,92,0.1);
+}
+.s-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--warm-gray); margin-bottom: 0.2rem; }
+.s-value {
+    font-size: 1.55rem; font-weight: 800; color: var(--navy); line-height: 1.2;
+    word-break: break-word; overflow-wrap: break-word; hyphens: auto;
+}
+.s-value.negative { color: var(--danger); }
+.s-value.positive { color: var(--success); }
+.s-sub { font-size: 0.78rem; color: var(--warm-gray); margin-top: 0.3rem; }
+.s-compare { font-size: 0.75rem; margin-top: 0.25rem; }
+.profit-breakdown {
+    font-size: 0.74rem; color: var(--warm-gray); margin-top: 0.3rem;
+    padding: 0.28rem 0.55rem; background: rgba(15,76,92,0.04);
+    border-radius: 6px; border-left: 2px solid var(--primary-light);
+}
+.profit-breakdown .pos { font-weight: 600; color: var(--success); }
+.profit-breakdown .neg { font-weight: 600; color: var(--danger); }
+.waste-cost-cell { color: var(--danger); font-weight: 600; }
+
+/* ── COMPARISON GRID ─────────────────────────────────────────────────── */
+.comparison-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 1rem; margin-bottom: 1.75rem;
+}
+.compare-card {
+    background: #fff; border-radius: var(--radius-lg); padding: 1rem 1.2rem;
+    border: 1px solid rgba(203,213,224,0.6); box-shadow: 0 4px 10px rgba(15,76,92,0.03);
+}
+.compare-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--warm-gray); margin-bottom: 0.3rem; }
+.compare-current { font-size: 1.2rem; font-weight: 700; color: var(--navy); }
+.compare-prev { font-size: 0.75rem; color: var(--warm-gray); margin-top: 0.15rem; }
+.variance-positive { color: var(--success); font-weight: 700; }
+.variance-negative { color: var(--danger); font-weight: 700; }
+.variance-zero     { color: var(--warm-gray); font-weight: 600; }
+
+/* ── REPORT CARDS ────────────────────────────────────────────────────── */
+.rpt-card {
+    background: #fff; border: 1px solid rgba(203,213,224,0.6);
+    border-radius: var(--radius-xl); overflow: hidden;
+    box-shadow: 0 4px 16px rgba(15,76,92,0.03);
+    margin-bottom: 1.5rem;
+}
+.rpt-card-header {
+    padding: 1rem 1.4rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;
+}
+.rpt-card-title { font-size: 0.92rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.5rem; }
+.rpt-card-title i { color: var(--secondary); }
+.rpt-card-body { padding: 1.25rem 1.4rem; }
+.rpt-card-body.p-0 { padding: 0; }
+
+/* ── TABLES (sticky first column on mobile scroll) ────────────────────── */
+.rpt-table { width: 100%; border-collapse: collapse; }
+.rpt-table thead th {
+    background: #f2f6fc; border-bottom: 2px solid var(--primary-light);
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--primary-dark);
+    padding: 0.85rem 1.1rem; white-space: nowrap;
+}
+.rpt-table tbody td {
+    padding: 0.9rem 1.1rem; vertical-align: middle;
+    border-bottom: 1px solid #edf2f7; color: var(--dark); background: #fff;
+}
+.rpt-table tbody tr:last-child td { border-bottom: none; }
+.rpt-table tbody tr:hover td { background: #fafcff; }
+.rpt-table tfoot td {
+    padding: 0.9rem 1.1rem; font-weight: 700;
+    background: #f2f6fc; border-top: 2px solid var(--primary-light);
+}
+.rpt-table thead th.th-waste { background: rgba(214,64,69,0.06); color: var(--danger); }
+
+/* sticky first column on horizontal scroll (optional) */
+@media (max-width: 767.98px) {
+    .rpt-table th:first-child,
+    .rpt-table td:first-child {
+        position: sticky;
+        left: 0;
+        background: inherit;
+        z-index: 1;
+    }
+    .rpt-table thead th:first-child { background: #f2f6fc; z-index: 2; }
+}
+/* Fix stat card number wrapping on small screens */
+@media (max-width: 767.98px) {
+    .stat-card {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .s-value {
+        font-size: 1.2rem;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.2;
+    }
+    .profit-breakdown {
+        font-size: 0.7rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .stat-card .s-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
 }
 @media (max-width: 480px) {
-    .refund-breakdown .refund-amount, .net-revenue-breakdown .net-revenue-amount { font-size: 0.9rem; }
-    .net-revenue-breakdown .net-revenue-label { font-size: 0.7rem; }
-    .refund-breakdown .refund-label { font-size: 0.65rem; }
+    .stat-card {
+        padding: 0.8rem;
+        gap: 0.6rem;
+    }
+    .s-value {
+        font-size: 1.1rem;
+    }
+    .profit-breakdown {
+        font-size: 0.65rem;
+        line-height: 1.3;
+        padding: 0.2rem 0.4rem;
+    }
+    .stat-card .s-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+    }
+    /* Comparison cards on mobile */
+    .compare-current {
+        font-size: 1rem;
+        word-break: break-word;
+    }
+    .compare-card {
+        padding: 0.75rem;
+    }
 }
-.profit-breakdown{font-size:.78rem;color:var(--warm-gray);margin-top:.3rem;padding:.3rem .6rem;background:rgba(44,122,90,.05);border-radius:8px;border-left:3px solid var(--success);}
-.profit-breakdown span{font-weight:600;}
-.profit-breakdown .pos{color:var(--success);}
-.profit-breakdown .neg{color:var(--danger);}
-.comparison-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.8rem;}
-.compare-card{background:white;border-radius:16px;padding:1rem 1.2rem;border:1px solid rgba(203,213,224,.5);box-shadow:0 4px 10px rgba(15,76,92,.03);}
-.compare-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--warm-gray);margin-bottom:.3rem;}
-.compare-current{font-size:1.3rem;font-weight:700;color:var(--navy);}
-.compare-prev{font-size:.78rem;color:var(--warm-gray);margin-top:.15rem;}
-.variance-positive{color:var(--success);font-weight:700;}
-.variance-negative{color:var(--danger);font-weight:700;}
-.variance-zero{color:var(--warm-gray);font-weight:600;}
-.admin-proc-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:20px;font-size:.7rem;font-weight:600;background:rgba(15,76,92,.08);color:var(--primary-dark);}
-.rpt-card{background:white;border-radius:20px;border:1px solid rgba(203,213,224,.5);box-shadow:0 6px 16px rgba(15,76,92,.03);margin-bottom:1.8rem;}
-.rpt-card-header{padding:1.2rem 1.6rem;border-bottom:1px solid rgba(203,213,224,.5);display:flex;align-items:center;justify-content:space-between;}
-.rpt-card-title{font-size:1.05rem;font-weight:650;color:var(--navy);display:flex;align-items:center;gap:.5rem;}
-.rpt-card-title i{color:var(--secondary);}
-.rpt-card-body{padding:1.4rem 1.6rem;}
-.rpt-card-body.p-0{padding:0;}
-table.rpt-table{width:100%;border-collapse:separate;border-spacing:0;}
-table.rpt-table thead th{background:#f2f6fc;border-bottom:2px solid var(--primary-light);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--primary-dark);padding:1rem 1.2rem;white-space:nowrap;}
-table.rpt-table tbody td{padding:1rem 1.2rem;vertical-align:middle;border-bottom:1px solid #edf2f7;color:var(--dark);background:white;}
-table.rpt-table tbody tr:hover td{background:#fafcff;}
-table.rpt-table tfoot td{padding:1rem 1.2rem;font-weight:700;background:#f2f6fc;border-top:2px solid var(--primary-light);}
-table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--danger);}
-.waste-cost-cell{color:var(--danger);font-weight:600;}
-.rpt-badge{padding:.35rem .9rem;border-radius:30px;font-size:.75rem;font-weight:600;display:inline-block;}
-.badge-primary{background:var(--primary);color:white;}
-.badge-warning{background:#fff3cd;color:#856404;}
-.badge-danger{background:#f8d7da;color:#721c24;}
-.badge-success{background:#d4edda;color:#155724;}
-.badge-info{background:#cff4fc;color:#0c5460;}
-.badge-variant{background:rgba(255,107,74,.1);color:var(--secondary);border:1px solid rgba(255,107,74,.25);padding:.2rem .55rem;border-radius:20px;font-size:.7rem;font-weight:600;}
-.badge-base{background:rgba(15,76,92,.08);color:var(--primary-dark);border:1px solid rgba(15,76,92,.15);padding:.2rem .55rem;border-radius:20px;font-size:.7rem;font-weight:600;}
-.mini-bar{height:5px;border-radius:6px;background:#e2e8f0;margin-top:5px;}
-.mini-bar-fill{height:100%;border-radius:6px;background:var(--primary);}
-.btn-apply{padding:.55rem 1.4rem;border-radius:40px;font-size:.85rem;font-weight:600;background:var(--primary);color:white;border:none;cursor:pointer;transition:all .18s;}
-.btn-apply:hover{background:var(--primary-dark);transform:translateY(-1px);}
-.btn-print{padding:.55rem 1.3rem;border-radius:40px;font-size:.85rem;font-weight:600;border:1.5px solid var(--primary);color:var(--primary);background:transparent;cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:.4rem;text-decoration:none;}
-.btn-print:hover{background:var(--primary);color:white;}
-.no-data{text-align:center;padding:3rem 1rem;color:var(--warm-gray);}
-.no-data i{font-size:2.5rem;margin-bottom:.8rem;opacity:.3;display:block;}
-.consumption-bar{height:8px;border-radius:6px;background:#e2e8f0;margin-top:4px;}
-.consumption-bar-fill{height:100%;border-radius:6px;background:var(--secondary);}
-.recipe-source-note{font-size:.7rem;color:var(--warm-gray);margin-top:2px;}
+/* Laptop screen adjustments (prevent overlapping) */
+@media (min-width: 992px) and (max-width: 1366px) {
+    .s-value { font-size: 1.3rem; }
+    .stat-card { padding: 1rem; gap: 0.8rem; }
+    .s-icon { width: 40px; height: 40px; font-size: 1rem; }
+}
+.s-value {
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+/* ── BADGES ──────────────────────────────────────────────────────────── */
+.rpt-badge { padding: 0.28rem 0.75rem; border-radius: 30px; font-size: 0.72rem; font-weight: 600; display: inline-block; }
+.badge-primary { background: var(--primary); color: #fff; }
+.badge-warning { background: #fff3cd; color: #856404; }
+.badge-danger  { background: #f8d7da; color: #721c24; }
+.badge-success { background: #d4edda; color: #155724; }
+.badge-info    { background: #cff4fc; color: #0c5460; }
+.badge-variant { background: rgba(255,107,74,0.1); color: var(--secondary); border: 1px solid rgba(255,107,74,0.25); padding: 0.18rem 0.5rem; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
+.badge-base    { background: rgba(15,76,92,0.08); color: var(--primary-dark); border: 1px solid rgba(15,76,92,0.15); padding: 0.18rem 0.5rem; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
+.admin-proc-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-size: 0.68rem; font-weight: 600; background: rgba(15,76,92,0.08); color: var(--primary-dark); }
 
-/* ── Close-out / Admin Shift specific ───────────────────────────────── */
+/* ── MISC ────────────────────────────────────────────────────────────── */
+.mini-bar { height: 4px; border-radius: 6px; background: #e2e8f0; margin-top: 4px; }
+.mini-bar-fill { height: 100%; border-radius: 6px; background: var(--primary); }
+.no-data { text-align: center; padding: 3rem 1rem; color: var(--warm-gray); }
+.no-data i { font-size: 2.2rem; margin-bottom: 0.7rem; opacity: 0.25; display: block; }
+.consumption-bar { height: 6px; border-radius: 6px; background: #e2e8f0; margin-top: 3px; }
+.consumption-bar-fill { height: 100%; border-radius: 6px; background: var(--secondary); }
+.reason-pill { display: inline-block; padding: 0.18rem 0.55rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600; background: rgba(214,64,69,0.08); color: var(--danger); border: 1px solid rgba(214,64,69,0.2); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── CLOSE-OUT / ADMIN SHIFT ─────────────────────────────────────────── */
 .co-wrap { max-width: 980px; margin: 0 auto; }
 .co-hero {
     background: linear-gradient(135deg, var(--primary-dark) 0%, #0d3d50 55%, #102a37 100%);
-    border-radius: 24px;
-    padding: 1.8rem 2.2rem;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    box-shadow: 0 16px 40px rgba(15,76,92,.3);
-    position: relative;
-    overflow: hidden;
-    margin-bottom: 1.8rem;
+    border-radius: var(--radius-xl); padding: 1.8rem 2.2rem; color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1.5rem; flex-wrap: wrap;
+    box-shadow: 0 16px 40px rgba(15,76,92,0.25);
+    position: relative; overflow: hidden; margin-bottom: 1.5rem;
 }
 .co-hero::after {
-    content: '₱';
-    position: absolute;
-    right: -10px; top: -20px;
-    font-size: 9rem;
-    font-weight: 900;
-    color: rgba(255,255,255,.04);
-    line-height: 1;
-    pointer-events: none;
-    user-select: none;
+    content: '₱'; position: absolute; right: -10px; top: -20px;
+    font-size: 9rem; font-weight: 900; color: rgba(255,255,255,0.04);
+    line-height: 1; pointer-events: none; user-select: none;
 }
 .co-hero-left { flex: 1; min-width: 0; }
-.co-hero-label {
-    font-size: .7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.4px;
-    color: rgba(255,255,255,.55);
-    margin-bottom: .5rem;
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-}
-.co-hero-amount {
-    font-size: clamp(2rem, 6vw, 3.2rem);
-    font-weight: 800;
-    letter-spacing: -.5px;
-    line-height: 1;
-    color: #fff;
-    word-break: break-all;
-}
-.co-hero-sub { font-size: .8rem; color: rgba(255,255,255,.5); margin-top: .5rem; }
-.co-hero-badge {
-    background: rgba(255,255,255,.12);
-    border: 1px solid rgba(255,255,255,.18);
-    border-radius: 14px;
-    padding: .8rem 1.4rem;
-    text-align: center;
-    flex-shrink: 0;
-}
-.co-hero-badge .hb-val { font-size: 1.6rem; font-weight: 700; color: var(--accent); display: block; }
-.co-hero-badge .hb-lbl { font-size: .68rem; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .8px; }
+.co-hero-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: rgba(255,255,255,0.55); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+.co-hero-amount { font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 800; letter-spacing: -0.5px; line-height: 1; color: #fff; word-break: break-all; }
+.co-hero-sub { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-top: 0.5rem; }
+.co-hero-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-md); padding: 0.75rem 1.3rem; text-align: center; flex-shrink: 0; }
+.co-hero-badge .hb-val { font-size: 1.55rem; font-weight: 700; color: var(--accent); display: block; }
+.co-hero-badge .hb-lbl { font-size: 0.66rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.8px; }
 .co-waste-strip {
-    background: rgba(214,64,69,.07);
-    border: 1.5px solid rgba(214,64,69,.25);
-    border-radius: 16px;
-    padding: 1rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.8rem;
+    background: rgba(214,64,69,0.07); border: 1.5px solid rgba(214,64,69,0.25);
+    border-radius: var(--radius-lg); padding: 1rem 1.4rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
 }
-.co-waste-strip .ws-label { font-size: .82rem; font-weight: 700; color: var(--danger); display: flex; align-items: center; gap: .4rem; }
-.co-waste-strip .ws-amount { font-size: 1.3rem; font-weight: 700; color: var(--danger); }
-.co-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.8rem; }
+.co-waste-strip .ws-label { font-size: 0.8rem; font-weight: 700; color: var(--danger); display: flex; align-items: center; gap: 0.4rem; }
+.co-waste-strip .ws-amount { font-size: 1.25rem; font-weight: 700; color: var(--danger); }
+.co-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
 @media (max-width: 860px) { .co-cols { grid-template-columns: 1fr; } }
-.co-section { background: white; border-radius: 20px; border: 1px solid rgba(203,213,224,.5); box-shadow: 0 4px 12px rgba(15,76,92,.04); }
+.co-section { background: #fff; border-radius: var(--radius-xl); border: 1px solid rgba(203,213,224,0.6); box-shadow: 0 4px 12px rgba(15,76,92,0.04); }
 .co-section-head {
-    padding: .9rem 1.3rem;
-    border-bottom: 1px solid rgba(203,213,224,.4);
-    font-size: .78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    color: var(--primary-dark);
-    display: flex;
-    align-items: center;
-    gap: .45rem;
+    padding: 0.85rem 1.2rem; border-bottom: 1px solid rgba(203,213,224,0.4);
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--primary-dark); display: flex; align-items: center; gap: 0.4rem;
 }
-.co-section-head i { color: var(--secondary); font-size: .9rem; }
-.co-section-body { padding: 1rem 1.3rem; }
-.co-row { display: flex; align-items: baseline; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid rgba(203,213,224,.25); gap: .5rem; }
+.co-section-head i { color: var(--secondary); font-size: 0.85rem; }
+.co-section-body { padding: 0.9rem 1.2rem; }
+.co-row { display: flex; align-items: baseline; justify-content: space-between; padding: 0.45rem 0; border-bottom: 1px solid rgba(203,213,224,0.25); gap: 0.5rem; }
 .co-row:last-child { border-bottom: none; }
-.co-row .cr-label { font-size: .88rem; color: var(--warm-gray); flex: 1; }
-.co-row .cr-value { font-size: .9rem; font-weight: 600; color: var(--dark); text-align: right; white-space: nowrap; }
-.co-row .cr-value.muted { color: var(--warm-gray); font-weight: 400; font-size: .82rem; }
+.co-row .cr-label { font-size: 0.85rem; color: var(--warm-gray); flex: 1; }
+.co-row .cr-value { font-size: 0.88rem; font-weight: 600; color: var(--dark); text-align: right; white-space: nowrap; }
+.co-row .cr-value.muted { color: var(--warm-gray); font-weight: 400; font-size: 0.8rem; }
 .co-row .cr-value.neg   { color: var(--danger); }
-.co-items-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-.co-items-table td { padding: .45rem .2rem; border-bottom: 1px solid rgba(203,213,224,.25); vertical-align: middle; }
+.co-items-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+.co-items-table td { padding: 0.42rem 0.2rem; border-bottom: 1px solid rgba(203,213,224,0.25); vertical-align: middle; }
 .co-items-table tr:last-child td { border-bottom: none; }
-.co-items-table .rank { font-size: .7rem; font-weight: 700; color: var(--warm-gray); width: 18px; }
+.co-items-table .rank  { font-size: 0.68rem; font-weight: 700; color: var(--warm-gray); width: 18px; }
 .co-items-table .iname { color: var(--dark); font-weight: 500; }
-.co-items-table .iname small { display: block; font-size: .72rem; color: var(--warm-gray); font-weight: 400; }
-.co-items-table .iqty { text-align: right; font-weight: 700; color: var(--primary); white-space: nowrap; }
-.co-items-table .irev { text-align: right; color: var(--success); font-weight: 600; white-space: nowrap; font-size: .82rem; }
-.co-peak-bars { display: flex; align-items: flex-end; gap: 5px; height: 80px; padding-top: 4px; }
+.co-items-table .iname small { display: block; font-size: 0.7rem; color: var(--warm-gray); font-weight: 400; }
+.co-items-table .iqty  { text-align: right; font-weight: 700; color: var(--primary); white-space: nowrap; }
+.co-items-table .irev  { text-align: right; color: var(--success); font-weight: 600; white-space: nowrap; font-size: 0.8rem; }
+.co-peak-bars { display: flex; align-items: flex-end; gap: 5px; height: 78px; padding-top: 4px; }
 .co-peak-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
-.co-peak-bar { width: 100%; border-radius: 4px 4px 0 0; background: rgba(15,76,92,.55); transition: background .2s; min-height: 3px; }
+.co-peak-bar { width: 100%; border-radius: 4px 4px 0 0; background: rgba(15,76,92,0.5); transition: background 0.2s; min-height: 3px; }
 .co-peak-bar.peak { background: var(--secondary); }
-.co-peak-lbl { font-size: .6rem; color: var(--warm-gray); white-space: nowrap; }
-.co-peak-count { font-size: .62rem; font-weight: 700; color: var(--primary-dark); }
+.co-peak-lbl   { font-size: 0.58rem; color: var(--warm-gray); white-space: nowrap; }
+.co-peak-count { font-size: 0.6rem; font-weight: 700; color: var(--primary-dark); }
 .co-sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; padding-top: 1.2rem; border-top: 2px dashed var(--border); }
 @media (max-width: 480px) { .co-sig-row { grid-template-columns: 1fr; gap: 1rem; } }
-.co-sig-block .sig-line { border-bottom: 1.5px solid var(--dark); height: 36px; margin-bottom: .4rem; }
-.co-sig-block .sig-lbl  { font-size: .75rem; color: var(--warm-gray); text-align: center; }
-.btn-co-print {
-    padding: .55rem 1.3rem;
-    border-radius: 40px;
-    font-size: .85rem;
-    font-weight: 600;
-    background: var(--primary);
-    color: white;
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: .5rem;
-    transition: all .18s;
-    text-decoration: none;
+.co-sig-block .sig-line { border-bottom: 1.5px solid var(--dark); height: 34px; margin-bottom: 0.35rem; }
+.co-sig-block .sig-lbl  { font-size: 0.72rem; color: var(--warm-gray); text-align: center; }
+
+/* ── FOOTER ──────────────────────────────────────────────────────────── */
+.site-footer { background: #fff; border-top: 1px solid var(--border); padding: 1.2rem 1.75rem; margin-left: var(--sidebar-w); }
+.site-footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.82rem; color: var(--warm-gray); }
+
+/* ── ANIMATIONS ──────────────────────────────────────────────────────── */
+.fade-in { animation: fadeUp 0.35s ease forwards; }
+@keyframes fadeUp { from { opacity: 0.4; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+    .fade-in, .stat-card, .report-tab { animation: none; transition: none; }
 }
-.btn-co-print:hover { background: var(--primary-dark); transform: translateY(-1px); color: white; }
-.btn-co-print.thermal { background: var(--navy); }
-.btn-co-print.thermal:hover { background: #111b30; }
-@media (max-width: 600px) {
+/* ── STAT CARDS GRID ── */
+.stats-grid {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+/* Force exactly 3 columns on all screens wider than 1000px (covers 90%‑110% zoom) */
+@media (min-width: 1000px) {
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* On smaller screens (tablets) – 2 columns */
+@media (max-width: 999.98px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* On mobile – 1 column */
+@media (max-width: 767.98px) {
+    .stats-grid {
+        grid-template-columns: 1fr 1fr; /* still 2 columns on tablet portrait? Adjust as needed */
+    }
+}
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+/* ── CASHIER BREAKDOWN TABLE – prevent horizontal scroll on laptop ── */
+@media (min-width: 1000px) {
+    .rpt-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+    .rpt-table td, 
+    .rpt-table th {
+        overflow-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        padding: 0.6rem 0.5rem;
+    }
+    /* Adjust column widths for the cashier breakdown table only */
+    .rpt-table.cashier-table th:first-child,
+    .rpt-table.cashier-table td:first-child { width: 20%; }
+    .rpt-table.cashier-table th:nth-child(2),
+    .rpt-table.cashier-table td:nth-child(2) { width: 8%; text-align: center; }
+    .rpt-table.cashier-table th:nth-child(3),
+    .rpt-table.cashier-table td:nth-child(3) { width: 18%; }
+    .rpt-table.cashier-table th:nth-child(4),
+    .rpt-table.cashier-table td:nth-child(4) { width: 12%; }
+    .rpt-table.cashier-table th:nth-child(5),
+    .rpt-table.cashier-table td:nth-child(5) { width: 12%; }
+    .rpt-table.cashier-table th:nth-child(6),
+    .rpt-table.cashier-table td:nth-child(6) { width: 12%; }
+    .rpt-table.cashier-table th:nth-child(7),
+    .rpt-table.cashier-table td:nth-child(7) { width: 18%; }
+}
+/* ── RESPONSIVE (enhanced) ───────────────────────────────────────────── */
+@media (max-width: 1199.98px) {
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 991.98px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.show { transform: translateX(0); }
+    .main { margin-left: 0; padding: 1.5rem 1.25rem; }
+    .mobile-toggle { display: flex; align-items: center; }
+    .site-footer { margin-left: 0; }
+}
+@media (min-width: 768px) and (max-width: 1024px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .report-tab i { display: none; }
+    .report-tab { font-size: 0.78rem; padding: 0.42rem 0.85rem; }
+    .filter-input-date, .filter-input-range { width: 140px; }
+    .filter-input-month { width: 130px; }
+}
+@media (max-width: 767.98px) {
+    .main { padding: 1rem; }
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .stat-card { padding: 0.9rem 1rem; gap: 0.75rem; }
+    .s-value { font-size: 1.2rem; }
+    .s-icon { width: 38px; height: 38px; font-size: 0.9rem; }
+    .page-title { font-size: 1.4rem; }
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 0.6rem; padding: 0.9rem 1rem; }
+    .filter-bar label { margin-bottom: -0.2rem; }
+    .filter-input-date, .filter-input-month, .filter-input-year, .filter-input-range,
+    .filter-bar .form-control, .filter-bar .form-select { width: 100% !important; }
+    .filter-actions { width: 100%; margin-left: 0; }
+    .filter-actions .btn-apply, .filter-actions .btn-print,
+    .filter-actions .btn-co-print { flex: 1; justify-content: center; }
+    .rpt-card-header { padding: 0.85rem 1rem; }
+    .rpt-card-body { padding: 0.9rem 1rem; }
+    .rpt-card-body.p-0 { padding: 0; }
     .co-hero { padding: 1.3rem 1.4rem; }
     .co-hero::after { display: none; }
-    .co-hero-badge { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem 1rem; }
+    .site-footer { padding: 1rem 1.2rem; }
+    .site-footer-inner { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+    .comparison-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+    .topbar { padding: 0 1rem; }
+    .brand-text-sub { display: none; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .comparison-grid { grid-template-columns: 1fr; }
+    .report-tab { padding: 0.35rem 0.6rem; font-size: 0.72rem; }
+    .page-title { font-size: 1.2rem; }
+    .co-hero-badge { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 1rem; }
     .co-hero-badge .hb-val { font-size: 1.2rem; }
+    /* touch targets */
+    .btn-apply, .btn-print, .btn-co-print { padding: 0.6rem 1rem; min-height: 44px; }
+    .report-tab { min-height: 44px; display: inline-flex; align-items: center; }
 }
-/* ── end close-out ── */
-
-.site-footer{background:white;border-top:1px solid var(--border);padding:1.4rem 2.2rem;margin-left:var(--sidebar-width);color:var(--warm-gray);}
-.site-footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;}
-.filter-input-date{width:170px;}
-.filter-input-month{width:150px;}
-.filter-input-year{width:100px;}
-.filter-input-range{width:160px;}
-.filter-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
-.reason-pill{display:inline-block;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;font-weight:600;background:rgba(214,64,69,.08);color:var(--danger);border:1px solid rgba(214,64,69,.2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-@media (max-width:991.98px){
-    .sidebar{transform:translateX(-100%);}
-    .sidebar.show{transform:translateX(0);}
-    .main-content{margin-left:0;padding:1.5rem;}
-    .site-footer{margin-left:0;}
-    .page-header h1{font-size:1.7rem;}
-    .s-value{font-size:1.6rem;}
-    .rpt-card-header{flex-wrap:wrap;gap:.5rem;}
+@media (pointer: coarse) {
+    .btn-apply, .btn-print, .report-tab, .filter-bar .form-control, .stat-card {
+        cursor: pointer;
+        touch-action: manipulation;
+    }
 }
-@media (max-width:767.98px){
-    .main-content{padding:1rem;}
-    .stats-grid{grid-template-columns:1fr 1fr;gap:1rem;}
-    .stat-card{padding:1.1rem;}
-    .s-icon{width:38px;height:38px;font-size:1.1rem;margin-bottom:.6rem;}
-    .s-value{font-size:1.4rem;}
-    .report-tabs{padding:.7rem .8rem;gap:.35rem;}
-    .report-tab{padding:.4rem .75rem;font-size:.78rem;}
-    .filter-bar{padding:.9rem 1rem;gap:.6rem;flex-direction:column;align-items:stretch;}
-    .filter-bar label{margin-bottom:-.3rem;}
-    .filter-input-date,.filter-input-month,.filter-input-year,.filter-input-range,.filter-bar .form-control,.filter-bar .form-select{width:100% !important;}
-    .filter-actions{width:100%;}
-    .filter-actions .btn-apply,.filter-actions .btn-print,.filter-bar .btn-apply,.filter-bar .btn-print,.filter-bar .btn-co-print{flex:1;justify-content:center;}
-    .rpt-card-header{padding:.9rem 1rem;}
-    .rpt-card-body{padding:1rem;}
-    .rpt-card-body.p-0{padding:0;}
-    .site-footer{padding:1rem 1.2rem;}
-    .site-footer-inner{flex-direction:column;align-items:flex-start;gap:.25rem;font-size:.82rem;}
-    .page-header h1{font-size:1.4rem;}
-    .page-header{margin-bottom:1rem;}
-    .comparison-grid{grid-template-columns:1fr 1fr;}
-}
-@media (max-width:480px){
-    .topbar{padding:0 .75rem;}
-    .topbar .logo span{display:none;}
-    .stats-grid{grid-template-columns:1fr;}
-    .report-tab i{display:none;}
-    .report-tab{padding:.4rem .65rem;font-size:.75rem;}
-    .page-header h1{font-size:1.2rem;}
-    .comparison-grid{grid-template-columns:1fr;}
-}
-.fade-in{animation:fadeUp .35s ease forwards;}
-@keyframes fadeUp{from{opacity:.4;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
 <body>
 
 <!-- TOPBAR -->
-<div class="topbar">
-    <div style="display:flex;align-items:center;gap:1rem;">
-        <button class="mobile-menu-btn d-lg-none" id="menuToggle"><i class="fas fa-bars"></i></button>
-        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="logo">
-            <i class="fas fa-utensils"></i>
-            <span>Dine with Din - Cafeteria</span>
-        </a>
-    </div>
-    <div>
-        <div class="dropdown">
-            <button class="btn btn-link text-decoration-none dropdown-toggle" type="button" data-bs-toggle="dropdown" style="color:var(--navy);font-weight:600;">
-                <i class="far fa-user-circle me-2" style="font-size:1.5rem;color:var(--secondary);"></i>
-                <span class="d-none d-md-inline"><?= htmlspecialchars($session_name) ?></span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" style="border-radius:16px;padding:.5rem;">
-                <li><a class="dropdown-item" href="<?= $baseUrl ?>/index.php?page=logout" style="border-radius:10px;">
-                    <i class="fas fa-sign-out-alt me-2 text-danger"></i> Logout
-                </a></li>
-            </ul>
+<header class="topbar">
+    <button class="mobile-toggle" id="menuToggle" aria-label="Toggle menu">
+        <i class="fas fa-bars"></i>
+    </button>
+    <a href="<?= $baseUrl ?>/index.php?page=<?= $is_admin ? 'admin_dashboard' : 'manage_pos' ?>" class="topbar-brand">
+        <div class="brand-logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
         </div>
+        <div>
+            <div class="brand-text-main">SKD Software Solutions</div>
+            <div class="brand-text-sub">Web-Based POS Management System</div>
+        </div>
+    </a>
+    <div class="topbar-spacer"></div>
+    <div class="dropdown">
+        <button class="user-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border:none;">
+            <?php
+                $initials = 'U';
+                if (!empty($session_name)) {
+                    $parts    = explode(' ', trim($session_name));
+                    $initials = strtoupper(substr($parts[0], 0, 1));
+                    if (count($parts) > 1) $initials .= strtoupper(substr(end($parts), 0, 1));
+                }
+            ?>
+            <span class="user-avatar"><?= htmlspecialchars($initials) ?></span>
+            <span class="user-name-text"><?= htmlspecialchars($session_name) ?></span>
+            <i class="fas fa-chevron-down user-caret"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <div class="px-3 py-2" style="border-bottom:1px solid var(--border);margin-bottom:0.4rem;">
+                    <div style="font-weight:700;font-size:0.9rem;color:var(--navy);"><?= htmlspecialchars($session_name) ?></div>
+                    <div style="font-size:0.78rem;color:var(--warm-gray);"><?= $is_admin ? 'Administrator' : 'Cashier' ?></div>
+                </div>
+            </li>
+            <li><a class="dropdown-item text-danger" href="<?= $baseUrl ?>/index.php?page=logout">
+                <i class="fas fa-sign-out-alt me-2"></i> Logout
+            </a></li>
+        </ul>
     </div>
-</div>
+</header>
 
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <!-- SIDEBAR -->
-<div class="sidebar" id="sidebar">
-    <div class="sidebar-nav">
+<nav class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="nav-wrap">
         <?php if (hasRole('admin')): ?>
-        <div class="nav-section-title">DASHBOARD</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a></div>
-        <div class="nav-section-title">MANAGEMENT</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="nav-link"><i class="fas fa-utensils"></i> Menu Items</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_recipes" class="nav-link"><i class="fas fa-tags"></i> Recipes</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link"><i class="fas fa-boxes"></i> Ingredients</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_addons" class="nav-link"><i class="fas fa-plus-circle"></i> Add-ons</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_users" class="nav-link"><i class="fas fa-users"></i> User Management</a></div>
-        <div class="nav-section-title">SALES</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link"><i class="fas fa-cash-register"></i> POS System</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a></div>
+        <div class="nav-section">Dashboard</div>
+        <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+        <div class="nav-section">Management</div>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_menu"        class="nav-link"><i class="fas fa-utensils"></i> Menu Items</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_recipes"     class="nav-link"><i class="fas fa-tags"></i> Recipes</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_ingredients" class="nav-link"><i class="fas fa-boxes"></i> Ingredients</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_addons"      class="nav-link"><i class="fas fa-plus-circle"></i> Add-ons</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_tables"      class="nav-link"><i class="fas fa-chair"></i> Tables</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_users"       class="nav-link"><i class="fas fa-users"></i> User Management</a>
+        <div class="nav-section">Sales</div>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_pos"    class="nav-link"><i class="fas fa-cash-register"></i> POS System</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a>
+        <a href="<?= $baseUrl ?>/index.php?page=reports"       class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a>
         <?php endif; ?>
         <?php if (hasRole('cashier') && !hasRole('admin')): ?>
-        <div class="nav-section-title">Management</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a></div>
-        <div class="nav-section-title">SALES</div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_pos" class="nav-link"><i class="fas fa-cash-register"></i> POS System</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a></div>
-        <div class="nav-item"><a href="<?= $baseUrl ?>/index.php?page=reports" class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a></div>
+        <div class="nav-section">Management</div>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_tables" class="nav-link"><i class="fas fa-chair"></i> Tables</a>
+        <div class="nav-section">Sales</div>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_pos"    class="nav-link"><i class="fas fa-cash-register"></i> POS System</a>
+        <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a>
+        <a href="<?= $baseUrl ?>/index.php?page=reports"       class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a>
         <?php endif; ?>
     </div>
-</div>
+</nav>
 
 <!-- MAIN -->
-<div class="main-content">
+<main class="main">
 
-    <div class="page-header">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <h1><i class="fas fa-chart-bar"></i> <?= $is_admin ? 'Reports' : 'My Reports' ?></h1>
-            <?php if (!$is_admin && $tab === 'myshift'): ?>
-            <div class="stat-card" style="padding: 0.7rem 1.2rem; min-width: 200px; background: white; border-left: 4px solid var(--warning);">
-                <div style="display: flex; align-items: center; gap: 0.6rem;">
-                    <i class="fas fa-cash-register" style="color:var(--warning); font-size: 1rem;"></i>
-                    <div>
-                        <div class="s-label" style="font-size: 0.7rem; margin-bottom: 0;">Cash to Turn Over</div>
-                        <div class="s-value" style="font-size: 1.1rem; color: var(--dark); font-weight: 600;"><?= peso((float)($data['summary']['net_profit']??0)) ?></div>
-                    </div>
+    <div class="page-head">
+        <div>
+            <h1 class="page-title"><?= $is_admin ? 'Reports' : 'My Reports' ?></h1>
+            <div class="breadcrumb-bar">
+                <a href="<?= $baseUrl ?>/index.php?page=<?= $is_admin ? 'admin_dashboard' : 'manage_pos' ?>">Home</a>
+                <span class="breadcrumb-sep"><i class="fas fa-chevron-right" style="font-size:0.6rem;"></i></span>
+                <span>Reports</span>
+            </div>
+        </div>
+        <?php if (!$is_admin && $tab === 'myshift'): ?>
+        <div class="stat-card" style="padding:0.65rem 1.1rem;min-width:185px;border-left:3px solid var(--warning);">
+            <div style="display:flex;align-items:center;gap:0.55rem;">
+                <div class="s-icon" style="width:36px;height:36px;font-size:0.9rem;background:var(--warning-soft);color:var(--warning);border-color:rgba(244,185,66,0.2);">
+                    <i class="fas fa-cash-register"></i>
+                </div>
+                <div>
+                    <div class="s-label" style="margin-bottom:0;">Cash to Turn Over</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--dark);"><?= peso((float)($data['summary']['net_profit']??0)) ?></div>
                 </div>
             </div>
-            <?php endif; ?>
         </div>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="<?= $baseUrl ?>/index.php?page=<?= $is_admin ? 'admin_dashboard' : 'manage_pos' ?>">Home</a></li>
-                <li class="breadcrumb-item active">Reports</li>
-            </ol>
-        </nav>
+        <?php endif; ?>
     </div>
 
-    <!-- TABS -->
-    <div class="report-tabs">
+    <!-- TABS (horizontal scroll on mobile) -->
+    <div class="report-tabs-wrap">
         <?php foreach ($tab_meta as $key => [$icon, $label]): ?>
         <a href="<?= $baseUrl ?>/index.php?page=reports&tab=<?= $key ?>"
            class="report-tab
                <?= $tab===$key ? 'active' : '' ?>
-               <?= $key==='waste' ? 'waste-tab' : '' ?>
-               <?= $key==='closeout' ? 'closeout-tab' : '' ?>
+               <?= $key==='waste'      ? 'waste-tab'      : '' ?>
+               <?= $key==='closeout'   ? 'closeout-tab'   : '' ?>
                <?= $key==='adminshift' ? 'adminshift-tab' : '' ?>
                <?= (!$is_admin && !in_array($key,['waste','closeout','adminshift'])) ? 'cashier-tab' : '' ?>
            ">
@@ -464,7 +744,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     </div>
 
     <?php
-    // ── Shared helpers ────────────────────────────────────────────────────────
+    // ── Shared helpers ─────────────────────────────────────────────────────
 
     function render_comparison(array $cmp, string $prev_label): void {
         if (empty($cmp['current'])) return;
@@ -472,10 +752,10 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         $prev = $cmp['previous'];
         $chg  = $cmp['change'];
         $metrics = [
-            'gross_revenue'    => ['Gross Revenue', fn($v) => peso((float)$v)],
-            'net_revenue'      => ['Net Revenue',   fn($v) => peso((float)$v)],
-            'gross_profit'     => ['Gross Profit',  fn($v) => peso((float)$v)],
-            'net_profit'       => ['Net Profit',    fn($v) => peso((float)$v)],
+            'gross_revenue' => ['Gross Revenue', fn($v) => peso((float)$v)],
+            'net_revenue'   => ['Net Revenue',   fn($v) => peso((float)$v)],
+            'gross_profit'  => ['Gross Profit',  fn($v) => peso((float)$v)],
+            'net_profit'    => ['Net Profit',    fn($v) => peso((float)$v)],
         ];
         echo '<div class="comparison-grid fade-in">';
         foreach ($metrics as $key => [$label, $fmt]) {
@@ -508,72 +788,53 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             if ($show_category) echo '<td><span class="rpt-badge badge-primary">' . htmlspecialchars($row['category_name']) . '</span></td>';
             echo '<td>' . number_format($row['units_sold']) . '</td>';
             echo '<td>' . peso((float)$row['total_revenue']) . '</td>';
-            if ($show_profit) echo '<td style="color:var(--success);font-weight:600;">' . peso((float)$row['gross_profit']) . '</td>';
+            if ($show_profit)   echo '<td style="color:var(--success);font-weight:600;">' . peso((float)$row['gross_profit']) . '</td>';
             if ($show_excl_vat) echo '<td style="color:var(--warm-gray);font-size:.85rem;">' . peso((float)($row['revenue_excl_vat'] ?? 0)) . '</td>';
             echo '</tr>';
         }
         echo '</tbody></table></div>';
     }
 
-    function render_gross_profit_card(array $s): void {
-        $net_revenue = (float)($s['net_revenue'] ?? 0);
-        $gross_profit = (float)($s['gross_profit'] ?? 0);
-        $cls = $gross_profit >= 0 ? 'positive' : 'negative';
+    function render_waste_card(array $s): void {
+        $waste = (float)($s['total_waste_cost'] ?? 0);
         echo '
-        <div class="stat-card c-grossprofit">
-            <div class="s-icon" style="color:var(--primary);"><i class="fas fa-chart-bar"></i></div>
-            <div class="s-label">Gross Profit</div>
-            <div class="s-value ' . $cls . '">' . peso($gross_profit) . '</div>
-            <div class="profit-breakdown">
-                Net Revenue: <span class="pos">' . peso($net_revenue) . '</span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg">' . peso($s['cogs'] ?? 0) . '</span>
+        <div class="stat-card c-danger">
+            <div class="s-icon" style="background:rgba(214,64,69,0.08);color:var(--danger);border-color:rgba(214,64,69,0.15);"><i class="fas fa-trash-alt"></i></div>
+            <div>
+                <div class="s-label">Total Waste Cost</div>
+                <div class="s-value" style="color:var(--danger);">' . peso($waste) . '</div>
+                <div class="s-sub">From voided items only</div>
             </div>
         </div>';
     }
 
     function render_net_profit_card(array $s): void {
         $gross_profit = (float)($s['gross_profit'] ?? 0);
-        $waste_cost = (float)($s['total_waste_cost'] ?? 0);
-        $net_profit = (float)($s['net_profit'] ?? ($gross_profit - $waste_cost));
+        $waste_cost   = (float)($s['total_waste_cost'] ?? 0);
+        $net_profit   = (float)($s['net_profit'] ?? ($gross_profit - $waste_cost));
         $cls = $net_profit >= 0 ? 'positive' : 'negative';
         echo '
         <div class="stat-card c-netprofit">
-            <div class="s-icon" style="color:var(--success);"><i class="fas fa-chart-line"></i></div>
-            <div class="s-label">Net Profit</div>
-            <div class="s-value ' . $cls . '">' . peso($net_profit) . '</div>
-            <div class="profit-breakdown">
-                Gross Profit: <span class="pos">' . peso($gross_profit) . '</span>
-                &nbsp;&minus;&nbsp; Waste: <span class="neg">' . peso($waste_cost) . '</span>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-chart-line"></i></div>
+            <div>
+                <div class="s-label">Net Profit</div>
+                <div class="s-value ' . $cls . '">' . peso($net_profit) . '</div>
+                <div class="profit-breakdown">
+                    Gross: <span class="pos">' . peso($gross_profit) . '</span>
+                    &minus; Waste: <span class="neg">' . peso($waste_cost) . '</span>
+                </div>
             </div>
         </div>';
     }
 
-    function render_waste_card(array $s): void {
-        $waste = (float)($s['total_waste_cost'] ?? 0);
-        echo '
-        <div class="stat-card c-danger">
-            <div class="s-icon" style="color:var(--danger);"><i class="fas fa-trash-alt"></i></div>
-            <div class="s-label">Total Waste Cost</div>
-            <div class="s-value" style="color:var(--danger);">' . peso($waste) . '</div>
-            <div class="s-sub">From voided items only</div>
-        </div>';
-    }
-
-    // ── Shared close-out render function (used by both closeout and adminshift tabs) ──
+    // ── Shared close-out render ────────────────────────────────────────────
     function render_closeout_tab(array $co, array $co_items, array $co_hours, string $filter_date, string $thermal_payload_var, bool $is_admin_shift = false): void {
         $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
-        $label_suffix = $is_admin_shift ? 'Admin ' : '';
     ?>
-
-        <!-- Hero -->
         <div class="co-hero">
             <div class="co-hero-left">
-                <div class="co-hero-label">
-                    <i class="fas fa-hand-holding-usd"></i> Cash to Turn Over
-                </div>
-                <div class="co-hero-amount">
-                    ₱<?= number_format((float)($co['cash_to_turn_over'] ?? 0), 2) ?>
-                </div>
+                <div class="co-hero-label"><i class="fas fa-hand-holding-usd"></i> Cash to Turn Over</div>
+                <div class="co-hero-amount">₱<?= number_format((float)($co['cash_to_turn_over'] ?? 0), 2) ?></div>
                 <div class="co-hero-sub">
                     <?= date('F d, Y', strtotime($filter_date)) ?> &nbsp;·&nbsp;
                     <?= htmlspecialchars($co['cashier_name'] ?? '—') ?>
@@ -589,7 +850,6 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             </div>
         </div>
 
-        <!-- Waste strip -->
         <?php if ((float)($co['total_waste_cost'] ?? 0) > 0): ?>
         <div class="co-waste-strip">
             <div class="ws-label"><i class="fas fa-trash-alt"></i> Waste Written Off This Shift</div>
@@ -597,141 +857,74 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         </div>
         <?php endif; ?>
 
-        <!-- Row 1: Info + Orders -->
         <div class="co-cols">
             <div class="co-section">
                 <div class="co-section-head"><i class="fas fa-user-circle"></i> <?= $is_admin_shift ? 'Admin' : 'Cashier' ?> Info</div>
                 <div class="co-section-body">
-                    <div class="co-row">
-                        <span class="cr-label"><?= $is_admin_shift ? 'Admin' : 'Cashier' ?></span>
-                        <span class="cr-value"><?= htmlspecialchars($co['cashier_name'] ?? '—') ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label">Username</span>
-                        <span class="cr-value muted"><?= htmlspecialchars($co['username'] ?? '—') ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label">Shift Date</span>
-                        <span class="cr-value"><?= date('F d, Y', strtotime($filter_date)) ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label">Report Printed</span>
-                        <span class="cr-value muted"><?= $now->format('h:i A') ?> (PHT)</span>
-                    </div>
+                    <div class="co-row"><span class="cr-label"><?= $is_admin_shift ? 'Admin' : 'Cashier' ?></span><span class="cr-value"><?= htmlspecialchars($co['cashier_name'] ?? '—') ?></span></div>
+                    <div class="co-row"><span class="cr-label">Username</span><span class="cr-value muted"><?= htmlspecialchars($co['username'] ?? '—') ?></span></div>
+                    <div class="co-row"><span class="cr-label">Shift Date</span><span class="cr-value"><?= date('F d, Y', strtotime($filter_date)) ?></span></div>
+                    <div class="co-row"><span class="cr-label">Report Printed</span><span class="cr-value muted"><?= $now->format('h:i A') ?> (PHT)</span></div>
                 </div>
             </div>
             <div class="co-section">
                 <div class="co-section-head"><i class="fas fa-receipt"></i> Order Summary</div>
                 <div class="co-section-body">
-                    <div class="co-row">
-                        <span class="cr-label">Orders Handled</span>
-                        <span class="cr-value"><?= number_format((int)($co['total_orders'] ?? 0)) ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label">Cancelled Orders</span>
-                        <span class="cr-value <?= ($co['cancelled_orders'] ?? 0) > 0 ? 'neg' : '' ?>">
-                            <?= (int)($co['cancelled_orders'] ?? 0) ?>
-                        </span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label">Payment Transactions</span>
-                        <span class="cr-value"><?= (int)($co['payment_count'] ?? 0) ?></span>
-                    </div>
+                    <div class="co-row"><span class="cr-label">Orders Handled</span><span class="cr-value"><?= number_format((int)($co['total_orders'] ?? 0)) ?></span></div>
+                    <div class="co-row"><span class="cr-label">Cancelled Orders</span><span class="cr-value <?= ($co['cancelled_orders'] ?? 0) > 0 ? 'neg' : '' ?>"><?= (int)($co['cancelled_orders'] ?? 0) ?></span></div>
+                    <div class="co-row"><span class="cr-label">Payment Transactions</span><span class="cr-value"><?= (int)($co['payment_count'] ?? 0) ?></span></div>
                     <?php if (($co['admin_processed_count'] ?? 0) > 0): ?>
-                    <div class="co-row">
-                        <span class="cr-label" style="color:var(--primary-light);">Admin-Processed</span>
-                        <span class="cr-value" style="color:var(--primary-light);">
-                            <i class="fas fa-shield-alt" style="font-size:.7rem;"></i>
-                            <?= (int)$co['admin_processed_count'] ?>
-                        </span>
-                    </div>
+                    <div class="co-row"><span class="cr-label" style="color:var(--primary-light);">Admin-Processed</span><span class="cr-value" style="color:var(--primary-light);"><i class="fas fa-shield-alt" style="font-size:.68rem;"></i> <?= (int)$co['admin_processed_count'] ?></span></div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <!-- Row 2: Sales + Cash -->
         <div class="co-cols">
             <div class="co-section">
                 <div class="co-section-head"><i class="fas fa-chart-bar"></i> Sales Breakdown</div>
                 <div class="co-section-body">
-                    <div class="co-row">
-                        <span class="cr-label">Gross Sales</span>
-                        <span class="cr-value">₱<?= number_format((float)($co['gross_sales'] ?? 0), 2) ?></span>
-                    </div>
+                    <div class="co-row"><span class="cr-label">Gross Sales</span><span class="cr-value">₱<?= number_format((float)($co['gross_sales'] ?? 0), 2) ?></span></div>
                     <?php if ((float)($co['total_discounts'] ?? 0) > 0): ?>
-                    <div class="co-row">
-                        <span class="cr-label">Discounts Given</span>
-                        <span class="cr-value neg">−₱<?= number_format((float)$co['total_discounts'], 2) ?></span>
-                    </div>
+                    <div class="co-row"><span class="cr-label">Discounts Given</span><span class="cr-value neg">−₱<?= number_format((float)$co['total_discounts'], 2) ?></span></div>
                     <?php endif; ?>
-                    <div class="co-row">
-                        <span class="cr-label">Net Sales <small style="font-size:.72rem;">(VAT-incl.)</small></span>
-                        <span class="cr-value">₱<?= number_format((float)($co['net_sales'] ?? 0), 2) ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label" style="padding-left:.8rem;font-size:.82rem;">Excl. VAT</span>
-                        <span class="cr-value muted">₱<?= number_format((float)($co['net_sales_excl_vat'] ?? 0), 2) ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label" style="padding-left:.8rem;font-size:.82rem;">VAT (12%)</span>
-                        <span class="cr-value muted">₱<?= number_format((float)($co['vat_collected'] ?? 0), 2) ?></span>
-                    </div>
+                    <div class="co-row"><span class="cr-label">Net Sales <small style="font-size:.7rem;">(VAT-incl.)</small></span><span class="cr-value">₱<?= number_format((float)($co['net_sales'] ?? 0), 2) ?></span></div>
+                    <div class="co-row"><span class="cr-label" style="padding-left:.7rem;font-size:.8rem;">Excl. VAT</span><span class="cr-value muted">₱<?= number_format((float)($co['net_sales_excl_vat'] ?? 0), 2) ?></span></div>
+                    <div class="co-row"><span class="cr-label" style="padding-left:.7rem;font-size:.8rem;">VAT (12%)</span><span class="cr-value muted">₱<?= number_format((float)($co['vat_collected'] ?? 0), 2) ?></span></div>
                     <?php if ((float)($co['total_refunds'] ?? 0) > 0): ?>
-                    <div class="co-row">
-                        <span class="cr-label">Refunds Processed</span>
-                        <span class="cr-value neg">−₱<?= number_format((float)$co['total_refunds'], 2) ?></span>
-                    </div>
+                    <div class="co-row"><span class="cr-label">Refunds Processed</span><span class="cr-value neg">−₱<?= number_format((float)$co['total_refunds'], 2) ?></span></div>
                     <?php endif; ?>
                 </div>
             </div>
             <div class="co-section">
                 <div class="co-section-head"><i class="fas fa-coins"></i> Cash Reconciliation</div>
                 <div class="co-section-body">
-                    <div class="co-row">
-                        <span class="cr-label">Cash Received</span>
-                        <span class="cr-value">₱<?= number_format((float)($co['cash_received'] ?? 0), 2) ?></span>
-                    </div>
-                    <div class="co-row">
-                        <span class="cr-label">Change Given</span>
-                        <span class="cr-value neg">−₱<?= number_format((float)($co['change_given'] ?? 0), 2) ?></span>
-                    </div>
-                    <div style="margin-top:.8rem;padding:1rem;background:var(--light-bg);border-radius:14px;border-left:4px solid var(--primary);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
-                        <span style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--primary-dark);">
-                            <i class="fas fa-hand-holding-usd me-1"></i> Turn Over
-                        </span>
-                        <span style="font-size:1.4rem;font-weight:800;color:var(--primary-dark);">
-                            ₱<?= number_format((float)($co['cash_to_turn_over'] ?? 0), 2) ?>
-                        </span>
+                    <div class="co-row"><span class="cr-label">Cash Received</span><span class="cr-value">₱<?= number_format((float)($co['cash_received'] ?? 0), 2) ?></span></div>
+                    <div class="co-row"><span class="cr-label">Change Given</span><span class="cr-value neg">−₱<?= number_format((float)($co['change_given'] ?? 0), 2) ?></span></div>
+                    <div style="margin-top:.75rem;padding:.9rem;background:var(--light-bg);border-radius:var(--radius-md);border-left:3px solid var(--primary);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.4rem;">
+                        <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--primary-dark);"><i class="fas fa-hand-holding-usd me-1"></i> Turn Over</span>
+                        <span style="font-size:1.35rem;font-weight:800;color:var(--primary-dark);">₱<?= number_format((float)($co['cash_to_turn_over'] ?? 0), 2) ?></span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Row 3: Top items + Peak hours -->
         <?php if (!empty($co_items) || !empty($co_hours)): ?>
         <div class="co-cols">
             <div class="co-section">
                 <div class="co-section-head"><i class="fas fa-star"></i> Top Items This Shift</div>
                 <?php if (!empty($co_items)): ?>
-                <div class="co-section-body" style="padding-top:.6rem;">
-                    <table class="co-items-table">
-                        <tbody>
-                        <?php foreach ($co_items as $i => $item): ?>
-                        <tr>
-                            <td class="rank"><?= $i + 1 ?></td>
-                            <td class="iname">
-                                <?= htmlspecialchars($item['item_name']) ?>
-                                <?php if (!empty($item['variant_name'])): ?>
-                                    <small><?= htmlspecialchars($item['variant_name']) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td class="iqty">×<?= number_format((int)$item['units_sold']) ?></td>
-                            <td class="irev">₱<?= number_format((float)$item['total_revenue'], 2) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <div class="co-section-body" style="padding-top:.5rem;">
+                    <table class="co-items-table"><tbody>
+                    <?php foreach ($co_items as $i => $item): ?>
+                    <tr>
+                        <td class="rank"><?= $i + 1 ?></td>
+                        <td class="iname"><?= htmlspecialchars($item['item_name']) ?><?php if (!empty($item['variant_name'])): ?><small><?= htmlspecialchars($item['variant_name']) ?></small><?php endif; ?></td>
+                        <td class="iqty">×<?= number_format((int)$item['units_sold']) ?></td>
+                        <td class="irev">₱<?= number_format((float)$item['total_revenue'], 2) ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody></table>
                 </div>
                 <?php else: ?>
                 <div class="co-section-body"><div class="no-data" style="padding:1.5rem 0;"><i class="fas fa-inbox"></i> No items sold.</div></div>
@@ -742,29 +935,25 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 <?php if (!empty($co_hours)):
                     $max_orders = max(array_column($co_hours, 'total_orders'));
                     $peak_hour  = null;
-                    foreach ($co_hours as $h) {
-                        if ((int)$h['total_orders'] === (int)$max_orders) { $peak_hour = (int)$h['hour_of_day']; break; }
-                    }
+                    foreach ($co_hours as $h) { if ((int)$h['total_orders'] === (int)$max_orders) { $peak_hour = (int)$h['hour_of_day']; break; } }
                 ?>
                 <div class="co-section-body">
                     <div class="co-peak-bars">
                     <?php foreach ($co_hours as $h):
-                        $pct     = $max_orders > 0 ? round($h['total_orders'] / $max_orders * 100) : 0;
-                        $hr      = (int)$h['hour_of_day'];
-                        $lbl     = ($hr % 12 ?: 12) . ($hr >= 12 ? 'p' : 'a');
+                        $pct = $max_orders > 0 ? round($h['total_orders'] / $max_orders * 100) : 0;
+                        $hr  = (int)$h['hour_of_day'];
+                        $lbl = ($hr % 12 ?: 12) . ($hr >= 12 ? 'p' : 'a');
                         $is_peak = ($hr === $peak_hour);
                     ?>
                         <div class="co-peak-bar-wrap">
                             <span class="co-peak-count"><?= $h['total_orders'] ?></span>
-                            <div class="co-peak-bar <?= $is_peak ? 'peak' : '' ?>"
-                                 style="height:<?= max(3, (int)($pct * 0.72)) ?>px;"
-                                 title="<?= $lbl ?>: <?= $h['total_orders'] ?> orders"></div>
+                            <div class="co-peak-bar <?= $is_peak ? 'peak' : '' ?>" style="height:<?= max(3, (int)($pct * 0.70)) ?>px;" title="<?= $lbl ?>: <?= $h['total_orders'] ?> orders"></div>
                             <span class="co-peak-lbl"><?= $lbl ?></span>
                         </div>
                     <?php endforeach; ?>
                     </div>
                     <?php if ($peak_hour !== null): ?>
-                    <div style="margin-top:.7rem;font-size:.78rem;color:var(--warm-gray);">
+                    <div style="margin-top:.6rem;font-size:.75rem;color:var(--warm-gray);">
                         <i class="fas fa-fire" style="color:var(--secondary);"></i>
                         Peak: <?= ($peak_hour % 12 ?: 12) . ($peak_hour >= 12 ? ' PM' : ' AM') ?>
                         &nbsp;·&nbsp; <?= $max_orders ?> orders
@@ -778,36 +967,27 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         </div>
         <?php endif; ?>
 
-        <!-- Signature -->
-        <div class="co-section" style="margin-bottom:1.8rem;">
+        <div class="co-section" style="margin-bottom:1.5rem;">
             <div class="co-section-head"><i class="fas fa-pen"></i> Acknowledgment</div>
             <div class="co-section-body">
                 <div class="co-sig-row">
-                    <div class="co-sig-block">
-                        <div class="sig-line"></div>
-                        <div class="sig-lbl"><?= $is_admin_shift ? 'Admin' : 'Cashier' ?> Signature &nbsp;·&nbsp; <?= htmlspecialchars($co['cashier_name'] ?? '') ?></div>
-                    </div>
-                    <div class="co-sig-block">
-                        <div class="sig-line"></div>
-                        <div class="sig-lbl">Received By (<?= $is_admin_shift ? 'Owner / Supervisor' : 'Admin / Supervisor' ?>)</div>
-                    </div>
+                    <div class="co-sig-block"><div class="sig-line"></div><div class="sig-lbl"><?= $is_admin_shift ? 'Admin' : 'Cashier' ?> Signature &nbsp;·&nbsp; <?= htmlspecialchars($co['cashier_name'] ?? '') ?></div></div>
+                    <div class="co-sig-block"><div class="sig-line"></div><div class="sig-lbl">Received By (<?= $is_admin_shift ? 'Owner / Supervisor' : 'Admin / Supervisor' ?>)</div></div>
                 </div>
-                <div style="margin-top:1rem;font-size:.78rem;color:var(--warm-gray);text-align:center;">
+                <div style="margin-top:1rem;font-size:.75rem;color:var(--warm-gray);text-align:center;">
                     Dine with Din Cafeteria &copy; <?= date('Y') ?> &nbsp;·&nbsp; Generated <?= $now->format('h:i A') ?> (PHT)
                 </div>
             </div>
         </div>
-
     <?php
-    } // end render_closeout_tab()
+    }
 
-    // ── Build thermal payload helper ──────────────────────────────────────────
     function build_thermal_payload(array $co, array $co_items, string $filter_date): string {
         $tz  = new DateTimeZone('Asia/Manila');
         $now = new DateTime('now', $tz);
         return json_encode([
-            'cashier_name'      => $co['cashier_name']      ?? '—',
-            'username'          => $co['username']           ?? '—',
+            'cashier_name'      => $co['cashier_name']           ?? '—',
+            'username'          => $co['username']               ?? '—',
             'shift_date'        => date('F d, Y', strtotime($filter_date)),
             'printed_at'        => $now->format('h:i A') . ' (PHT)',
             'total_orders'      => (int)($co['total_orders']         ?? 0),
@@ -855,33 +1035,27 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="stats-grid fade-in">
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
-            <div class="s-label">Gross Revenue</div>
-            <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
-            <div class="s-sub">Sum of all PAID orders</div>
+            <div><div class="s-label">Gross Revenue</div><div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div><div class="s-sub">Sum of all PAID orders</div></div>
         </div>
         <div class="stat-card">
-            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
-            <div class="s-label">Gross Profit</div>
-            <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
-            <div class="profit-breakdown">
-                Gross Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-chart-bar"></i></div>
+            <div>
+                <div class="s-label">Gross Profit</div>
+                <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
+                <div class="profit-breakdown">Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-teal">
-            <div class="s-icon"><i class="fas fa-coins"></i></div>
-            <div class="s-label">Net Revenue</div>
-            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
-            <div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            <div class="s-icon" style="background:var(--info-soft);color:var(--info);border-color:rgba(94,155,158,0.2);"><i class="fas fa-coins"></i></div>
+            <div>
+                <div class="s-label">Net Revenue</div>
+                <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+                <div class="profit-breakdown">Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-green">
-            <div class="s-icon"><i class="fas fa-boxes"></i></div>
-            <div class="s-label">COGS</div>
-            <div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div>
-            <div class="s-sub">Cost of items sold</div>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-boxes"></i></div>
+            <div><div class="s-label">COGS</div><div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div><div class="s-sub">Cost of items sold</div></div>
         </div>
         <?php render_waste_card($s); ?>
         <?php render_net_profit_card($s); ?>
@@ -891,20 +1065,15 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="col-lg-6">
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-star"></i> Top Items Today</div></div>
-                <div class="rpt-card-body p-0">
-                    <?php render_top_items_table($data['top_items'] ?? [], false, false, true); ?>
-                </div>
+                <div class="rpt-card-body p-0"><?php render_top_items_table($data['top_items'] ?? [], false, false, true); ?></div>
             </div>
         </div>
         <div class="col-lg-6">
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-clock"></i> Orders by Hour</div></div>
                 <div class="rpt-card-body">
-                    <?php if(empty($data['peak_hours'])): ?>
-                        <div class="no-data"><i class="fas fa-inbox"></i> No data.</div>
-                    <?php else: ?>
-                        <canvas id="myshiftPeak" style="max-height:240px;"></canvas>
-                    <?php endif; ?>
+                    <?php if(empty($data['peak_hours'])): ?><div class="no-data"><i class="fas fa-inbox"></i> No data.</div>
+                    <?php else: ?><canvas id="myshiftPeak" style="max-height:230px;"></canvas><?php endif; ?>
                 </div>
             </div>
         </div>
@@ -927,24 +1096,17 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         $co_hours = $co['peak_hours'] ?? [];
         $co_thermal_payload = build_thermal_payload($co, $co_items, $filter_date);
     ?>
-
     <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="closeout">
         <label>Date</label>
-        <input type="date" name="date" class="form-control filter-input-date"
-               value="<?= $filter_date ?>" max="<?= $today ?>">
+        <input type="date" name="date" class="form-control filter-input-date" value="<?= $filter_date ?>" max="<?= $today ?>">
         <div class="filter-actions">
             <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Load</button>
-            <button type="button" class="btn-co-print" onclick="printCoA4()">
-                <i class="fas fa-print"></i> Print A4
-            </button>
-            <button type="button" class="btn-co-print thermal" onclick="printCoThermal()">
-                <i class="fas fa-receipt"></i> Thermal Print
-            </button>
+            <button type="button" class="btn-co-print" onclick="printCoA4()"><i class="fas fa-print"></i> Print A4</button>
+            <button type="button" class="btn-co-print thermal" onclick="printCoThermal()"><i class="fas fa-receipt"></i> Thermal</button>
         </div>
     </form>
-
     <div class="co-wrap fade-in" id="co-content">
         <?php render_closeout_tab($co, $co_items, $co_hours, $filter_date, 'co_thermal_payload', false); ?>
     </div>
@@ -959,24 +1121,17 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         $co_hours = $co['peak_hours'] ?? [];
         $co_thermal_payload = build_thermal_payload($co, $co_items, $filter_date);
     ?>
-
     <form method="GET" action="<?= $baseUrl ?>/index.php" class="filter-bar">
         <input type="hidden" name="page" value="reports">
         <input type="hidden" name="tab"  value="adminshift">
         <label>Date</label>
-        <input type="date" name="date" class="form-control filter-input-date"
-               value="<?= $filter_date ?>" max="<?= $today ?>">
+        <input type="date" name="date" class="form-control filter-input-date" value="<?= $filter_date ?>" max="<?= $today ?>">
         <div class="filter-actions">
             <button type="submit" class="btn-apply"><i class="fas fa-search me-1"></i> Load</button>
-            <button type="button" class="btn-co-print" onclick="printCoA4()">
-                <i class="fas fa-print"></i> Print A4
-            </button>
-            <button type="button" class="btn-co-print thermal" onclick="printCoThermal()">
-                <i class="fas fa-receipt"></i> Thermal Print
-            </button>
+            <button type="button" class="btn-co-print" onclick="printCoA4()"><i class="fas fa-print"></i> Print A4</button>
+            <button type="button" class="btn-co-print thermal" onclick="printCoThermal()"><i class="fas fa-receipt"></i> Thermal</button>
         </div>
     </form>
-
     <?php if (empty($co) || (int)($co['total_orders'] ?? 0) === 0): ?>
     <div class="no-data" style="padding:4rem 1rem;">
         <i class="fas fa-user-shield"></i>
@@ -995,7 +1150,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     elseif ($tab === 'inventory'):
     ?>
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <span style="font-size:.9rem;color:var(--warm-gray);">Items at or below their alert threshold.</span>
+        <span style="font-size:.88rem;color:var(--warm-gray);">Items at or below their alert threshold.</span>
         <button class="btn-print" onclick="printA4('inventory-content', 'Stock Alert Report')"><i class="fas fa-print"></i> Print</button>
     </div>
     <div id="inventory-content">
@@ -1006,7 +1161,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         </div>
         <div class="rpt-card-body p-0">
         <?php if(empty($data['low_stock'])): ?>
-            <div class="no-data"><i class="fas fa-check-circle"></i> All ingredients are sufficiently stocked.</div>
+            <div class="no-data"><i class="fas fa-check-circle" style="opacity:.3;color:var(--success);"></i> All ingredients are sufficiently stocked.</div>
         <?php else: ?>
             <div style="overflow-x:auto;"><table class="rpt-table">
                 <thead><tr><th>Ingredient</th><th>Current Stock</th><th>Alert Level</th><th>Unit</th><th>Status</th><th>Last Updated</th></tr></thead>
@@ -1017,10 +1172,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 ?>
                 <tr>
                     <td><strong><?= htmlspecialchars($row['ingredient_name']) ?></strong></td>
-                    <td>
-                        <?= number_format((float)$row['stock_quantity'],2) ?>
-                        <div class="mini-bar"><div class="mini-bar-fill" style="width:<?=$pct?>%;background:<?=$bclr?>;"></div></div>
-                    </td>
+                    <td><?= number_format((float)$row['stock_quantity'],2) ?><div class="mini-bar"><div class="mini-bar-fill" style="width:<?=$pct?>%;background:<?=$bclr?>;"></div></div></td>
                     <td><?= number_format((float)$row['low_stock_alert'],2) ?></td>
                     <td><?= htmlspecialchars($row['unit'] ?? '—') ?></td>
                     <td><span class="rpt-badge <?=$row['stock_status']==='OUT OF STOCK'?'badge-danger':($row['stock_status']==='LOW'?'badge-warning':'badge-success')?>"><?=$row['stock_status']?></span></td>
@@ -1055,33 +1207,27 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="stats-grid fade-in">
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
-            <div class="s-label">Gross Revenue</div>
-            <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
-            <div class="s-sub">Sum of all PAID orders</div>
+            <div><div class="s-label">Gross Revenue</div><div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div><div class="s-sub">Sum of all PAID orders</div></div>
         </div>
         <div class="stat-card">
-            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
-            <div class="s-label">Gross Profit</div>
-            <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
-            <div class="profit-breakdown">
-                Gross Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-chart-bar"></i></div>
+            <div>
+                <div class="s-label">Gross Profit</div>
+                <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
+                <div class="profit-breakdown">Revenue: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-teal">
-            <div class="s-icon"><i class="fas fa-coins"></i></div>
-            <div class="s-label">Net Revenue</div>
-            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
-            <div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            <div class="s-icon" style="background:var(--info-soft);color:var(--info);border-color:rgba(94,155,158,0.2);"><i class="fas fa-coins"></i></div>
+            <div>
+                <div class="s-label">Net Revenue</div>
+                <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+                <div class="profit-breakdown">Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-green">
-            <div class="s-icon"><i class="fas fa-boxes"></i></div>
-            <div class="s-label">COGS</div>
-            <div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div>
-            <div class="s-sub">Cost of items sold</div>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-boxes"></i></div>
+            <div><div class="s-label">COGS</div><div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div><div class="s-sub">Cost of items sold</div></div>
         </div>
         <?php render_waste_card($s); ?>
         <?php render_net_profit_card($s); ?>
@@ -1093,20 +1239,15 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
         <div class="col-lg-6">
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-star"></i> Top Items</div></div>
-                <div class="rpt-card-body p-0">
-                    <?php render_top_items_table($data['top_items'] ?? [], true, true); ?>
-                </div>
+                <div class="rpt-card-body p-0"><?php render_top_items_table($data['top_items'] ?? [], true, true); ?></div>
             </div>
         </div>
         <div class="col-lg-6">
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-clock"></i> Orders by Hour</div></div>
                 <div class="rpt-card-body">
-                    <?php if(empty($data['peak_hours'])): ?>
-                        <div class="no-data"><i class="fas fa-inbox"></i> No data.</div>
-                    <?php else: ?>
-                        <canvas id="dailyPeak" style="max-height:240px;"></canvas>
-                    <?php endif; ?>
+                    <?php if(empty($data['peak_hours'])): ?><div class="no-data"><i class="fas fa-inbox"></i> No data.</div>
+                    <?php else: ?><canvas id="dailyPeak" style="max-height:230px;"></canvas><?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1114,24 +1255,14 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-chart-pie"></i> Order Types</div></div>
                 <div class="rpt-card-body p-0">
-                <?php if(empty($data['order_types'])): ?>
-                    <div class="no-data p-4"><i class="fas fa-inbox"></i> No data.</div>
-                <?php else: ?>
-                    <div style="overflow-x:auto;"><table class="rpt-table">
-                        <thead><tr><th>Type</th><th>Source</th><th>Orders</th><th>Revenue</th><th>Excl. VAT</th></tr></thead>
-                        <tbody>
-                        <?php foreach($data['order_types'] as $row): ?>
-                        <tr>
-                            <td><?=ucfirst(str_replace('_',' ',$row['order_type']))?></td>
-                            <td><?=ucfirst(str_replace('_',' ',$row['order_source']))?></td>
-                            <td><?=number_format($row['total_orders'])?></td>
-                            <td><?=peso((float)$row['revenue'])?></td>
-                            <td style="color:var(--warm-gray);font-size:.85rem;"><?=peso((float)($row['revenue_excl_vat']??0))?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table></div>
-                <?php endif; ?>
+                <?php if(empty($data['order_types'])): ?><div class="no-data p-4"><i class="fas fa-inbox"></i> No data.</div>
+                <?php else: ?><div style="overflow-x:auto;"><table class="rpt-table">
+                    <thead><tr><th>Type</th><th>Source</th><th>Orders</th><th>Revenue</th><th>Excl. VAT</th></tr></thead>
+                    <tbody>
+                    <?php foreach($data['order_types'] as $row): ?>
+                    <tr><td style="word-break:keep-all;"><?=ucfirst(str_replace('_',' ',$row['order_type']))?></td><td style="word-break:keep-all;"><?=ucfirst(str_replace('_',' ',$row['order_source']))?></td><td class="text-center"><?=number_format($row['total_orders'])?></td><td class="text-end"><?=peso((float)$row['revenue'])?></td><td class="text-end text-muted"><?=peso((float)($row['revenue_excl_vat']??0))?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div><?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1139,26 +1270,22 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-user-tie"></i> Cashier Breakdown</div></div>
                 <div class="rpt-card-body p-0">
-                <?php if(empty($data['cashiers'])): ?>
-                    <div class="no-data p-4"><i class="fas fa-inbox"></i> No data.</div>
-                <?php else: ?>
-                    <div style="overflow-x:auto;"><table class="rpt-table">
-                        <thead><tr><th>Cashier</th><th>Orders</th><th>Sales</th><th>Discounts</th><th>Waste</th><th>Cancelled</th><th>Admin Proc.</th></tr></thead>
-                        <tbody>
-                        <?php foreach($data['cashiers'] as $row): ?>
-                        <tr>
-                            <td><strong><?=htmlspecialchars($row['cashier'])?></strong></td>
-                            <td><?=$row['orders_handled']?></td>
-                            <td><?=peso((float)$row['total_sales'])?></td>
-                            <td><?=peso((float)$row['discounts_given'])?></td>
-                            <td class="waste-cost-cell"><?= ($row['total_waste_cost']??0)>0 ? peso((float)$row['total_waste_cost']) : '<span style="color:var(--warm-gray);">—</span>' ?></td>
-                            <td><?=$row['cancelled_orders']>0?'<span class="rpt-badge badge-danger">'.$row['cancelled_orders'].'</span>':'<span class="rpt-badge badge-success">0</span>'?></td>
-                            <td><?= $row['admin_processed_count']>0 ? '<span class="admin-proc-badge"><i class="fas fa-shield-alt"></i> '.$row['admin_processed_count'].'</span>' : '—' ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table></div>
-                <?php endif; ?>
+                <?php if(empty($data['cashiers'])): ?><div class="no-data p-4"><i class="fas fa-inbox"></i> No data.</div>
+                <?php else: ?><div style="overflow-x:auto;"><table class="rpt-table">
+                    <thead><tr><th>Cashier</th><th>Orders</th><th>Sales</th><th>Discounts</th><th>Waste</th><th>Cancelled</th><th>Admin Proc.</th></tr></thead>
+                    <tbody>
+                    <?php foreach($data['cashiers'] as $row): ?>
+                    <tr>
+                        <td><strong><?=htmlspecialchars($row['cashier'])?></strong></td>
+                        <td><?=$row['orders_handled']?></td>
+                        <td><?=peso((float)$row['total_sales'])?></td>
+                        <td><?=peso((float)$row['discounts_given'])?></td>
+                        <td class="waste-cost-cell"><?= ($row['total_waste_cost']??0)>0 ? peso((float)$row['total_waste_cost']) : '<span style="color:var(--warm-gray);">—</span>' ?></td>
+                        <td><?=$row['cancelled_orders']>0?'<span class="rpt-badge badge-danger">'.$row['cancelled_orders'].'</span>':'<span class="rpt-badge badge-success">0</span>'?></td>
+                        <td><?= $row['admin_processed_count']>0 ? '<span class="admin-proc-badge"><i class="fas fa-shield-alt"></i> '.$row['admin_processed_count'].'</span>' : '—' ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div><?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1196,33 +1323,27 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="stats-grid fade-in">
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
-            <div class="s-label">Gross Revenue</div>
-            <div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div>
-            <div class="s-sub">Sum of all PAID orders</div>
+            <div><div class="s-label">Gross Revenue</div><div class="s-value"><?= peso((float)($s['gross_revenue']??0)) ?></div><div class="s-sub">Sum of all PAID orders</div></div>
         </div>
         <div class="stat-card">
-            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
-            <div class="s-label">Gross Profit</div>
-            <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
-            <div class="profit-breakdown">
-                Net Revenue: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-chart-bar"></i></div>
+            <div>
+                <div class="s-label">Gross Profit</div>
+                <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
+                <div class="profit-breakdown">Net Rev: <span class="pos"><?= peso((float)($s['net_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-teal">
-            <div class="s-icon"><i class="fas fa-coins"></i></div>
-            <div class="s-label">Net Revenue</div>
-            <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
-            <div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
+            <div class="s-icon" style="background:var(--info-soft);color:var(--info);border-color:rgba(94,155,158,0.2);"><i class="fas fa-coins"></i></div>
+            <div>
+                <div class="s-label">Net Revenue</div>
+                <div class="s-value"><?= peso((float)($s['net_revenue']??0)) ?></div>
+                <div class="profit-breakdown">Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-green">
-            <div class="s-icon"><i class="fas fa-boxes"></i></div>
-            <div class="s-label">COGS</div>
-            <div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div>
-            <div class="s-sub">Cost of items sold</div>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-boxes"></i></div>
+            <div><div class="s-label">COGS</div><div class="s-value"><?= peso((float)($s['cogs']??0)) ?></div><div class="s-sub">Cost of items sold</div></div>
         </div>
         <?php render_waste_card($s); ?>
         <?php render_net_profit_card($s); ?>
@@ -1238,11 +1359,11 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="row g-4">
         <div class="col-lg-8">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-chart-line"></i> Daily Revenue Trend</div></div>
-            <div class="rpt-card-body"><canvas id="monthlyTrend" style="max-height:260px;"></canvas></div></div>
+            <div class="rpt-card-body"><canvas id="monthlyTrend" style="max-height:250px;"></canvas></div></div>
         </div>
         <div class="col-lg-4">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-chart-pie"></i> By Category</div></div>
-            <div class="rpt-card-body"><canvas id="monthlyCat" style="max-height:260px;"></canvas></div></div>
+            <div class="rpt-card-body"><canvas id="monthlyCat" style="max-height:250px;"></canvas></div></div>
         </div>
         <div class="col-12">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-table"></i> Day-by-Day Sales</div></div>
@@ -1268,20 +1389,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
-                <tfoot><tr>
-                    <td>Monthly Total</td><td><?=number_format($total_orders_m)?></td>
-                    <td><?=peso($total_rev_m)?></td>
-                    <td style="color:var(--warm-gray);"><?=peso($total_excl_m)?></td>
-                    <td style="color:var(--warm-gray);"><?=peso($total_vat_m)?></td>
-                </tr></tfoot>
+                <tfoot><tr><td>Monthly Total</th><th><?=number_format($total_orders_m)?></th><th><?=peso($total_rev_m)?></th><th style="color:var(--warm-gray);"><?=peso($total_excl_m)?></th><th style="color:var(--warm-gray);"><?=peso($total_vat_m)?></th></tr></tfoot>
             </table></div><?php endif; ?>
             </div></div>
         </div>
         <div class="col-12">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-star"></i> Top Selling Items</div></div>
-            <div class="rpt-card-body p-0">
-                <?php render_top_items_table($data['top_items'] ?? [], true, true); ?>
-            </div></div>
+            <div class="rpt-card-body p-0"><?php render_top_items_table($data['top_items'] ?? [], true, true); ?></div></div>
         </div>
         <div class="col-12">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-user-tie"></i> Cashier Performance</div></div>
@@ -1345,24 +1459,28 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="stats-grid fade-in">
         <div class="stat-card">
             <div class="s-icon"><i class="fas fa-money-bill-wave"></i></div>
-            <div class="s-label">Gross Revenue <?=$filter_year?></div>
-            <div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div>
-            <div class="s-sub">Sum of all PAID orders</div>
+            <div><div class="s-label">Gross Revenue <?=$filter_year?></div><div class="s-value"><?=peso((float)($s['gross_revenue']??0))?></div><div class="s-sub">Sum of all PAID orders</div></div>
         </div>
         <div class="stat-card">
-            <div class="s-icon"><i class="fas fa-chart-bar"></i></div>
-            <div class="s-label">Gross Profit <?=$filter_year?></div>
-            <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
-            <div class="profit-breakdown">
-                Net Revenue: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span>
-                &nbsp;&minus;&nbsp; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span>
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-chart-bar"></i></div>
+            <div>
+                <div class="s-label">Gross Profit <?=$filter_year?></div>
+                <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
+                <div class="profit-breakdown">Net Rev: <span class="pos"><?=peso((float)($s['net_revenue']??0))?></span> &minus; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span></div>
             </div>
         </div>
-        <div class="stat-card c-teal"><div class="s-icon"><i class="fas fa-coins"></i></div><div class="s-label">Net Revenue</div><div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div><div class="profit-breakdown">
-                Total Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span>
-                &nbsp;&minus;&nbsp; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span>
-            </div></div>
-        <div class="stat-card c-green"><div class="s-icon"><i class="fas fa-boxes"></i></div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)($s['cogs']??0))?></div><div class="s-sub">Cost of items sold</div></div>
+        <div class="stat-card c-teal">
+            <div class="s-icon" style="background:var(--info-soft);color:var(--info);border-color:rgba(94,155,158,0.2);"><i class="fas fa-coins"></i></div>
+            <div>
+                <div class="s-label">Net Revenue</div>
+                <div class="s-value"><?=peso((float)($s['net_revenue']??0))?></div>
+                <div class="profit-breakdown">Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; Refunds: <span class="neg"><?= peso((float)($s['total_refunds']??0)) ?></span></div>
+            </div>
+        </div>
+        <div class="stat-card c-green">
+            <div class="s-icon" style="background:rgba(44,122,90,0.08);color:var(--success);border-color:rgba(44,122,90,0.15);"><i class="fas fa-boxes"></i></div>
+            <div><div class="s-label">COGS</div><div class="s-value"><?=peso((float)($s['cogs']??0))?></div><div class="s-sub">Cost of items sold</div></div>
+        </div>
         <?php render_waste_card($s); ?>
         <?php render_net_profit_card($s); ?>
     </div>
@@ -1372,13 +1490,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div id="yearly-content">
     <div class="rpt-card fade-in">
         <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-chart-bar"></i> Monthly Revenue <?=$filter_year?></div></div>
-        <div class="rpt-card-body"><canvas id="yearlyBar" style="max-height:280px;"></canvas></div>
+        <div class="rpt-card-body"><canvas id="yearlyBar" style="max-height:270px;"></canvas></div>
     </div>
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-table"></i> Month-by-Month Breakdown</div></div>
             <div class="rpt-card-body p-0">
-                <table class="rpt-table">
+                <table class="rpt-table cashier-table">
                     <thead><tr><th>Month</th><th>Revenue (VAT-incl.)</th><th>Excl. VAT</th></tr></thead>
                     <tbody>
                     <?php
@@ -1396,15 +1514,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                     </tr>
                     <?php endforeach; ?>
                     </tbody>
-                    <tfoot><tr><td>Yearly Total</td><td><?=peso($yearly_total)?></td><td style="color:var(--warm-gray);"><?=peso($yearly_excl)?></td></tr></tfoot>
+                    <tfoot><tr><td>Yearly Total</th><th><?=peso($yearly_total)?></th><th style="color:var(--warm-gray);"><?=peso($yearly_excl)?></th></tr></tfoot>
                 </table>
             </div></div>
         </div>
         <div class="col-lg-7">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-star"></i> Top Items <?=$filter_year?></div></div>
-            <div class="rpt-card-body p-0">
-                <?php render_top_items_table($data['top_items'] ?? [], true, true); ?>
-            </div></div>
+            <div class="rpt-card-body p-0"><?php render_top_items_table($data['top_items'] ?? [], true, true); ?></div></div>
         </div>
     </div>
     </div>
@@ -1434,20 +1550,18 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="row g-4">
         <div class="col-lg-8">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-star"></i> Top Selling Items</div>
-                <small style="color:var(--warm-gray);font-size:.78rem;"><span class="badge-variant" style="font-size:.7rem;">variants</span> = sold in multiple sizes/types</small>
+                <small style="color:var(--warm-gray);font-size:.75rem;"><span class="badge-variant">variants</span> = sold in multiple sizes/types</small>
             </div>
-            <div class="rpt-card-body p-0">
-                <?php render_top_items_table($data['top_items'] ?? [], true, true); ?>
-            </div></div>
+            <div class="rpt-card-body p-0"><?php render_top_items_table($data['top_items'] ?? [], true, true); ?></div></div>
         </div>
         <div class="col-lg-4">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-chart-pie"></i> By Category</div></div>
-            <div class="rpt-card-body"><canvas id="prodCat" style="max-height:240px;"></canvas></div></div>
-            <div class="rpt-card fade-in" style="margin-top:1.5rem;"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-plus-circle"></i> Top Add-ons</div></div>
+            <div class="rpt-card-body"><canvas id="prodCat" style="max-height:230px;"></canvas></div></div>
+            <div class="rpt-card fade-in" style="margin-top:1.25rem;"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-plus-circle"></i> Top Add-ons</div></div>
             <div class="rpt-card-body p-0">
             <?php if(empty($data['top_addons'])): ?><div class="no-data p-3"><i class="fas fa-inbox"></i> No add-on data.</div>
             <?php else: ?><table class="rpt-table"><thead><tr><th>Add-on</th><th>Qty</th><th>Revenue</th></tr></thead><tbody>
-            <?php foreach($data['top_addons'] as $row): ?><tr><td><?=htmlspecialchars($row['addon_name'])?></td><td><?=number_format($row['times_ordered'])?></td><td><?=peso((float)$row['total_revenue'])?></td></tr><?php endforeach; ?>
+            <?php foreach($data['top_addons'] as $row): ?><tr><td style="word-break:keep-all;"><?=htmlspecialchars($row['addon_name'])?></td><td class="text-center"><?=number_format($row['times_ordered'])?></td><td class="text-end"><?=peso((float)$row['total_revenue'])?></td></tr><?php endforeach; ?>
             </tbody></table><?php endif; ?>
             </div></div>
         </div>
@@ -1507,15 +1621,15 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-clock"></i> Peak Hours</div></div>
             <div class="rpt-card-body">
             <?php if(empty($data['peak_hours'])): ?><div class="no-data"><i class="fas fa-inbox"></i> No data.</div>
-            <?php else: ?><canvas id="staffPeak" style="max-height:240px;"></canvas><?php endif; ?>
+            <?php else: ?><canvas id="staffPeak" style="max-height:230px;"></canvas><?php endif; ?>
             </div></div>
         </div>
         <div class="col-lg-5">
             <div class="rpt-card fade-in"><div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-chart-pie"></i> Order Types</div></div>
             <div class="rpt-card-body p-0">
             <?php if(empty($data['order_types'])): ?><div class="no-data p-4"><i class="fas fa-inbox"></i> No data.</div>
-            <?php else: ?><table class="rpt-table"><thead><tr><th>Type</th><th>Source</th><th>Orders</th><th>Revenue</th></tr></thead><tbody>
-            <?php foreach($data['order_types'] as $row): ?><tr><td><?=ucfirst(str_replace('_',' ',$row['order_type']))?></td><td><?=ucfirst(str_replace('_',' ',$row['order_source']))?></td><td><?=number_format($row['total_orders'])?></td><td><?=peso((float)$row['revenue'])?></td></tr><?php endforeach; ?>
+            <?php else: ?><table class="rpt-table"><thead><tr><th>Type</th><th>Source</th><th>Orders</th><th>Revenue</th><tr></thead><tbody>
+            <?php foreach($data['order_types'] as $row): ?><tr><td style="word-break:keep-all;"><?=ucfirst(str_replace('_',' ',$row['order_type']))?></td><td style="word-break:keep-all;"><?=ucfirst(str_replace('_',' ',$row['order_source']))?></td><td class="text-center"><?=number_format($row['total_orders'])?></td><td class="text-end"><?=peso((float)$row['revenue'])?></td></tr><?php endforeach; ?>
             </tbody></table><?php endif; ?>
             </div></div>
         </div>
@@ -1570,18 +1684,12 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
     <div class="rpt-card fade-in">
         <div class="rpt-card-header">
             <div class="rpt-card-title"><i class="fas fa-cash-register"></i> Payment Reconciliation</div>
-            <small style="color:var(--warm-gray);font-size:.78rem;">Variance = Net Cash &minus; Expected. Zero is ideal.</small>
+            <small style="color:var(--warm-gray);font-size:.75rem;">Variance = Net Cash &minus; Expected. Zero is ideal.</small>
         </div>
         <div class="rpt-card-body p-0">
         <?php if(empty($data['payments'])): ?><div class="no-data"><i class="fas fa-inbox"></i> No payment data in this range.</div>
         <?php else: ?><div style="overflow-x:auto;"><table class="rpt-table">
-            <thead><tr>
-                <th>Date</th><th>Cashier</th><th>Txns</th>
-                <th>Cash In</th><th>Change Out</th><th>Net Cash</th>
-                <th>Expected</th><th>Excl. VAT</th><th>VAT</th>
-                <th style="min-width:100px;">Variance</th>
-                <th>Admin Proc.</th>
-            </tr></thead>
+            <thead><tr><th>Date</th><th>Cashier</th><th>Txns</th><th>Cash In</th><th>Change Out</th><th>Net Cash</th><th>Expected</th><th>Excl. VAT</th><th>VAT</th><th style="min-width:100px;">Variance</th><th>Admin Proc.</th></tr></thead>
             <tbody>
             <?php foreach($data['payments'] as $row):
                 $var     = (float)($row['variance'] ?? ((float)$row['net_cash'] - (float)$row['expected_from_orders']));
@@ -1630,10 +1738,9 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <div class="rpt-card fade-in">
                 <div class="rpt-card-header">
                     <div class="rpt-card-title"><i class="fas fa-flask"></i> Ingredient Consumption</div>
-                    <small style="color:var(--warm-gray);font-size:.78rem;">
-                        Completed orders &nbsp;|&nbsp;
+                    <small style="color:var(--warm-gray);font-size:.74rem;">
                         <span style="color:var(--secondary);font-weight:600;">■</span> variant recipe &nbsp;
-                        <span style="color:var(--warning);font-weight:600;">■</span> base recipe fallback
+                        <span style="color:var(--warning);font-weight:600;">■</span> base fallback
                     </small>
                 </div>
                 <div class="rpt-card-body p-0">
@@ -1643,9 +1750,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                     $max_consumed = max(array_column($data['consumption'], 'theoretical_consumed'));
                 ?>
                     <div style="overflow-x:auto;"><table class="rpt-table">
-                        <thead><tr>
-                            <th>Ingredient</th><th>Unit</th><th>Consumed (est.)</th><th>Recipe Source</th><th>Current Stock</th><th>Alert</th>
-                        </tr></thead>
+                        <thead><tr><th>Ingredient</th><th>Unit</th><th>Consumed (est.)</th><th>Recipe Source</th><th>Current Stock</th><th>Alert</th></tr></thead>
                         <tbody>
                         <?php foreach($data['consumption'] as $row):
                             $pct         = $max_consumed > 0 ? round($row['theoretical_consumed'] / $max_consumed * 100) : 0;
@@ -1657,19 +1762,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                         <tr>
                             <td><strong><?=htmlspecialchars($row['ingredient_name'])?></strong></td>
                             <td><span class="rpt-badge badge-info"><?=htmlspecialchars($row['unit_code']??'—')?></span></td>
-                            <td>
-                                <?=number_format((float)$row['theoretical_consumed'],2)?>
-                                <div class="consumption-bar"><div class="consumption-bar-fill" style="width:<?=$pct?>%;background:<?=$bar_color?>;"></div></div>
-                            </td>
+                            <td><?=number_format((float)$row['theoretical_consumed'],2)?><div class="consumption-bar"><div class="consumption-bar-fill" style="width:<?=$pct?>%;background:<?=$bar_color?>;"></div></div></td>
                             <td>
                                 <?php if($via_variant > 0): ?><span class="badge-variant"><?=$via_variant?> via variant</span><?php endif; ?>
-                                <?php if($has_fb): ?><span style="color:var(--warning);font-weight:600;font-size:.72rem;"><i class="fas fa-exclamation-triangle" style="font-size:.65rem;"></i> <?=$via_base?> base fallback</span><?php endif; ?>
+                                <?php if($has_fb): ?><span style="color:var(--warning);font-weight:600;font-size:.7rem;"><i class="fas fa-exclamation-triangle" style="font-size:.62rem;"></i> <?=$via_base?> base fallback</span><?php endif; ?>
                                 <?php if($via_variant === 0 && !$has_fb): ?><span class="badge-base">base</span><?php endif; ?>
                             </td>
-                            <td>
-                                <?=number_format((float)$row['current_stock'],2)?>
-                                <?php if($row['current_stock'] <= $row['low_stock_alert']): ?><span class="rpt-badge badge-danger" style="font-size:.65rem;margin-left:.3rem;">LOW</span><?php endif; ?>
-                            </td>
+                            <td><?=number_format((float)$row['current_stock'],2)?><?php if($row['current_stock'] <= $row['low_stock_alert']): ?><span class="rpt-badge badge-danger" style="font-size:.62rem;margin-left:.3rem;">LOW</span><?php endif; ?></td>
                             <td style="color:var(--warm-gray);"><?=number_format((float)$row['low_stock_alert'],2)?></td>
                         </tr>
                         <?php endforeach; ?>
@@ -1684,11 +1783,11 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-exclamation-triangle"></i> Current Stock Alerts</div></div>
                 <div class="rpt-card-body p-0">
                 <?php if(empty($data['low_stock'])): ?>
-                    <div class="no-data p-3"><i class="fas fa-check-circle" style="font-size:1.8rem;color:var(--success);opacity:.7;display:block;margin-bottom:.5rem;"></i>All ingredients sufficiently stocked.</div>
+                    <div class="no-data p-3"><i class="fas fa-check-circle" style="font-size:1.8rem;color:var(--success);opacity:.6;display:block;margin-bottom:.5rem;"></i>All ingredients sufficiently stocked.</div>
                 <?php else: ?>
-                    <table class="rpt-table"><thead><tr><th>Ingredient</th><th>Stock</th><th>Unit</th><th>Status</th></tr></thead><tbody>
+                    <table class="rpt-table cashier-table"><thead><tr><th>Ingredient</th><th>Stock</th><th>Unit</th><th>Status</th></tr></thead><tbody>
                     <?php foreach($data['low_stock'] as $row): ?>
-                    <tr><td><strong><?=htmlspecialchars($row['ingredient_name'])?></strong></td><td><?=number_format((float)$row['stock_quantity'],2)?></td><td><?=htmlspecialchars($row['unit']??'—')?></td><td><span class="rpt-badge <?=$row['stock_quantity']==0?'badge-danger':'badge-warning'?>"><?=$row['stock_status']?></span></td></tr>
+                    <tr><td style="word-break:keep-all;"><?=htmlspecialchars($row['ingredient_name'])?></td><td class="text-end"><?=number_format((float)$row['stock_quantity'],2)?></td><td><?=htmlspecialchars($row['unit']??'—')?></td><td><span class="rpt-badge <?=$row['stock_quantity']==0?'badge-danger':'badge-warning'?>"><?=$row['stock_status']?></span></td></tr>
                     <?php endforeach; ?>
                     </tbody></table>
                 <?php endif; ?>
@@ -1697,16 +1796,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
             <?php if(!empty($data['consumption'])): ?>
             <?php $total_fallback = array_sum(array_column($data['consumption'], 'units_via_base_recipe')); ?>
             <?php if($total_fallback > 0): ?>
-            <div class="rpt-card fade-in" style="margin-top:1.5rem;">
-                <div class="rpt-card-body" style="padding:1rem 1.2rem;">
-                    <div style="display:flex;align-items:flex-start;gap:.7rem;">
+            <div class="rpt-card fade-in" style="margin-top:1.25rem;">
+                <div class="rpt-card-body" style="padding:.9rem 1.1rem;">
+                    <div style="display:flex;align-items:flex-start;gap:.65rem;">
                         <i class="fas fa-exclamation-triangle" style="color:var(--warning);margin-top:.15rem;flex-shrink:0;"></i>
                         <div>
-                            <div style="font-weight:600;font-size:.88rem;color:var(--navy);margin-bottom:.3rem;">Recipe Coverage Warning</div>
-                            <div style="font-size:.82rem;color:var(--warm-gray);">
-                                <?= number_format($total_fallback) ?> unit(s) fell back to base recipe — no variant recipe configured.
-                                <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" style="color:var(--primary-light);font-weight:600;">Set up variant recipes →</a>
-                            </div>
+                            <div style="font-weight:700;font-size:.85rem;color:var(--navy);margin-bottom:.25rem;">Recipe Coverage Warning</div>
+                            <div style="font-size:.8rem;color:var(--warm-gray);"><?= number_format($total_fallback) ?> unit(s) fell back to base recipe — no variant recipe configured. <a href="<?= $baseUrl ?>/index.php?page=manage_recipes" style="color:var(--primary-light);font-weight:600;">Set up variant recipes →</a></div>
                         </div>
                     </div>
                 </div>
@@ -1738,22 +1834,16 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
 
     <div class="stats-grid fade-in">
         <div class="stat-card c-danger">
-            <div class="s-icon" style="color:var(--danger);"><i class="fas fa-trash-alt"></i></div>
-            <div class="s-label">Total Waste Cost</div>
-            <div class="s-value" style="color:var(--danger);"><?= peso((float)($ws['total_waste_cost']??0)) ?></div>
-            <div class="s-sub"><?= $scope_label ?> &nbsp;·&nbsp; <?= $range_start ?> → <?= $range_end ?></div>
+            <div class="s-icon" style="background:rgba(214,64,69,0.08);color:var(--danger);border-color:rgba(214,64,69,0.15);"><i class="fas fa-trash-alt"></i></div>
+            <div><div class="s-label">Total Waste Cost</div><div class="s-value" style="color:var(--danger);"><?= peso((float)($ws['total_waste_cost']??0)) ?></div><div class="s-sub"><?= $scope_label ?> &nbsp;·&nbsp; <?= $range_start ?> → <?= $range_end ?></div></div>
         </div>
         <div class="stat-card c-warning">
-            <div class="s-icon" style="color:var(--warning);"><i class="fas fa-box-open"></i></div>
-            <div class="s-label">Voided Items</div>
-            <div class="s-value"><?= number_format($ws['voided_items']??0) ?></div>
-            <div class="s-sub">Across <?= number_format($ws['voided_orders']??0) ?> order(s)</div>
+            <div class="s-icon" style="background:var(--warning-soft);color:var(--warning);border-color:rgba(244,185,66,0.2);"><i class="fas fa-box-open"></i></div>
+            <div><div class="s-label">Voided Items</div><div class="s-value"><?= number_format($ws['voided_items']??0) ?></div><div class="s-sub">Across <?= number_format($ws['voided_orders']??0) ?> order(s)</div></div>
         </div>
         <div class="stat-card c-coral">
-            <div class="s-icon" style="color:var(--secondary);"><i class="fas fa-calculator"></i></div>
-            <div class="s-label">Avg Waste / Item</div>
-            <div class="s-value"><?= peso((float)($ws['avg_waste_per_item']??0)) ?></div>
-            <div class="s-sub">Cost per voided item</div>
+            <div class="s-icon" style="background:rgba(255,107,74,0.08);color:var(--secondary);border-color:rgba(255,107,74,0.15);"><i class="fas fa-calculator"></i></div>
+            <div><div class="s-label">Avg Waste / Item</div><div class="s-value"><?= peso((float)($ws['avg_waste_per_item']??0)) ?></div><div class="s-sub">Cost per voided item</div></div>
         </div>
     </div>
 
@@ -1768,7 +1858,7 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 <?php else:
                     $max_w = max(array_column($ws['top_wasted_items'],'total_waste_cost'));
                 ?>
-                    <table class="rpt-table">
+                    <table class="rpt-table cashier-table">
                         <thead><tr><th>#</th><th>Item</th><th>Qty Wasted</th><th class="th-waste">Waste Cost</th></tr></thead>
                         <tbody>
                         <?php foreach($ws['top_wasted_items'] as $i=>$row):
@@ -1776,15 +1866,9 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                         ?>
                         <tr>
                             <td><?=$i+1?></td>
-                            <td>
-                                <strong><?=htmlspecialchars($row['item_name'])?></strong>
-                                <?php if(!empty($row['variant_name'])): ?><br><small style="color:var(--warm-gray);"><?=htmlspecialchars($row['variant_name'])?></small><?php endif; ?>
-                            </td>
+                            <td><strong><?=htmlspecialchars($row['item_name'])?></strong><?php if(!empty($row['variant_name'])): ?><br><small style="color:var(--warm-gray);"><?=htmlspecialchars($row['variant_name'])?></small><?php endif; ?></td>
                             <td><?=number_format($row['total_qty_wasted'])?></td>
-                            <td class="waste-cost-cell">
-                                <?=peso((float)$row['total_waste_cost'])?>
-                                <div class="mini-bar"><div class="mini-bar-fill" style="width:<?=$pct?>%;background:var(--danger);"></div></div>
-                            </td>
+                            <td class="waste-cost-cell"><?=peso((float)$row['total_waste_cost'])?><div class="mini-bar"><div class="mini-bar-fill" style="width:<?=$pct?>%;background:var(--danger);"></div></div></td>
                         </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -1792,13 +1876,13 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                 <?php endif; ?>
                 </div>
             </div>
-            <div class="rpt-card fade-in" style="margin-top:1.5rem;">
+            <div class="rpt-card fade-in" style="margin-top:1.25rem;">
                 <div class="rpt-card-header"><div class="rpt-card-title"><i class="fas fa-comment-alt" style="color:var(--danger);"></i> Waste by Reason</div></div>
                 <div class="rpt-card-body p-0">
                 <?php if(empty($ws['waste_by_reason'])): ?>
                     <div class="no-data p-3"><i class="fas fa-inbox"></i> No data.</div>
                 <?php else: ?>
-                    <table class="rpt-table">
+                    <table class="rpt-table cashier-table">
                         <thead><tr><th>Reason</th><th>Items</th><th class="th-waste">Cost</th></tr></thead>
                         <tbody>
                         <?php foreach($ws['waste_by_reason'] as $row): ?>
@@ -1836,27 +1920,16 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
                             <td style="white-space:nowrap;"><?=date('M d, Y',strtotime($row['void_date']))?></td>
                             <td><strong><?=htmlspecialchars($row['order_number'])?></strong></td>
                             <?php if($is_admin): ?><td><?=htmlspecialchars($row['cashier_name'])?></td><?php endif; ?>
-                            <td>
-                                <?=htmlspecialchars($row['item_name'])?>
-                                <?php if(!empty($row['variant_name'])): ?>
-                                    <span class="badge-variant"><?=htmlspecialchars($row['variant_name'])?></span>
-                                <?php endif; ?>
-                            </td>
+                            <td><?=htmlspecialchars($row['item_name'])?><?php if(!empty($row['variant_name'])): ?> <span class="badge-variant"><?=htmlspecialchars($row['variant_name'])?></span><?php endif; ?></td>
                             <td><?=$row['quantity']?></td>
                             <td class="waste-cost-cell"><?=peso((float)$row['waste_cost'])?></td>
-                            <td>
-                                <?php if(!empty($row['void_reason'])): ?>
-                                    <span class="reason-pill" title="<?=htmlspecialchars($row['void_reason'])?>"><?=htmlspecialchars($row['void_reason'])?></span>
-                                <?php else: ?>
-                                    <span style="color:var(--warm-gray);font-size:.82rem;">—</span>
-                                <?php endif; ?>
-                            </td>
+                            <td><?php if(!empty($row['void_reason'])): ?><span class="reason-pill" title="<?=htmlspecialchars($row['void_reason'])?>"><?=htmlspecialchars($row['void_reason'])?></span><?php else: ?><span style="color:var(--warm-gray);font-size:.82rem;">—</span><?php endif; ?></td>
                         </tr>
                         <?php endforeach; ?>
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="<?= $is_admin ? 5 : 4 ?>">Total</td>
+                                <td colspan="<?= $is_admin ? 5 : 4 ?>">Total</th>
                                 <td class="waste-cost-cell"><?=peso((float)($ws['total_waste_cost']??0))?></td>
                                 <td></td>
                             </tr>
@@ -1871,28 +1944,38 @@ table.rpt-table thead th.th-waste{background:rgba(214,64,69,.06);color:var(--dan
 
     <?php endif; // end tab switch ?>
 
-</div><!-- /main-content -->
+</main>
 
 <footer class="site-footer">
     <div class="site-footer-inner">
-        <div><strong>Copyright &copy; <?= date('Y') ?> DinewithDin - Cafeteria.</strong> All rights reserved.</div>
-        <div><b>Version</b> 1.0.0</div>
+        <div><strong>Copyright &copy; <?= date('Y') ?> Dine with Din &mdash; Cafeteria.</strong> All rights reserved.</div>
+        <div style="font-size:0.78rem;"><b>Version</b> 1.0.0</div>
     </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-/* ── Sidebar ── */
-document.getElementById('menuToggle')?.addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('show');
-    document.getElementById('sidebarOverlay').classList.toggle('show');
-});
-document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
-    document.getElementById('sidebar').classList.remove('show');
-    document.getElementById('sidebarOverlay').classList.remove('show');
+/* ── Sidebar toggle + close on link click (mobile) ───────────────── */
+const menuToggle = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+function closeSidebar() {
+    sidebar?.classList.remove('show');
+    overlay?.classList.remove('show');
+}
+function toggleSidebar() {
+    sidebar?.classList.toggle('show');
+    overlay?.classList.toggle('show');
+}
+menuToggle?.addEventListener('click', toggleSidebar);
+overlay?.addEventListener('click', closeSidebar);
+document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+    link.addEventListener('click', () => {
+        if (window.innerWidth < 992) closeSidebar();
+    });
 });
 
-/* ── Date range guard ── */
+/* ── Date range guard ─────────────────────────────────────────────── */
 (function(){
     const s = document.getElementById('rpt-start');
     const e = document.getElementById('rpt-end');
@@ -1902,7 +1985,7 @@ document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
     enforce();
 })();
 
-/* ── openPrintTab ── */
+/* ── openPrintTab ─────────────────────────────────────────────────── */
 function openPrintTab(html) {
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     var url  = URL.createObjectURL(blob);
@@ -1911,7 +1994,7 @@ function openPrintTab(html) {
     tab.addEventListener('load', function () { URL.revokeObjectURL(url); });
 }
 
-/* ── Shared thermal + A4 print for both closeout and adminshift tabs ── */
+/* ── Thermal + A4 print (closeout / adminshift) ───────────────────── */
 var _coPayload = <?php
     if (in_array($tab, ['closeout', 'adminshift'])) {
         echo $co_thermal_payload ?? 'null';
@@ -1934,7 +2017,7 @@ function printCoThermal() {
     .then(function(r) { return r.json(); })
     .then(function(res) {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-receipt"></i> Thermal Print';
+        btn.innerHTML = '<i class="fas fa-receipt"></i> Thermal';
         if (res.status === 'no_printer') {
             alert('No thermal printer detected.\nUse "Print A4" instead.');
         } else if (res.status !== 'printed') {
@@ -1943,7 +2026,7 @@ function printCoThermal() {
     })
     .catch(function(err) {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-receipt"></i> Thermal Print';
+        btn.innerHTML = '<i class="fas fa-receipt"></i> Thermal';
         alert('Could not reach the print server.\n' + err);
     });
 }
@@ -2034,7 +2117,7 @@ function printCoA4() {
         +     row('Excl. VAT', peso(co.net_sales_excl))
         +     row('VAT (12%)', peso(co.vat_collected))
         +     (co.total_refunds > 0 ? row('Refunds', '\u2212 ' + peso(co.total_refunds), true) : '')
-        +   '</table></div>'
+        +   '</tr></div>'
         +   '<div class="box"><div class="box-head">Cash Reconciliation</div><table class="dt">'
         +     row('Cash Received', peso(co.cash_received))
         +     row('Change Given', '\u2212 ' + peso(co.change_given))
@@ -2060,7 +2143,7 @@ function printCoA4() {
     });
 }
 
-/* ── printDaily ── */
+/* ── printDaily ───────────────────────────────────────────────────── */
 var _dailyData = <?php
     if ($tab === 'daily'):
         $s         = $data['summary']  ?? [];
@@ -2090,10 +2173,10 @@ var _dailyData = <?php
                 'admin_processed' => $r['admin_processed_count'] ?? 0,
             ], $cashiers),
             'top_items'         => array_map(fn($r) => [
-                'name'         => $r['item_name'] . (($r['has_variants']??0) ? ' [variants]' : ''),
-                'sold'         => $r['units_sold'],
-                'revenue'      => number_format((float)$r['total_revenue'], 2),
-                'profit'       => number_format((float)$r['gross_profit'], 2),
+                'name'    => $r['item_name'] . (($r['has_variants']??0) ? ' [variants]' : ''),
+                'sold'    => $r['units_sold'],
+                'revenue' => number_format((float)$r['total_revenue'], 2),
+                'profit'  => number_format((float)$r['gross_profit'], 2),
             ], array_slice($top_items, 0, 5)),
         ]);
     else:
@@ -2129,7 +2212,7 @@ function printDaily() {
             itemRows += '<tr><td class="nm">' + esc2(item.name) + '</td><td class="r">' + item.sold + '</td><td class="r">\u20b1' + item.revenue + '</td><td class="r">\u20b1' + item.profit + '</td></tr>';
         });
         itemSection = sep2() + '<div class="sh">Top Items</div>' +
-            '<table><thead><tr><th>Item</th><th class="r">Sold</th><th class="r">Revenue</th><th class="r">Gross Profit</th></tr></thead><tbody>' + itemRows + '</tbody></table>';
+            '<tr><thead><tr><th>Item</th><th class="r">Sold</th><th class="r">Revenue</th><th class="r">Gross Profit</th></tr></thead><tbody>' + itemRows + '</tbody></table>';
     }
     var cashSection = '';
     if (d.cashiers && d.cashiers.length) {
@@ -2138,7 +2221,7 @@ function printDaily() {
             cashRows += '<tr><td class="nm">' + esc2(c.name) + '</td><td class="r">' + c.orders + '</td><td class="r">\u20b1' + c.sales + '</td><td class="r" style="color:#d64045;">\u20b1' + c.waste + '</td><td class="r">' + c.cancelled + '</td></tr>';
         });
         cashSection = sep2() + '<div class="sh">Cashier Breakdown</div>' +
-            '<table><thead><tr><th>Cashier</th><th class="r">Orders</th><th class="r">Sales</th><th class="r">Waste</th><th class="r">Cancelled</th></tr></thead><tbody>' + cashRows + '</tbody></table>';
+            '<tr><thead><tr><th>Cashier</th><th class="r">Orders</th><th class="r">Sales</th><th class="r">Waste</th><th class="r">Cancelled</th></tr></thead><tbody>' + cashRows + '</tbody></table>';
     }
     var html =
         '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Daily Report</title>' +
@@ -2168,10 +2251,12 @@ function row2(label, value, highlight) {
 function sep2() { return '<hr class="sep">'; }
 function esc2(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-/* ── printA4 (generic) ── */
+/* ── printA4 (generic) ────────────────────────────────────────────── */
 function printA4(contentId, title) {
+    var btn = event?.currentTarget;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...'; }
     var el = document.getElementById(contentId);
-    if (!el) { alert('Nothing to print.'); return; }
+    if (!el) { if(btn) btn.disabled=false; alert('Nothing to print.'); return; }
     var html =
         '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
         '<style>' +
@@ -2194,7 +2279,7 @@ function printA4(contentId, title) {
         '.comparison-grid,.stats-grid{display:none;}' +
         '.variance-positive{color:green;font-weight:bold;}.variance-negative{color:red;font-weight:bold;}.variance-zero{color:#555;}' +
         '.admin-proc-badge{font-size:9px;border:1px solid #ccc;padding:1px 4px;}' +
-        '.vat-breakdown,.profit-breakdown{font-size:9px;color:#555;margin-top:2px;}' +
+        '.profit-breakdown{font-size:9px;color:#555;margin-top:2px;}' +
         '.waste-cost-cell{color:#d64045;font-weight:bold;}' +
         '.reason-pill{font-size:9px;border:1px solid #d64045;padding:1px 4px;border-radius:2px;color:#d64045;}' +
         '</style></head><body>' +
@@ -2205,6 +2290,7 @@ function printA4(contentId, title) {
         '<script>window.addEventListener(\'load\',function(){setTimeout(function(){window.print();},400);});window.addEventListener(\'afterprint\',function(){window.close();});<\/script></body></html>'
     );
     openPrintTab(html);
+    if (btn) setTimeout(function() { btn.disabled = false; btn.innerHTML = '<i class="fas fa-print"></i> Print'; }, 500);
 }
 </script>
 </body>

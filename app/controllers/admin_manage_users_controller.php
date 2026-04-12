@@ -12,17 +12,17 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 // Initialize variables
-$users = [];
+$users        = [];
 $user_to_edit = null;
-$success = $_SESSION['success'] ?? '';
-$error = $_SESSION['error'] ?? '';
+$success      = $_SESSION['success'] ?? '';
+$error        = $_SESSION['error']   ?? '';
 unset($_SESSION['success'], $_SESSION['error']);
 
 // Fetch all users
 try {
     $stmt = $pdo->query("
-        SELECT user_id, username, full_name, email, role, is_active, created_at 
-        FROM users 
+        SELECT user_id, username, full_name, email, role, is_active, created_at
+        FROM users
         ORDER BY created_at DESC
     ");
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -31,18 +31,18 @@ try {
 }
 
 // Calculate statistics
-$totalUsers = count($users);
-$activeUsers = count(array_filter($users, fn($u) => $u['is_active'] == 1));
+$totalUsers   = count($users);
+$activeUsers  = count(array_filter($users, fn($u) => $u['is_active'] == 1));
 $cashierUsers = count(array_filter($users, fn($u) => $u['role'] === 'cashier'));
 $kitchenUsers = count(array_filter($users, fn($u) => $u['role'] === 'kitchen'));
 
-// ADD USER
+// ── ADD USER ──────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
-    $username = trim($_POST['username'] ?? '');
+    $username  = trim($_POST['username']  ?? '');
     $full_name = trim($_POST['full_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $role = $_POST['role'] ?? 'cashier';
+    $email     = trim($_POST['email']     ?? '');
+    $password  = $_POST['password']       ?? '';
+    $role      = $_POST['role']           ?? 'cashier';
 
     if (empty($username) || empty($full_name) || empty($password)) {
         $_SESSION['error'] = 'Username, full name, and password are required.';
@@ -74,9 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         exit;
     }
 
-    $userId = createUser($pdo, $username, $password, $full_name, $email, $role, 1);
+    $userId = createUser($pdo, $username, $password, $full_name, !empty($email) ? $email : null, $role, 1);
     if ($userId) {
-        $_SESSION['success'] = 'User added successfully.';
+        $_SESSION['success'] = 'User "' . htmlspecialchars($full_name) . '" added successfully.';
     } else {
         $_SESSION['error'] = 'Failed to add user.';
     }
@@ -85,13 +85,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     exit;
 }
 
-// UPDATE USER
+// ── UPDATE USER ───────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
-    $user_id = (int) $_POST['user_id'];
-    $username = trim($_POST['username'] ?? '');
+    $user_id   = (int) $_POST['user_id'];
+    $username  = trim($_POST['username']  ?? '');
     $full_name = trim($_POST['full_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $role = $_POST['role'] ?? 'cashier';
+    $email     = trim($_POST['email']     ?? '');
+    $role      = $_POST['role']           ?? 'cashier';
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
     if (empty($username) || empty($full_name)) {
@@ -118,8 +118,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
         exit;
     }
 
+    // Handle optional password change
+    $password = trim($_POST['password'] ?? '');
+    if (!empty($password)) {
+        if (strlen($password) < 6) {
+            $_SESSION['error'] = 'New password must be at least 6 characters.';
+            header('Location: ' . $baseUrl . '/index.php?page=manage_users&edit=' . $user_id);
+            exit;
+        }
+        updateUserPassword($pdo, $user_id, $password);
+    }
+
     if (updateUser($pdo, $user_id, $username, $full_name, !empty($email) ? $email : null, $role, $is_active)) {
-        $_SESSION['success'] = 'User updated successfully.';
+        $_SESSION['success'] = 'User "' . htmlspecialchars($full_name) . '" updated successfully.';
     } else {
         $_SESSION['error'] = 'Failed to update user.';
     }
@@ -128,34 +139,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     exit;
 }
 
-// DELETE USER
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
-    $user_id = (int) $_POST['user_id'];
+// ── TOGGLE USER STATUS (activate / deactivate) ────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_user'])) {
+    $user_id   = (int) $_POST['user_id'];
+    $is_active = (int) $_POST['is_active']; // 0 = deactivate, 1 = activate
 
-    if ($user_id === $_SESSION['user_id']) {
-        $_SESSION['error'] = 'You cannot delete your own account.';
+    // Safety: cannot change own account status
+    if ($user_id === (int)($_SESSION['user_id'] ?? 0)) {
+        $_SESSION['error'] = 'You cannot change the status of your own account.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users');
         exit;
     }
 
-    if (deleteUser($pdo, $user_id)) {
-        $_SESSION['success'] = 'User deleted successfully.';
+    if (toggleUserStatus($pdo, $user_id, $is_active)) {
+        $action = $is_active ? 'activated' : 'deactivated';
+        $_SESSION['success'] = 'User has been ' . $action . ' successfully.';
     } else {
-        $_SESSION['error'] = 'Failed to delete user.';
+        $_SESSION['error'] = 'Failed to update user status.';
     }
 
     header('Location: ' . $baseUrl . '/index.php?page=manage_users');
     exit;
 }
 
-// Handle edit request
+// ── HANDLE EDIT REQUEST ───────────────────────────────────────────────────
 if (isset($_GET['edit'])) {
     $edit_id = (int) $_GET['edit'];
     try {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = :user_id");
         $stmt->execute([':user_id' => $edit_id]);
         $user_to_edit = $stmt->fetch(PDO::FETCH_ASSOC);
-
         if (!$user_to_edit) {
             $_SESSION['error'] = 'User not found.';
             header('Location: ' . $baseUrl . '/index.php?page=manage_users');
