@@ -412,7 +412,7 @@
       </div>
       <div class="logo-text">
         <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">Web-Based POS Management System</div>
+            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
       </div>
     </div>
 

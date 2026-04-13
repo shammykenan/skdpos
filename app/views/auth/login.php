@@ -108,7 +108,9 @@
             from { opacity: 0; transform: translateY(22px) scale(0.97); }
             to   { opacity: 1; transform: translateY(0)    scale(1);    }
         }
-
+        #skd{
+    color: var(--secondary-light);
+        }
         /* ══════════════════════════════════════════
            LOGO — centered stack
         ══════════════════════════════════════════ */
@@ -466,13 +468,13 @@
                 </span>
             </div>
             <div class="logo-text">
-                <div class="logo-name">SKD Software Solutions</div>
-                <div class="logo-sub">Web-Based POS Management System</div>
+                <div class="logo-name"><b id="skd">SKD</b> Software Solutions</div>
+                <div class="logo-sub">POS with Recipe-Based Inventory Tracking</div>
             </div>
         </div>
 
         <!-- Heading -->
-        <h1 class="card-heading a2">Good to see<br>you <em>again</em></h1>
+        <h1 class="card-heading a2">Welcome Back</h1>
         <p class="card-sub a2">Sign in to manage today's service</p>
 
         <!-- Alerts -->
