@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
 
 // ── Fetch data for view ───────────────────────────────────────────────────────
 $addons      = getAllAddons($pdo);
-$ingredients = getIngredientsForBeverages($pdo);
+$ingredients = getAllIngredients($pdo); 
 
 // Get menu items for the assign add-ons modal
 $menuItemsStmt = $pdo->prepare("SELECT item_id, item_name FROM menu_items ORDER BY item_name");
