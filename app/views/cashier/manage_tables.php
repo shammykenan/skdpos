@@ -567,8 +567,8 @@
                                     <i class="fas fa-door-open"></i> Free
                                 </button>
                             <?php else: ?>
-                                <span class="tc-btn tc-btn-awaiting tc-btn" title="Collect payment first">
-                                    <i class="fas fa-lock"></i> Awaiting Payment
+                                <span class="tc-btn tc-btn-awaiting tc-btn" title="Order still in progress">
+                                    <i class="fas fa-utensils"></i> Dining
                                 </span>
                             <?php endif; ?>
                         <?php else: ?>
@@ -1044,7 +1044,7 @@ function buildTableCardHTML(table) {
         const isCompleted = table.order_status === 'completed';
         const freeBtn = isCompleted
             ? `<button type="button" class="tc-btn tc-btn-free tc-btn" onclick="openFreeModal(${table.table_id}, '${esc(table.table_name)}')"><i class="fas fa-door-open"></i> Free</button>`
-            : `<span class="tc-btn tc-btn-awaiting tc-btn" title="Collect payment first"><i class="fas fa-lock"></i> Awaiting Payment</span>`;
+            : `<span class="tc-btn tc-btn-awaiting tc-btn" title="Order still in progress"><i class="fas fa-utensils"></i> Dining</span>`;
         actions = `<button type="button" class="tc-btn tc-btn-view tc-btn" onclick="viewTableOrder(${table.current_order_id}, '${esc(table.order_number || '')}')"><i class="fas fa-eye"></i> View</button>${freeBtn}`;
     } else if (isAdmin) {
         actions = `<button type="button" class="tc-btn tc-btn-edit tc-btn" onclick="openEditModal(${table.table_id}, '${esc(table.table_name)}', ${table.capacity})"><i class="fas fa-pen"></i> Edit</button><button type="button" class="tc-btn tc-btn-delete tc-btn" onclick="openDeleteModal(${table.table_id}, '${esc(table.table_name)}')"><i class="fas fa-trash"></i></button>`;

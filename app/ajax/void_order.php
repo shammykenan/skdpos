@@ -232,12 +232,6 @@ try {
     ");
     $ordStmt->execute([$reason, $totalWasteCost, $order_id]);
 
-    // ── Free the table ────────────────────────────────────────────────────────
-    $pdo->prepare("
-        UPDATE tables SET status = 'available', current_order_id = NULL
-        WHERE current_order_id = ?
-    ")->execute([$order_id]);
-
     // ── Record refund if amount > 0 ───────────────────────────────────────────
     $refundId = null;
     if ($refund_amount > 0) {

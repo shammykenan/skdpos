@@ -466,8 +466,8 @@
                 </span>
             </div>
             <div class="logo-text">
-                <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">Web-Based POS Management System</div>
+                <div class="logo-name">SKD Software Solutions</div>
+                <div class="logo-sub">Web-Based POS Management System</div>
             </div>
         </div>
 

@@ -215,7 +215,7 @@
         .modal-header { border-bottom: 1px solid var(--border); padding: 1.4rem 1.6rem; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
         .modal-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.5rem; }
         .modal-body { padding: 1.5rem 1.6rem; }
-        .modal-footer { border-top: 1px solid var(--border); padding: 1.2rem 1.6rem; border-radius: 0 0 var(--radius-xl) var(--radius-xl); gap: 0.5rem; }
+        .modal-footer { border-top: 1px solid var(--border); padding: 1.2rem 1.6rem; border-radius: 0 0 var(--radius-xl) var(--radius-xl); gap: 0.5rem; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 
         .form-label { font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; }
         .form-control, .form-select { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.6rem 0.9rem; font-size: 0.88rem; font-family: inherit; background: #fff; color: var(--dark); transition: border-color 0.15s, box-shadow 0.15s; }
@@ -227,10 +227,10 @@
         .form-text { font-size: 0.75rem; color: var(--warm-gray); margin-top: 0.25rem; }
 
         /* ── MODAL BUTTONS ───────────────────────────────────────────── */
-        .btn-modal-primary { background: var(--primary); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-modal-primary { background: var(--primary); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; text-decoration: none; }
         .btn-modal-primary:hover { background: var(--primary-dark); color: #fff; }
-        .btn-modal-secondary { background: #fff; color: var(--dark); border: 1px solid var(--border); padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; }
-        .btn-modal-secondary:hover { background: var(--light-bg); }
+        .btn-modal-secondary { background: #fff; color: var(--dark); border: 1px solid var(--border); padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; text-decoration: none; }
+        .btn-modal-secondary:hover { background: var(--light-bg); color: var(--dark); }
         .btn-warning-solid { background: var(--warning); color: #1a202c; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
         .btn-warning-solid:hover { background: #e0a832; }
         .btn-danger-solid { background: var(--danger); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; width: 100%; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }

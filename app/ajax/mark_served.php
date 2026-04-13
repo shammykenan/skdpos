@@ -74,13 +74,6 @@ try {
         WHERE order_id = ? AND status NOT IN ('cancelled', 'voided')
     ")->execute([$order_id]);
 
-    // ── Free table if dine‑in ────────────────────────────────────────────────
-    $pdo->prepare("
-        UPDATE tables
-        SET status = 'available', current_order_id = NULL
-        WHERE current_order_id = ?
-    ")->execute([$order_id]);
-
     // ── Audit log ────────────────────────────────────────────────────────────
     $pdo->prepare("
         INSERT INTO activity_logs (user_id, action, details, ip_address)

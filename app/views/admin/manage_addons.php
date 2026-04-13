@@ -832,7 +832,7 @@
                     <input type="hidden" name="delete_addon" value="1">
                     <input type="hidden" name="addon_id"     value="<?= $a['addon_id'] ?>">
                     <button type="submit" class="btn-danger-solid">
-                        <i class="fas fa-eye-slash"></i> Yes, Remove
+                        <i class="fas fa-eye-slash"></i> Remove
                     </button>
                 </form>
             </div>

@@ -356,7 +356,7 @@
             <div class="modal-footer border-0 pt-0 pb-3 gap-2 justify-content-center px-4">
                 <button type="button" class="btn-modal-secondary" style="flex:1;border-radius:var(--radius-md);" data-bs-dismiss="modal">Go Back</button>
                 <button type="button" class="btn-success-solid" id="confirmMarkServedBtn" style="flex:1;border-radius:var(--radius-md);">
-                    <i class="fas fa-check me-1"></i> Served
+                    <i class="fas fa-check me-1"></i> Serve
                 </button>
             </div>
         </div>

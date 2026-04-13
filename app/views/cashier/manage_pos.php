@@ -101,7 +101,6 @@
 ════════════════════════════════════════════════════ -->
 <main class="main" id="mainContent">
 
-    <!-- Page head -->
     <div class="page-head">
         <div>
             <h1 class="page-title">Point of Sale</h1>
@@ -113,7 +112,6 @@
         </div>
     </div>
 
-    <!-- Flash alerts -->
     <?php if (!empty($_SESSION['success'])): ?>
         <div class="alert-bar success" role="alert">
             <i class="fas fa-check-circle"></i>
@@ -151,9 +149,8 @@
             <!-- Category tabs -->
             <div class="category-tabs-wrapper">
                 <div class="category-tabs" id="categoryTabs">
-                    <button class="category-tab active" data-category="all">
+                    <button class="category-tab active" data-category="all" title="All (<?= count($menu_items) ?>)">
                         <i class="fas fa-th me-1"></i>All
-                        <span class="tab-count">(<?= count($menu_items) ?>)</span>
                     </button>
                     <?php
                         $uniqueCategories = [];
@@ -167,9 +164,8 @@
                         }
                         foreach ($uniqueCategories as $catId => $catName):
                     ?>
-                        <button class="category-tab" data-category="<?= $catId ?>">
+                        <button class="category-tab" data-category="<?= $catId ?>" title="<?= htmlspecialchars($catName) ?> (<?= $categoryCounts[$catId] ?>)">
                             <?= htmlspecialchars($catName) ?>
-                            <span class="tab-count">(<?= $categoryCounts[$catId] ?>)</span>
                         </button>
                     <?php endforeach; ?>
                 </div>
@@ -272,17 +268,18 @@
                     <label class="form-label">Order Type <span class="text-danger">*</span></label>
                     <div class="order-type-container">
                         <button type="button" class="order-type-btn active" id="dineInBtn" onclick="setOrderType('dine_in','desktop')">
-                            <i class="fas fa-utensils"></i>Dine In
+                            <i class="fas fa-utensils"></i>Dine In<span class="kbd-hint">D</span>
                         </button>
                         <button type="button" class="order-type-btn" id="takeOutBtn" onclick="setOrderType('takeout','desktop')">
-                            <i class="fas fa-bag-shopping"></i>Take Out
+                            <i class="fas fa-bag-shopping"></i>Take Out<span class="kbd-hint">T</span>
                         </button>
                     </div>
                     <input type="hidden" id="order_type" value="dine_in">
                 </div>
                 <div class="mb-2">
                     <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="customer_name" placeholder="e.g. John Santos" autocomplete="off" required>
+                    <input type="text" class="form-control" id="customer_name" placeholder="e.g. John Santos"
+                           autocomplete="name" inputmode="text" required>
                 </div>
                 <div id="tableNumberContainer">
                     <label class="form-label">Table <span class="text-danger">*</span></label>
@@ -331,7 +328,7 @@
                     <span class="cart-total-amount" id="total">₱0.00</span>
                 </div>
                 <button type="button" class="collect-payment-btn" id="collectPaymentBtn" disabled onclick="openPaymentModal()">
-                    <i class="fas fa-credit-card"></i>Collect Payment
+                    <i class="fas fa-credit-card"></i><span id="collectPaymentBtnText">Collect Payment</span>
                 </button>
                 <div class="submit-disabled-msg d-none" id="submitDisabledMessage">
                     <i class="fas fa-exclamation-circle"></i>Fix stock issues before proceeding
@@ -387,6 +384,7 @@
 
     <div class="drawer-body">
         <div class="cart-fields">
+            <!-- CHANGE: mobile field order — type → table → name (matches dine-in workflow) -->
             <div class="mb-2">
                 <label class="form-label">Order Type <span class="text-danger">*</span></label>
                 <div class="order-type-container">
@@ -397,10 +395,6 @@
                         <i class="fas fa-bag-shopping"></i>Take Out
                     </button>
                 </div>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" id="customer_name_m" placeholder="e.g. John Santos" autocomplete="off" required>
             </div>
             <div id="tableNumberContainerM">
                 <label class="form-label">Table <span class="text-danger">*</span></label>
@@ -421,6 +415,11 @@
                     </div>
                     <input type="hidden" id="table_id_m" value="">
                 <?php endif; ?>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="customer_name_m" placeholder="e.g. John Santos"
+                       autocomplete="name" inputmode="text" required>
             </div>
             <div id="draftBannerM" class="draft-restored-banner d-none" style="margin:0.75rem 0 0;">
                 <i class="fas fa-clock-rotate-left"></i>
@@ -446,7 +445,7 @@
             <span class="cart-total-amount" id="totalM">₱0.00</span>
         </div>
         <button type="button" class="collect-payment-btn d-none mt-2" id="collectPaymentBtnM" disabled onclick="openPaymentModal()">
-            <i class="fas fa-credit-card"></i>Collect Payment
+            <i class="fas fa-credit-card"></i><span id="collectPaymentBtnTextM">Collect Payment</span>
         </button>
         <div class="submit-disabled-msg d-none" id="submitDisabledMessageM">
             <i class="fas fa-exclamation-circle"></i>Fix stock issues before proceeding
@@ -603,19 +602,16 @@
             </div>
 
             <div class="pm-body">
-                <!-- Summary -->
                 <div class="pm-summary">
                     <div class="pm-summary-label"><i class="fas fa-list me-1"></i>Order Summary</div>
                     <div class="pm-summary-items" id="pmSummaryItems">—</div>
                 </div>
 
-                <!-- Total -->
                 <div class="pm-total-card">
                     <div class="pm-total-label">Total Due</div>
                     <div class="pm-total-amount">₱<span id="pmTotalAmount">0.00</span></div>
                 </div>
 
-                <!-- Cash input -->
                 <div class="pm-input-section">
                     <div class="pm-input-label">
                         <i class="fas fa-money-bill-wave" style="color:var(--success);"></i>Cash Tendered
@@ -625,10 +621,13 @@
                         <input type="number" id="pmCashInput" class="pm-cash-input"
                                placeholder="0.00" min="0" step="0.01" autocomplete="off">
                     </div>
+                    <!-- CHANGE: enter key hint for desktop cashiers -->
+                    <div class="pm-enter-hint">
+                        <kbd>Enter</kbd> to confirm payment
+                    </div>
                     <div class="pm-quick-amounts" id="pmQuickAmounts"></div>
                 </div>
 
-                <!-- Change -->
                 <div class="pm-change-card change-none" id="pmChangeCard">
                     <div class="pm-change-icon"><i class="fas fa-coins"></i></div>
                     <div class="pm-change-info">
@@ -658,7 +657,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-/* ── PHP → JS data (backend untouched) ── */
+/* ── PHP → JS data ── */
 const stockData      = <?= json_encode($stock_data      ?? []) ?>;
 const addonStockData = <?= json_encode($addon_stock_data ?? []) ?>;
 const addonsMap      = <?= json_encode($addons_map       ?? []) ?>;
@@ -668,6 +667,9 @@ const DB_DRAFT_META  = <?= json_encode($draft_meta      ?? null) ?>;
 const BASE_URL       = <?= json_encode($baseUrl) ?>;
 const CASHIER_NAME   = <?= json_encode($_SESSION['full_name'] ?? 'Cashier') ?>;
 
+/* CHANGE: PHP-side available table count for auto-select */
+const AVAILABLE_TABLES = <?= json_encode($available_tables ?? []) ?>;
+
 let cart               = [];
 let currentItem        = null;
 let currentVariantId   = null;
@@ -675,6 +677,8 @@ let currentVariantName = null;
 let currentOrderType   = 'dine_in';
 let hasStockIssues     = false;
 let lastOrderData      = null;
+/* CHANGE: submit guard — prevents double-submit */
+let _submitting        = false;
 
 const isMobile = () => window.innerWidth < 992;
 
@@ -708,6 +712,8 @@ function flashCard(itemId) {
 }
 
 // ─── DRAFT PERSISTENCE ───────────────────────────────────────────
+/* CHANGE: debounced server save — no beacon on every keystroke */
+let _draftTimer = null;
 function saveDraftToServer() {
     const mobile = isMobile();
     const orderType = document.getElementById('order_type').value;
@@ -723,7 +729,11 @@ function saveDraftToServer() {
         table_id: tableIdEl?.value || '',
     }));
 }
-function saveCart() { localStorage.setItem('pos_cart', JSON.stringify(cart)); saveDraftToServer(); }
+function debouncedSave() {
+    clearTimeout(_draftTimer);
+    _draftTimer = setTimeout(saveDraftToServer, 500);
+}
+function saveCart() { localStorage.setItem('pos_cart', JSON.stringify(cart)); debouncedSave(); }
 function loadCart() { try { cart = JSON.parse(localStorage.getItem('pos_cart') || '[]'); } catch(e) { cart = []; } }
 
 // ─── MODAL HELPERS ───────────────────────────────────────────────
@@ -734,12 +744,15 @@ function showModal(id) {
     new bootstrap.Modal(el).show();
 }
 function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id))?.hide(); }
+/* CHANGE: 200ms timeout before backdrop cleanup — prevents flicker in variant→addons chain */
 document.addEventListener('hidden.bs.modal', () => {
-    if (document.querySelector('.modal.show')) return;
-    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-    document.body.style.paddingRight = '';
+    setTimeout(() => {
+        if (document.querySelector('.modal.show')) return;
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }, 200);
 });
 function showStockErrorModal(title, missing) {
     document.getElementById('stockErrTitle').textContent = title;
@@ -930,14 +943,21 @@ function buildCartItemHTML(row, idx, containerKey) {
         ? `<div class="cart-item-variant"><i class="fas fa-layer-group"></i>${escHtml(row.variantName)}</div>` : '';
     const noteDisplay = note
         ? `<div class="cart-item-note" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span class="cart-item-note-text">${escHtml(note)}</span></div>`
-        : `<div class="cart-item-note-empty" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span>Add note…</span></div>`;
+        : `<button class="cart-item-note-empty" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span>Add note…</span></button>`;
     const noteEditor = `<div class="cart-item-note-editor" data-note-editor="${key}" style="display:none">
-        <textarea rows="2" maxlength="300" placeholder="e.g. No sugar, extra hot…" onkeydown="handleNoteKeydown(event,'${key}',${idx})">${escHtml(note)}</textarea>
+        <textarea rows="2" maxlength="300" placeholder="e.g. No sugar, extra hot…" onkeydown="handleNoteKeydown(event,'${key}',${idx})"></textarea>
         <div class="note-actions">
             <button class="note-cancel-btn" onclick="cancelNoteEdit('${key}')">Cancel</button>
             <button class="note-save-btn" onclick="saveNote('${key}',${idx})"><i class="fas fa-check me-1"></i>Save</button>
         </div>
     </div>`;
+
+    /* CHANGE: trash icon when qty=1 (single click to remove), minus when qty>1 */
+    const minusIcon = row.quantity <= 1
+        ? `<i class="fas fa-trash-alt"></i>`
+        : `<i class="fas fa-minus"></i>`;
+    const minusBtnClass = row.quantity <= 1 ? 'qty-btn qty-remove' : 'qty-btn';
+
     return `<div class="cart-item ${hasIssue ? 'insufficient-stock' : ''}">
         <div class="cart-item-top">
             <div class="cart-item-info">
@@ -951,11 +971,21 @@ function buildCartItemHTML(row, idx, containerKey) {
         ${noteDisplay}${noteEditor}
         ${hasIssue ? `<div class="stock-warning-danger"><i class="fas fa-exclamation-circle"></i>Exceeds available stock</div>` : ''}
         <div class="cart-item-qty">
-            <button class="qty-btn" onclick="updateQuantity(${idx},-1)" ${row.quantity<=1?'disabled':''}><i class="fas fa-minus"></i></button>
+            <button class="${minusBtnClass}" onclick="updateQuantity(${idx},-1)">${minusIcon}</button>
             <input type="number" class="qty-input" value="${row.quantity}" min="1" onchange="setQuantity(${idx},this.value)">
             <button class="qty-btn" onclick="updateQuantity(${idx},1)" ${hasIssue?'disabled':''}><i class="fas fa-plus"></i></button>
         </div>
     </div>`;
+}
+
+/* CHANGE: update checkout button label to "Charge ₱X.XX" */
+function updateCheckoutButtonLabel() {
+    const total = cart.reduce((s,r) => s + (r.price + r.addons.reduce((a,b) => a + b.price*b.quantity, 0)) * r.quantity, 0);
+    const textEl  = document.getElementById('collectPaymentBtnText');
+    const textElM = document.getElementById('collectPaymentBtnTextM');
+    const label = cart.length > 0 ? `Charge ₱${total.toFixed(2)}` : 'Collect Payment';
+    if (textEl)  textEl.textContent  = label;
+    if (textElM) textElM.textContent = label;
 }
 
 function renderCart() {
@@ -1006,6 +1036,13 @@ function renderCart() {
         if (bdg) { bdg.textContent = cnt > 0 ? cnt : ''; bdg.style.display = cnt > 0 ? 'flex' : 'none'; }
         card.classList.toggle('in-cart', cnt > 0);
     });
+
+    /* CHANGE: scroll cart to bottom so newest item is always visible */
+    const wrapper = document.getElementById('cartItemsWrapper');
+    if (wrapper && cart.length > 0) wrapper.scrollTop = wrapper.scrollHeight;
+
+    /* CHANGE: dynamic checkout button label */
+    updateCheckoutButtonLabel();
 }
 
 function validateAndRender() {
@@ -1050,8 +1087,16 @@ function setOrderType(type, context) {
         if (boxM) boxM.style.display = type === 'dine_in' ? '' : 'none';
         if (type === 'takeout') { const s = document.getElementById('table_id_m'); if (s) s.value = ''; }
     }
-    saveDraftToServer();
+    debouncedSave();
 }
+
+/* CHANGE: keyboard shortcuts D/T for order type (desktop only) */
+document.addEventListener('keydown', e => {
+    if (isMobile()) return;
+    if (e.target.matches('input, textarea, select')) return;
+    if (e.key === 'd' || e.key === 'D') setOrderType('dine_in', 'desktop');
+    if (e.key === 't' || e.key === 'T') setOrderType('takeout', 'desktop');
+});
 
 // ─── SEARCH & CATEGORIES ─────────────────────────────────────────
 function filterMenu() {
@@ -1194,8 +1239,26 @@ document.querySelectorAll('.menu-item-card').forEach(card => {
         const catId     = parseInt(this.dataset.categoryId);
         const variants  = variantsMap[itemId] || [];
         const item      = { id: itemId, name: itemName, price: basePrice, categoryId: catId };
-        if (variants.length > 0) { openVariantModal(item, variants); }
-        else { currentVariantId = null; currentVariantName = null; openAddonsModal(item, null, null); }
+
+        if (variants.length > 0) {
+            openVariantModal(item, variants);
+            return;
+        }
+
+        const activeAddons = (addonsMap[itemId] || []).filter(a => a.is_active);
+
+        /* CHANGE: skip modal entirely for items with no variants and no active add-ons
+           — direct add to cart with quantity 1, no note */
+        if (activeAddons.length === 0) {
+            const c = checkCanAdd(itemId, 1, [], null);
+            if (!c.success) { showStockErrorModal(`Cannot add "${itemName}" — exceeds stock`, c.missingIngredients); return; }
+            addToCartWithQuantity(item, [], 1, '', null, null);
+            return;
+        }
+
+        /* items with add-ons still open the modal */
+        currentVariantId = null; currentVariantName = null;
+        openAddonsModal(item, null, null);
     });
 });
 function decModalQty() { const i = document.getElementById('modalItemQty'); if (i && +i.value > 1) i.value = +i.value - 1; }
@@ -1267,7 +1330,8 @@ function openPaymentModal() {
     document.getElementById('pmConfirmBtn').disabled = true;
     buildQuickAmounts(_pmTotal);
     showModal('paymentModal');
-    setTimeout(() => cashInput.focus(), 350);
+    /* CHANGE: reduced focus delay 350→200ms + select() to overwrite previous value */
+    setTimeout(() => { cashInput.focus(); cashInput.select(); }, 200);
 }
 function buildQuickAmounts(total) {
     const roundUp = (n,to) => Math.ceil(n/to)*to;
@@ -1291,6 +1355,14 @@ document.getElementById('pmCashInput')?.addEventListener('input', function() {
     this.className = 'pm-cash-input' + (this.value === '' ? '' : (valid ? ' valid' : ' invalid'));
     updateChangeDisplay(val, this.value !== '');
     document.getElementById('pmConfirmBtn').disabled = !valid;
+});
+/* CHANGE: Enter key confirms payment from cash input */
+document.getElementById('pmCashInput')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const btn = document.getElementById('pmConfirmBtn');
+        if (!btn.disabled) confirmPaymentAndSubmit();
+    }
 });
 function updateChangeDisplay(amountPaid, hasInput) {
     const card = document.getElementById('pmChangeCard');
@@ -1318,11 +1390,14 @@ function updateChangeDisplay(amountPaid, hasInput) {
 
 // ─── CONFIRM PAYMENT & SUBMIT ────────────────────────────────────
 async function confirmPaymentAndSubmit() {
+    /* CHANGE: double-submit guard */
+    if (_submitting) return;
     const amountPaid = parseFloat(document.getElementById('pmCashInput').value) || 0;
     const changeAmt  = Math.max(0, amountPaid - _pmTotal);
     if (amountPaid < _pmTotal) { showErrorModal('Insufficient Amount', 'Cash tendered must be ≥ the order total.'); return; }
     const { orderType, customerName, tableId } = collectOrderData();
     const btn = document.getElementById('pmConfirmBtn');
+    _submitting = true;
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing…';
     const payload = new URLSearchParams({
         action: 'pay_and_submit', customer_name: customerName || '',
@@ -1350,14 +1425,83 @@ async function confirmPaymentAndSubmit() {
         setOrderType('dine_in','desktop');
         setOrderType('dine_in','mobile');
         hideModal('paymentModal');
+        _submitting = false;
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirm & Place Order';
         showSuccessToast(`Order #${data.order_number} created successfully!`);
+        // Refresh table availability after successful dine-in order
+        if (orderType === 'dine_in') {
+            await refreshTableAvailability();
+        }
         setTimeout(() => printReceiptESC(lastOrderData), 300);
+        /* CHANGE: auto-focus search after order completion so cashier is ready for next order */
+        if (!isMobile()) setTimeout(() => document.getElementById('menuSearch')?.focus(), 400);
     } catch (err) {
+        _submitting = false;
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirm & Place Order';
         showErrorModal('Order Failed', err.message);
+    }
+}
+
+// ─── REFRESH TABLE AVAILABILITY ──────────────────────────────────
+async function refreshTableAvailability() {
+    try {
+        const response = await fetch('app/ajax/get_tables.php');
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Failed to fetch tables');
+        
+        // Filter only available tables for POS dropdown
+        const availableTables = data.tables.filter(table => table.status === 'available');
+        
+        // Update both desktop and mobile table dropdowns
+        ['table_id', 'table_id_m'].forEach(selectId => {
+            const select = document.getElementById(selectId);
+            const container = select?.closest('div[id$="Container"]');
+            if (!select || !container) return;
+            
+            // Clear existing options except the default
+            select.innerHTML = '<option value="">— Choose a table —</option>';
+            
+            if (availableTables.length > 0) {
+                // Add available tables
+                availableTables.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table.table_id;
+                    option.textContent = `${table.table_name} (${table.capacity} seats)`;
+                    select.appendChild(option);
+                });
+                
+                // Update table count hint
+                const hint = container.querySelector('.table-count-hint');
+                if (hint) {
+                    hint.innerHTML = `<i class="fas fa-circle-check"></i>${availableTables.length} table${availableTables.length !== 1 ? 's' : ''} available`;
+                }
+                
+                // Show the select dropdown, hide unavailable notice
+                select.style.display = '';
+                const unavailableNotice = container.querySelector('.table-unavailable-notice');
+                if (unavailableNotice) unavailableNotice.style.display = 'none';
+                
+                // Auto-select if only one table available
+                if (availableTables.length === 1) {
+                    select.value = String(availableTables[0].table_id);
+                }
+            } else {
+                // No tables available
+                select.style.display = 'none';
+                let unavailableNotice = container.querySelector('.table-unavailable-notice');
+                if (!unavailableNotice) {
+                    unavailableNotice = document.createElement('div');
+                    unavailableNotice.className = 'table-unavailable-notice';
+                    unavailableNotice.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>No tables available — free a table first.';
+                    container.appendChild(unavailableNotice);
+                }
+                unavailableNotice.style.display = '';
+            }
+        });
+    } catch (error) {
+        console.error('Error refreshing table availability:', error);
     }
 }
 
@@ -1383,8 +1527,9 @@ function setSidebarOpen(open) {
 document.getElementById('menuToggle')?.addEventListener('click', () => setSidebarOpen(!document.getElementById('sidebar').classList.contains('show')));
 document.getElementById('sidebarOverlay')?.addEventListener('click', () => setSidebarOpen(false));
 
-document.getElementById('customer_name')?.addEventListener('input',   saveDraftToServer);
-document.getElementById('customer_name_m')?.addEventListener('input', saveDraftToServer);
+/* CHANGE: debounced draft save on input instead of immediate */
+document.getElementById('customer_name')?.addEventListener('input',   debouncedSave);
+document.getElementById('customer_name_m')?.addEventListener('input', debouncedSave);
 
 // ─── ALERT DISMISS ───────────────────────────────────────────────
 document.querySelectorAll('.alert-bar .dismiss').forEach(btn => {
@@ -1445,6 +1590,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     validateAndRender();
+
+    /* CHANGE: auto-select table when only one available */
+    if (AVAILABLE_TABLES.length === 1) {
+        const tid = String(AVAILABLE_TABLES[0].table_id);
+        ['table_id','table_id_m'].forEach(id => {
+            const s = document.getElementById(id);
+            if (s?.querySelector(`option[value="${tid}"]`)) s.value = tid;
+        });
+    }
+
+    /* CHANGE: auto-focus search on desktop page load */
+    if (!isMobile()) {
+        setTimeout(() => document.getElementById('menuSearch')?.focus(), 150);
+    }
 
     if (isMobile()) {
         const bar = document.getElementById('mobileBottomBar'); if (bar) bar.style.display = 'flex';

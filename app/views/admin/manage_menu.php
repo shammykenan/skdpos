@@ -283,7 +283,7 @@
         .modal-header { border-bottom: 1px solid var(--border); padding: 1.4rem 1.6rem; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
         .modal-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.5rem; }
         .modal-body { padding: 1.5rem 1.6rem; }
-        .modal-footer { border-top: 1px solid var(--border); padding: 1.2rem 1.6rem; border-radius: 0 0 var(--radius-xl) var(--radius-xl); gap: 0.5rem; }
+        .modal-footer { border-top: 1px solid var(--border); padding: 1.2rem 1.6rem; border-radius: 0 0 var(--radius-xl) var(--radius-xl); gap: 0.5rem; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 
         .form-label { font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; }
         .form-control, .form-select {
@@ -306,10 +306,10 @@
         .pricing-banner.variant { background: rgba(15,76,92,0.08); color: var(--primary-dark); border: 1px solid rgba(15,76,92,0.2); }
 
         /* ── MODAL BUTTONS ──────────────────────────────────────────────── */
-        .btn-modal-primary { background: var(--primary); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-modal-primary { background: var(--primary); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; text-decoration: none; }
         .btn-modal-primary:hover { background: var(--primary-dark); color: #fff; }
-        .btn-modal-secondary { background: #fff; color: var(--dark); border: 1px solid var(--border); padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; }
-        .btn-modal-secondary:hover { background: var(--light-bg); }
+        .btn-modal-secondary { background: #fff; color: var(--dark); border: 1px solid var(--border); padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; text-decoration: none; }
+        .btn-modal-secondary:hover { background: var(--light-bg); color: var(--dark); }
         .btn-danger-solid { background: var(--danger); color: #fff; border: none; padding: 0.6rem 1.4rem; border-radius: 40px; font-weight: 600; font-size: 0.88rem; cursor: pointer; width: 100%; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }
         .btn-danger-solid:hover { background: #bb3338; color: #fff; }
 
@@ -333,7 +333,21 @@
         .img-preview-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.6rem; background: #fafcff; }
         .img-preview { max-width: 100%; max-height: 130px; border-radius: var(--radius-sm); display: block; margin: 0 auto; }
         .img-preview-ph { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 0.75rem; background: var(--light-bg); }
-
+        /* Make edit modal body scrollable and footer always visible */
+#editMenuItemModal .modal-dialog {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+#editMenuItemModal .modal-content {
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+#editMenuItemModal .modal-body {
+    overflow-y: auto;
+    max-height: 70vh;          /* adjust as needed */
+}
         /* ── CONFIRM MODAL ──────────────────────────────────────────────── */
         .confirm-icon { width: 64px; height: 64px; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 1rem; }
         .confirm-icon.danger { background: rgba(214,64,69,0.1); color: var(--danger); }
@@ -366,12 +380,39 @@
             .main { margin-left: 0; padding: 1.5rem 1.25rem; }
             .mobile-toggle { display: flex; align-items: center; }
         }
-        /* iPad-specific (768–1024) */
+        /* ── iPad-specific (768–1024): sidebar hidden, table still visible but tightened ── */
         @media (min-width: 768px) and (max-width: 1024px) {
             :root { --sidebar-w: 220px; }
             .main { padding: 1.5rem; }
             .stats-row { grid-template-columns: repeat(2, 1fr); }
-            .data-table thead th, .data-table tbody td { padding: 0.8rem 1rem; }
+
+            /* Tighten table cells so all columns fit without horizontal scroll */
+            .data-table thead th,
+            .data-table tbody td { padding: 0.75rem 0.65rem; }
+
+            /* Hide the image column on iPad — saves ~60px */
+            .data-table thead th:first-child,
+            .data-table tbody td:first-child { display: none; }
+
+            /* Shrink item description to save vertical space */
+            .item-desc { display: none; }
+
+            /* Compact variant list */
+            .variant-list-compact { max-height: 100px; }
+            .variant-row-item { font-size: 0.75rem; }
+
+            /* Compress the margin column text */
+            .margin-val { font-size: 0.82rem; }
+            .margin-sub { font-size: 0.68rem; }
+
+            /* Shrink action buttons slightly */
+            .btn-act { width: 30px; height: 30px; font-size: 0.75rem; }
+
+            /* Keep Add Variant button readable */
+            .btn-variants { font-size: 0.72rem; padding: 0.25rem 0.65rem; }
+
+            /* Status pill compact */
+            .pill { font-size: 0.68rem; padding: 0.25rem 0.6rem; }
         }
         @media (max-width: 767.98px) {
             .main { padding: 1.25rem 1rem; }
@@ -838,7 +879,7 @@
                     <h5 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--secondary);font-size:1rem;"></i> Add New Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" enctype="multipart/form-data" id="addItemForm">
+                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" enctype="multipart/form-data" id="addItemForm">
                     <div class="modal-body">
                         <input type="hidden" name="add_menu_item" value="1">
                         <div class="row g-3 mb-3">
@@ -909,13 +950,13 @@
         $edit_has_variants = !empty($edit_variants) && ($edit_variants[0]['has_variants'] ?? false);
     ?>
     <div class="modal fade" id="editMenuItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">   
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="fas fa-edit" style="color:var(--secondary);font-size:1rem;"></i> Edit Item</h5>
                     <a href="<?= $baseUrl ?>/index.php?page=manage_menu" class="btn-close"></a>
                 </div>
-                <form method="POST" enctype="multipart/form-data">
+                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="item_id" value="<?= $item_to_edit['item_id'] ?>">
                         <input type="hidden" name="update_menu_item" value="1">
