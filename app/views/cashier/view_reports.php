@@ -3,7 +3,7 @@
  * reports_view.php  – v10 (fully responsive + UX improvements)
  */
 extract($ctx);
-
+$print_timestamp = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('M d, Y h:i A');
 $months_list = [
     1=>'January',2=>'February',3=>'March',4=>'April',
     5=>'May',6=>'June',7=>'July',8=>'August',
@@ -1426,13 +1426,27 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
     </div>
     </div>
     <script>(function(){
-        const dd=<?=json_encode(array_column($data['daily_chart']??[],'sale_date'))?>;
-        const dr=<?=json_encode(array_column($data['daily_chart']??[],'revenue'))?>;
-        if(dd.length) new Chart(document.getElementById('monthlyTrend').getContext('2d'),{type:'line',data:{labels:dd.map(d=>{const p=d.split('-');return p[2]+' '+(p[1]=='01'?'Jan':(p[1]=='02'?'Feb':(p[1]=='03'?'Mar':(p[1]=='04'?'Apr':(p[1]=='05'?'May':(p[1]=='06'?'Jun':(p[1]=='07'?'Jul':(p[1]=='08'?'Aug':(p[1]=='09'?'Sep':(p[1]=='10'?'Oct':(p[1]=='11'?'Nov':'Dec')))))))))))),datasets:[{label:'Revenue',data:dr,backgroundColor:'rgba(15,76,92,.07)',borderColor:'#0f4c5c',borderWidth:2.5,tension:.35,fill:true,pointBackgroundColor:'#ff6b4a',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:v=>'₱'+v.toLocaleString()}},x:{grid:{display:false}}}}});
-        const cl=<?=json_encode(array_column($data['categories']??[],'category_name'))?>;
-        const cv=<?=json_encode(array_column($data['categories']??[],'revenue'))?>;
-        if(cl.length) new Chart(document.getElementById('monthlyCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': ₱'+parseFloat(ctx.raw).toLocaleString()}}}}});
-    })();</script>
+    var rawDaily = <?= json_encode(array_values($data['daily_chart'] ?? [])) ?>;
+    var dd = rawDaily.map(function(r){ return r.sale_date; });
+    var dr = rawDaily.map(function(r){ return parseFloat(r.revenue); });
+    var trendCanvas = document.getElementById('monthlyTrend');
+    if(dd.length && trendCanvas) {
+        new Chart(trendCanvas.getContext('2d'),{type:'line',data:{labels:dd.map(function(d){var p=d.split('-');var mn=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return p[2]+' '+mn[parseInt(p[1],10)];}),datasets:[{label:'Revenue',data:dr,backgroundColor:'rgba(15,76,92,.07)',borderColor:'#0f4c5c',borderWidth:2.5,tension:.35,fill:true,pointBackgroundColor:'#ff6b4a',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(15,76,92,.04)'},ticks:{callback:function(v){return '\u20b1'+v.toLocaleString();}}},x:{grid:{display:false}}}}});
+    } else if(trendCanvas) {
+        trendCanvas.style.display='none';
+        trendCanvas.parentElement.innerHTML='<div class="no-data"><i class="fas fa-inbox"></i> No daily revenue data for this month.</div>';
+    }
+    var rawCat = <?= json_encode(array_values($data['categories'] ?? [])) ?>;
+    var cl = rawCat.map(function(r){ return r.category_name; });
+    var cv = rawCat.map(function(r){ return parseFloat(r.revenue); });
+    var catCanvas = document.getElementById('monthlyCat');
+    if(cl.length && catCanvas) {
+        new Chart(catCanvas.getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:function(ctx){return ctx.label+': \u20b1'+parseFloat(ctx.raw).toLocaleString();}}}}}});
+    } else if(catCanvas) {
+        catCanvas.style.display='none';
+        catCanvas.parentElement.innerHTML='<div class="no-data"><i class="fas fa-inbox"></i> No category data for this month.</div>';
+    }
+})();</script>
 
     <?php
     // =========================================================================
@@ -1570,7 +1584,13 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
     <script>(function(){
         const cl=<?=json_encode(array_column($data['categories']??[],'category_name'))?>;
         const cv=<?=json_encode(array_column($data['categories']??[],'revenue'))?>;
-        if(cl.length) new Chart(document.getElementById('prodCat').getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': ₱'+parseFloat(ctx.raw).toLocaleString()}}}}});
+        const prodCatCanvas = document.getElementById('prodCat');
+        if(cl.length) {
+            new Chart(prodCatCanvas.getContext('2d'),{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#0f4c5c','#ff6b4a','#fee440','#1e2f4e','#5e9b9e','#ff8c70'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}},tooltip:{callbacks:{label:ctx=>ctx.label+': ₱'+parseFloat(ctx.raw).toLocaleString()}}}}});
+        } else {
+            prodCatCanvas.style.display = 'none';
+            prodCatCanvas.parentElement.innerHTML = '<div class="no-data"><i class="fas fa-inbox"></i> No category data for this period.</div>';
+        }
     })();</script>
 
     <?php
@@ -2151,7 +2171,7 @@ var _dailyData = <?php
         $top_items = $data['top_items']?? [];
         echo json_encode([
             'date'              => date('F d, Y', strtotime($filter_date)),
-            'printed_at'        => (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('M d, Y h:i A') . ' (PHT)',
+            'printed_at' => $print_timestamp . ' (PHT)',
             'gross_revenue'     => number_format((float)($s['net_revenue']??0), 2),
             'excl_vat'          => number_format((float)($s['net_revenue_excl_vat']??0), 2),
             'vat_collected'     => number_format((float)($s['total_vat_collected']??0), 2),
