@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/tableHelper.php';
+require_once __DIR__ . '/../core/OrNumberHelper.php';
+require_once __DIR__ . '/../core/VatHelper.php';
 
 /**
  * Create an order.
@@ -11,35 +13,41 @@ function createOrder(
     PDO     $pdo,
     int     $cashier_id,
     ?string $customer_name,
-    ?string $table_number,   // keep param for compatibility, just don't insert it
+    ?string $table_number,
     string  $order_type,
     string  $order_source,
     float   $subtotal,
     float   $discount,
     float   $total_amount,
-    ?int    $table_id = null
+    ?int    $table_id      = null,
+    string  $discount_type = 'none',   // ← new
+    float   $discount_amount = 0.0     // ← new
 ): int {
     $order_number = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
 
     $stmt = $pdo->prepare("
         INSERT INTO orders
             (order_number, cashier_id, customer_name, table_id,
-             order_type, order_source, subtotal, discount, total_amount, status)
+             order_type, order_source, subtotal, discount, total_amount,
+             discount_type, discount_amount, status)
         VALUES
             (:order_number, :cashier_id, :customer_name, :table_id,
-             :order_type, :order_source, :subtotal, :discount, :total_amount, 'pending')
+             :order_type, :order_source, :subtotal, :discount, :total_amount,
+             :discount_type, :discount_amount, 'pending')
     ");
 
     $stmt->execute([
-        ':order_number'  => $order_number,
-        ':cashier_id'    => $cashier_id,
-        ':customer_name' => $customer_name,
-        ':table_id'      => $table_id,
-        ':order_type'    => $order_type,
-        ':order_source'  => $order_source,
-        ':subtotal'      => $subtotal,
-        ':discount'      => $discount,
-        ':total_amount'  => $total_amount,
+        ':order_number'    => $order_number,
+        ':cashier_id'      => $cashier_id,
+        ':customer_name'   => $customer_name,
+        ':table_id'        => $table_id,
+        ':order_type'      => $order_type,
+        ':order_source'    => $order_source,
+        ':subtotal'        => $subtotal,
+        ':discount'        => $discount,
+        ':total_amount'    => $total_amount,
+        ':discount_type'   => $discount_type,
+        ':discount_amount' => $discount_amount,
     ]);
 
     $order_id = (int) $pdo->lastInsertId();
@@ -54,11 +62,49 @@ function createOrder(
     return $order_id;
 }
 
+/**
+ * Assign an OR number to an order and update all VAT fields atomically.
+ * Must be called INSIDE an active transaction (the pay_and_submit transaction).
+ *
+ * @param  PDO   $pdo
+ * @param  int   $order_id
+ * @param  float  $total_amount   Final order total after discounts.
+ * @param  string $discount_type  Needed because Senior/PWD totals are VAT-exempt.
+ * @return string               The assigned OR number.
+ */
+function assignOrNumberAndVat(PDO $pdo, int $order_id, float $total_amount, string $discount_type = 'none'): string
+{
+    // Generate next OR number — getNextOrNumber() uses FOR UPDATE internally,
+    // so we must already be inside a transaction when calling this.
+    $or_number = getNextOrNumber($pdo);
+
+    // Compute VAT breakdown
+    $vat = VatHelper::orderBreakdown($total_amount, $pdo, $discount_type);
+
+    $stmt = $pdo->prepare("
+        UPDATE orders SET
+            or_number          = :or_number,
+            vat_amount         = :vat_amount,
+            vat_exempt_amount  = :vat_exempt_amount,
+            zero_rated_amount  = :zero_rated_amount
+        WHERE order_id = :order_id
+    ");
+    $stmt->execute([
+        ':or_number'         => $or_number,
+        ':vat_amount'        => $vat['vat_amount'],
+        ':vat_exempt_amount' => $vat['vat_exempt_amount'],
+        ':zero_rated_amount' => $vat['zero_rated_amount'],
+        ':order_id'          => $order_id,
+    ]);
+
+    return $or_number;
+}
+
 function createOrderItem(
     PDO     $pdo,
     int     $order_id,
     int     $item_id,
-    string  $item_name_snapshot,   // ADD THIS
+    string  $item_name_snapshot,
     int     $quantity,
     float   $unit_price,
     ?string $item_note    = null,
@@ -136,8 +182,6 @@ function updateOrderStatus(PDO $pdo, int $order_id, string $status): bool {
 /**
  * Create or overwrite the cashier's draft.
  * Cart is stored as JSON on the orders row — order_items untouched.
- *
- * Requires: ALTER TABLE orders ADD COLUMN draft_cart JSON NULL;
  */
 function upsertDraftOrder(
     PDO     $pdo,
@@ -193,7 +237,6 @@ function upsertDraftOrder(
 
 /**
  * Load a cashier's draft cart.
- * Reads the JSON blob — no joins to order_items needed.
  * Returns ['cart' => [], 'meta' => null] if no draft exists.
  */
 function loadDraftCart(PDO $pdo, int $cashier_id): array {
@@ -230,11 +273,39 @@ function loadDraftCart(PDO $pdo, int $cashier_id): array {
 
 /**
  * Delete the cashier's draft.
- * Since drafts never write to order_items, this is a single-row DELETE.
- * No stock to restore, no child rows to worry about.
  */
 function clearDraftOrder(PDO $pdo, int $cashier_id): void {
     $pdo->prepare("
         DELETE FROM orders WHERE cashier_id = ? AND status = 'draft'
     ")->execute([$cashier_id]);
+}
+/**
+ * Record a discount entry in order_discounts.
+ * Call inside the pay_and_submit transaction after createOrder().
+ */
+function recordOrderDiscount(
+    PDO    $pdo,
+    int    $order_id,
+    string $discount_type,
+    string $reference_no,
+    float  $discount_pct,
+    float  $discount_amt,
+    int    $applied_by
+): void {
+    if ($discount_type === 'none' || $discount_amt <= 0) return;
+
+    $stmt = $pdo->prepare("
+        INSERT INTO order_discounts
+            (order_id, discount_type, reference_no, discount_pct, discount_amt, applied_by)
+        VALUES
+            (:order_id, :discount_type, :reference_no, :discount_pct, :discount_amt, :applied_by)
+    ");
+    $stmt->execute([
+        ':order_id'      => $order_id,
+        ':discount_type' => $discount_type,
+        ':reference_no'  => $reference_no ?: null,
+        ':discount_pct'  => $discount_pct,
+        ':discount_amt'  => $discount_amt,
+        ':applied_by'    => $applied_by,
+    ]);
 }

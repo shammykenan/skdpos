@@ -10,6 +10,8 @@
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/reports.php';
+// At the top, after the existing requires:
+require_once BASE_PATH . '/app/models/ZReading.php';
 $baseUrl = $_ENV['BASE_URL'] ?? '';
 
 // ── 1. Auth guard ─────────────────────────────────────────────────────────────
@@ -24,7 +26,7 @@ $session_uid = (int)($_SESSION['user_id'] ?? 0);
 
 // ── 2. Allowed tabs per role ──────────────────────────────────────────────────
 $allowed_tabs = $is_admin
-    ? ['daily', 'monthly', 'yearly', 'products', 'staff', 'adminshift', 'audit', 'consumption', 'waste']
+    ? ['daily', 'monthly', 'yearly', 'products', 'staff', 'adminshift', 'audit', 'consumption', 'waste', 'zreading']
     : ['myshift', 'closeout', 'inventory', 'waste'];
 
 $default_tab = $is_admin ? 'daily' : 'myshift';
@@ -162,6 +164,14 @@ switch ($tab) {
         $waste_cid           = $is_admin ? null : $session_uid;
         $data['summary']     = rpt_waste_summary($pdo, $range_start, $range_end, $waste_cid);
         $data['waste_items'] = rpt_waste_report($pdo,  $range_start, $range_end, $waste_cid);
+        break;
+    // ── ADMIN: Z-Reading ──────────────────────────────────────────────────────────
+    case 'zreading':
+        $zModel = new ZReading($pdo);
+        $selectedDate = $filter_date;
+        $data['z_data']    = $zModel->getForDate($selectedDate);
+        $data['z_history'] = $zModel->listAll();
+        $data['z_date']    = $selectedDate;
         break;
 }
 

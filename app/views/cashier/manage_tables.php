@@ -945,8 +945,8 @@ function populateTodModal(order, items, payment) {
         });
     }
     const total    = parseFloat(order.total_amount || 0);
-    const subtotal = total / 1.12;
-    const vat      = total - subtotal;
+    const vat      = parseFloat(order.vat_amount || 0);
+    const subtotal = Math.max(0, total - vat);
     set('todSubtotal', subtotal.toFixed(2));
     set('todVat',      vat.toFixed(2));
     set('todTotal',    total.toFixed(2));

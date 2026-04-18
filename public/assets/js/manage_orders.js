@@ -60,7 +60,7 @@ let _partialActionState = {
     orderItemId: null, action: null, itemName: null,
     totalQty: 0, qtyStarted: 0, qtyVoided: 0, btn: null,
 };
-let _partialRefundInfo = { totalPaid: 0, unitSelling: 0, addonSellPerUnit: 0 };
+let _partialRefundInfo = { orderPaid: 0, remainingRefundable: 0, remainingQty: 0 };
 
 window._lastOrderRefunds = null;
 
@@ -272,11 +272,10 @@ function buildRefundPresets(items, totalPaid, refundCap) {
     [75, 50, 25].forEach(pct => addPreset(`${pct}%`, refundCap * pct / 100));
     if (items && items.length > 0) {
         items.filter(i => i.item_status === 'ready').forEach(item => {
-            const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
-            const lineTotal = (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 1)) + addonsTotal;
-            if (lineTotal > 0 && lineTotal <= refundCap) {
+            const itemCap = parseFloat(item.remaining_refundable || item.paid_total || item.line_total || 0);
+            if (itemCap > 0 && itemCap <= refundCap) {
                 const name = (item.item_name_snapshot || item.item_name || 'Item').substring(0, 14);
-                addPreset(name, lineTotal);
+                addPreset(name, itemCap);
             }
         });
     }
@@ -489,8 +488,12 @@ function updatePartialQtyFeedback() {
     const amtInput = document.getElementById('partialRefundAmount');
     const capEl = document.getElementById('partialRefundCap');
     if (amtInput && capEl) {
-        const maxRefund = (_partialRefundInfo.unitSelling + _partialRefundInfo.addonSellPerUnit) * qty;
-        const refundCap = _partialRefundInfo.totalPaid > 0 ? Math.min(maxRefund, _partialRefundInfo.totalPaid) : maxRefund;
+        const remainingQty = Math.max(1, parseInt(_partialRefundInfo.remainingQty || 0, 10) || 1);
+        const remainingRefundable = parseFloat(_partialRefundInfo.remainingRefundable || 0) || 0;
+        const unitRefundable = remainingRefundable / remainingQty;
+        const refundCap = _partialRefundInfo.orderPaid > 0
+            ? Math.min(remainingRefundable, Math.round(unitRefundable * qty * 100) / 100)
+            : 0;
         amtInput.max = refundCap.toFixed(2);
         amtInput.disabled = refundCap <= 0;
         amtInput.placeholder = refundCap > 0 ? `0.00 – ${refundCap.toFixed(2)}` : 'No payment on file';
@@ -499,7 +502,7 @@ function updatePartialQtyFeedback() {
 }
 
 async function _loadPartialVoidRefundInfo(orderItemId, totalQty) {
-    _partialRefundInfo = { totalPaid: 0, unitSelling: 0, addonSellPerUnit: 0 };
+    _partialRefundInfo = { orderPaid: 0, remainingRefundable: 0, remainingQty: 0 };
     const hintEl = document.getElementById('partialRefundHint');
     if (hintEl) hintEl.textContent = 'Loading payment info…';
     try {
@@ -508,14 +511,40 @@ async function _loadPartialVoidRefundInfo(orderItemId, totalQty) {
         const data = await res.json();
         if (!data.success) return;
         const d = data.data;
-        _partialRefundInfo.totalPaid = parseFloat(d.payment?.amount_paid || 0);
+        _partialRefundInfo.orderPaid = parseFloat(d.order?.total_amount || 0);
+        _partialRefundInfo.totalPaid = _partialRefundInfo.orderPaid;
         const matchedItem = (d.items || []).find(i => String(i.order_item_id) === String(orderItemId));
         if (matchedItem) {
-            _partialRefundInfo.unitSelling = parseFloat(matchedItem.unit_price || 0);
-            const addonsTot = (matchedItem.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
-            _partialRefundInfo.addonSellPerUnit = addonsTot / Math.max(parseInt(matchedItem.quantity || 1), 1);
+            _partialRefundInfo.remainingRefundable = parseFloat(matchedItem.remaining_refundable || 0);
+            _partialRefundInfo.remainingQty = parseInt(matchedItem.remaining_active_qty || (matchedItem.quantity || 0), 10) || 0;
         }
         if (hintEl) hintEl.textContent = _partialRefundInfo.totalPaid > 0 ? `Paid: ₱${_partialRefundInfo.totalPaid.toFixed(2)}` : 'No payment recorded.';
+    } catch (e) {
+        if (hintEl) hintEl.textContent = 'Could not load payment info.';
+    }
+}
+
+async function _loadPartialVoidRefundInfo(orderItemId, totalQty) {
+    _partialRefundInfo = { orderPaid: 0, remainingRefundable: 0, remainingQty: 0 };
+    const hintEl = document.getElementById('partialRefundHint');
+    if (hintEl) hintEl.textContent = 'Loading payment info...';
+    try {
+        if (!kitchenModalOrderId) return;
+        const res = await fetch(`${ORDER_DETAILS_URL}?order_id=${kitchenModalOrderId}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const data = await res.json();
+        if (!data.success) return;
+        const d = data.data;
+        _partialRefundInfo.orderPaid = parseFloat(d.order?.total_amount || 0);
+        const matchedItem = (d.items || []).find(i => String(i.order_item_id) === String(orderItemId));
+        if (matchedItem) {
+            _partialRefundInfo.remainingRefundable = parseFloat(matchedItem.remaining_refundable || 0);
+            _partialRefundInfo.remainingQty = parseInt(matchedItem.remaining_active_qty || (matchedItem.quantity || totalQty || 0), 10) || 0;
+        }
+        if (hintEl) {
+            hintEl.textContent = _partialRefundInfo.orderPaid > 0
+                ? `Paid: \u20b1${_partialRefundInfo.orderPaid.toFixed(2)} | Remaining refundable: \u20b1${_partialRefundInfo.remainingRefundable.toFixed(2)}`
+                : 'No payment recorded.';
+        }
     } catch (e) {
         if (hintEl) hintEl.textContent = 'Could not load payment info.';
     }
@@ -817,16 +846,25 @@ function patchTableRows(orders) {
         const newStatus = (order.status || 'pending').toLowerCase();
         const newTotal = parseFloat(order.total_amount || 0);
         const subtotalCell = row.querySelector('td[data-label="Subtotal"]');
-        if (subtotalCell) subtotalCell.innerHTML = `<span class="price-subtotal">₱${formatPrice(newTotal / 1.12)}</span><div class="price-vat">+₱${formatPrice(newTotal - newTotal / 1.12)} VAT (12%)</div>`;
+        const statusCell = row.querySelector('td[data-label="Status"]');
+        const actionsCell = row.querySelector('td[data-label="Actions"]');
+        const totalSpan = row.querySelector('td[data-label="Total"] span');
+        if (subtotalCell) subtotalCell.innerHTML = renderOrderSubtotalCell(order);
         if (currentStatus !== newStatus) {
             row.setAttribute('data-status', newStatus);
             row.setAttribute('data-order-total', order.total_amount || 0);
-            const statusCell = row.querySelector('td[data-label="Status"]');
-            const actionsCell = row.querySelector('td[data-label="Actions"]');
-            const totalSpan = row.querySelector('td[data-label="Total"] span');
             if (statusCell) statusCell.innerHTML = getOrderStatusBadge(newStatus);
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML(order);
             if (totalSpan) { totalSpan.className = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid'; totalSpan.textContent = '₱' + formatPrice(newTotal); }
+        }
+        row.setAttribute('data-status', newStatus);
+        row.setAttribute('data-order-total', order.total_amount || 0);
+        if (subtotalCell) subtotalCell.innerHTML = renderOrderSubtotalCell(order);
+        if (statusCell) statusCell.innerHTML = getOrderStatusBadge(newStatus);
+        if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML(order);
+        if (totalSpan) {
+            totalSpan.className = newStatus === 'completed' ? 'price-total-paid' : 'price-total-unpaid';
+            totalSpan.innerHTML = `&#8369;${formatPrice(newTotal)}`;
         }
         if (order.items) {
             const itemsCell = row.querySelector('.items-cell');
@@ -921,9 +959,95 @@ function showError() {
     if (t) t.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-2"></i>Failed to load orders. Please refresh the page.</td></tr>`;
 }
 
+function normalizeDiscountType(type) {
+    return String(type || 'none').toLowerCase();
+}
+
+function getDiscountLabel(type) {
+    const labels = {
+        senior: 'Senior Discount',
+        pwd: 'PWD Discount',
+        promo: 'Promo Discount',
+        other: 'Discount',
+    };
+    return labels[normalizeDiscountType(type)] || 'Discount';
+}
+
+function getOrderFinancials(order = {}) {
+    const total = parseFloat(order.total_amount || 0) || 0;
+    const subtotal = parseFloat(order.subtotal || 0) || total;
+    const discountAmount = parseFloat(order.discount_amount ?? order.discount ?? 0) || 0;
+    const vatAmount = parseFloat(order.vat_amount || 0) || 0;
+    const vatExempt = parseFloat(order.vat_exempt_amount || 0) || 0;
+    const zeroRated = parseFloat(order.zero_rated_amount || 0) || 0;
+    const vatableSales = Math.max(0, Math.round((total - vatAmount - vatExempt - zeroRated) * 100) / 100);
+
+    return {
+        subtotal,
+        total,
+        discountAmount,
+        discountType: normalizeDiscountType(order.discount_type || (discountAmount > 0 ? 'other' : 'none')),
+        vatAmount,
+        vatExempt,
+        zeroRated,
+        vatableSales,
+        hasDiscount: discountAmount > 0.004,
+        hasVat: vatAmount > 0.004,
+        hasVatExempt: vatExempt > 0.004,
+        hasZeroRated: zeroRated > 0.004,
+    };
+}
+
+function renderOrderSubtotalCell(order) {
+    const financials = getOrderFinancials(order);
+    const notes = [];
+
+    if (financials.hasDiscount) {
+        notes.push(`<div class="price-vat-hint">${escapeHtml(getDiscountLabel(financials.discountType))}: -&#8369;${formatPrice(financials.discountAmount)}</div>`);
+    }
+
+    if (financials.hasVat) {
+        notes.push(`<div class="price-vat-hint">VATable &#8369;${formatPrice(financials.vatableSales)} · VAT &#8369;${formatPrice(financials.vatAmount)}</div>`);
+    } else if (financials.hasVatExempt) {
+        notes.push(`<div class="price-vat-hint">VAT Exempt &#8369;${formatPrice(financials.vatExempt)}</div>`);
+    } else if (financials.hasZeroRated) {
+        notes.push(`<div class="price-vat-hint">Zero-Rated &#8369;${formatPrice(financials.zeroRated)}</div>`);
+    }
+
+    return `<span class="price-subtotal">&#8369;${formatPrice(financials.subtotal)}</span>${notes.join('')}`;
+}
+
+function buildReceiptTotalsMarkup(order) {
+    const financials = getOrderFinancials(order);
+    const rows = [
+        `<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Subtotal:</span><span>PHP ${financials.subtotal.toFixed(2)}</span></div>`,
+    ];
+
+    if (financials.hasDiscount) {
+        rows.push(`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>${escapeHtml(getDiscountLabel(financials.discountType))}:</span><span>-PHP ${financials.discountAmount.toFixed(2)}</span></div>`);
+    }
+
+    if (financials.hasVat) {
+        rows.push(`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>VATable Sales:</span><span>PHP ${financials.vatableSales.toFixed(2)}</span></div>`);
+        rows.push(`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT:</span><span>PHP ${financials.vatAmount.toFixed(2)}</span></div>`);
+    }
+
+    if (financials.hasVatExempt) {
+        rows.push(`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>VAT Exempt Sales:</span><span>PHP ${financials.vatExempt.toFixed(2)}</span></div>`);
+    }
+
+    if (financials.hasZeroRated) {
+        rows.push(`<div style="display:flex;justify-content:space-between;font-size:10px;"><span>Zero-Rated Sales:</span><span>PHP ${financials.zeroRated.toFixed(2)}</span></div>`);
+    }
+
+    rows.push(`<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;"><span>TOTAL:</span><span>PHP ${financials.total.toFixed(2)}</span></div>`);
+    return rows.join('');
+}
+
 function createOrderRowHTML(order) {
-    const total = parseFloat(order.total_amount || 0);
     const searchText = [order.order_number || '', order.customer_name || 'walk-in', order.table_name || ''].join(' ').toLowerCase();
+    const subtotalCellHtml = renderOrderSubtotalCell(order);
+    const totalCellHtml = `<span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">&#8369;${formatPrice(order.total_amount)}</span>`;
     return `<tr data-status="${(order.status || 'pending').toLowerCase()}" data-search-text="${escapeHtml(searchText)}" data-order-total="${order.total_amount || 0}" data-order-id="${order.order_id}" data-order-number="${escapeHtml(order.order_number || '')}">
         <td data-label="Order #"><span class="order-number">#${escapeHtml(order.order_number || '')}</span></td>
         <td data-label="Customer">
@@ -933,8 +1057,8 @@ function createOrderRowHTML(order) {
         </td>
         <td data-label="Order Type">${getOrderTypeBadge(order.order_type)}</td>
         <td data-label="Items">${getOrderItemsHTML(order.items || [], order.status, order.order_id)}</td>
-        <td data-label="Subtotal"><span class="price-subtotal">₱${formatPrice(total / 1.12)}</span><div class="price-vat">+₱${formatPrice(total - total / 1.12)} VAT (12%)</div></td>
-        <td data-label="Total"><span class="${order.status === 'completed' ? 'price-total-paid' : 'price-total-unpaid'}">₱${formatPrice(order.total_amount)}</span></td>
+        <td data-label="Subtotal">${subtotalCellHtml}</td>
+        <td data-label="Total">${totalCellHtml}</td>
         <td data-label="Status">${getOrderStatusBadge(order.status)}</td>
         <td data-label="Actions">${getOrderActionsHTML(order)}</td>
     </tr>`;
@@ -1083,15 +1207,9 @@ async function voidRefundOrderItem(orderItemId, action, itemName, btn) {
             const data = await res.json();
             if (data.success) {
                 const d = data.data;
-                _voidItemTotalPaid = parseFloat(d.payment?.amount_paid || 0);
+                _voidItemTotalPaid = parseFloat(d.order?.total_amount || 0);
                 const matchedItem = (d.items || []).find(i => String(i.order_item_id) === String(orderItemId));
-                let itemSellingTotal = 0;
-                if (matchedItem) {
-                    const itemSubtotal = parseFloat(matchedItem.subtotal || 0);
-                    const addonsTotal = (matchedItem.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
-                    itemSellingTotal = Math.round((itemSubtotal + addonsTotal) * 100) / 100;
-                }
-                _voidItemRefundCap = _voidItemTotalPaid > 0 ? Math.min(itemSellingTotal, _voidItemTotalPaid) : itemSellingTotal;
+                _voidItemRefundCap = parseFloat(matchedItem?.remaining_refundable || matchedItem?.paid_total || 0);
                 _injectVoidItemRefundPanel('ready');
             } else { _injectVoidItemRefundPanel('error'); }
         } else { _injectVoidItemRefundPanel('no-context'); }
@@ -1128,6 +1246,7 @@ async function executeVoidRefundItem(orderItemId, action, btn, reason, refundAmo
             }
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id: data.order_id, order_number: row.getAttribute('data-order-number'), total_amount: data.new_total ?? row.getAttribute('data-order-total'), status: data.order_status });
         }
+        await refreshOrders();
         if (openDetailsOrderId && String(openDetailsOrderId) === String(data.order_id)) await fetchAndPopulateOrderDetails(data.order_id);
     } catch (err) { console.error('Void+refund item error:', err); showErrorModal('Operation Failed', err.message); if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Retry</span>'; } }
 }
@@ -1148,8 +1267,7 @@ async function voidOrder(orderId, orderNumber) {
         const resp = await res.json();
         if (!resp.success) throw new Error(resp.message || 'Failed to load');
         const d = resp.data;
-        _voidOrderTotalPaid = parseFloat(d.payment?.amount_paid || 0);
-        const orderStatus = d.order?.status || 'pending';
+        _voidOrderTotalPaid = parseFloat(d.order?.total_amount || 0);
         const paymentStatusEl = document.getElementById('voidPaymentStatus');
         if (paymentStatusEl) {
             if (_voidOrderTotalPaid > 0) {
@@ -1160,17 +1278,7 @@ async function voidOrder(orderId, orderNumber) {
                 paymentStatusEl.style.color = 'var(--warm-gray)';
             }
         }
-        let itemsSellingTotal = 0;
-        (d.items || []).forEach(item => {
-            if (['voided', 'cancelled'].includes(item.item_status)) return;
-            if (orderStatus === 'pending' || item.item_status === 'ready') {
-                const itemSubtotal = parseFloat(item.subtotal || 0);
-                const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
-                itemsSellingTotal += itemSubtotal + addonsTotal;
-            }
-        });
-        itemsSellingTotal = Math.round(itemsSellingTotal * 100) / 100;
-        _voidOrderRefundCap = _voidOrderTotalPaid > 0 ? Math.min(itemsSellingTotal, _voidOrderTotalPaid) : itemsSellingTotal;
+        _voidOrderRefundCap = parseFloat(d.order?.refund_remaining || d.order?.total_amount || 0);
         if (paidHintEl) paidHintEl.textContent = _voidOrderTotalPaid > 0 ? `Paid: ₱${_voidOrderTotalPaid.toFixed(2)} · Max refund: ₱${_voidOrderRefundCap.toFixed(2)}` : 'No payment recorded - refund not applicable.';
         if (refAmtEl) {
             refAmtEl.disabled = _voidOrderRefundCap <= 0;
@@ -1204,9 +1312,13 @@ async function executeVoidOrder(orderId, orderNumber, reason, refundAmount, refu
             const statusCell = row.querySelector('td[data-label="Status"]');
             const actionsCell = row.querySelector('td[data-label="Actions"]');
             const totalSpan = row.querySelector('td[data-label="Total"] span');
+            const currentTotal = parseFloat(row.getAttribute('data-order-total') || data.new_total || 0);
             if (statusCell) statusCell.innerHTML = getOrderStatusBadge('voided');
             if (totalSpan) { totalSpan.className = 'price-total-unpaid'; totalSpan.textContent = '₱0.00'; row.setAttribute('data-order-total', '0'); }
             if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id: data.order_id, order_number: row.getAttribute('data-order-number'), total_amount: 0, status: 'voided' });
+            if (totalSpan) totalSpan.innerHTML = `&#8369;${formatPrice(currentTotal)}`;
+            row.setAttribute('data-order-total', currentTotal);
+            if (actionsCell) actionsCell.innerHTML = getOrderActionsHTML({ order_id: data.order_id, order_number: row.getAttribute('data-order-number'), total_amount: currentTotal, status: 'voided' });
         }
         if (kitchenModalOrderId && String(kitchenModalOrderId) === String(orderId)) { kitchenItemsModal?.hide(); kitchenModalOrderId = null; }
         await refreshOrders();
@@ -1242,11 +1354,7 @@ async function openRefundModal(orderId, orderNumber) {
         _refundOrderTotal = parseFloat(d.order?.total_amount || 0);
         _refundAlready = parseFloat(d.refunds?.total_refunded || 0);
         _refundItems = (d.items || []).filter(i => !['cancelled', 'voided'].includes(i.item_status));
-        _refundRemaining = _refundItems.reduce((sum, item) => {
-            const refunded = parseFloat(item.refunded_amount || 0);
-            const subtotal = parseFloat(item.subtotal || 0);
-            return sum + Math.max(0, subtotal - refunded);
-        }, 0);
+        _refundRemaining = parseFloat(d.order?.refund_remaining || 0);
         document.getElementById('refundOrderTotal').textContent = '₱' + formatPrice(_refundOrderTotal);
         document.getElementById('refundAlreadyRefunded').textContent = '₱' + formatPrice(_refundAlready);
         document.getElementById('refundRemaining').textContent = '₱' + formatPrice(_refundRemaining);
@@ -1264,19 +1372,24 @@ function buildRefundItemsList(items) {
     if (!container) return;
     if (!items || items.length === 0) { container.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--warm-gray);font-size:0.83rem;">No refundable items.</div>'; return; }
     container.innerHTML = items.map(item => {
-        const itemSubtotal = parseFloat(item.subtotal || 0);
-        const addonsTotal = (item.addons || []).reduce((s, a) => s + parseFloat(a.price || 0) * parseInt(a.quantity || 1), 0);
-        const lineTotal = itemSubtotal + addonsTotal;
+        const lineTotal = parseFloat(item.line_total || 0);
+        const paidTotal = parseFloat(item.paid_total || lineTotal || 0);
+        const refundedAmount = parseFloat(item.refunded_amount || 0);
+        const remainingCap = parseFloat(item.remaining_refundable || paidTotal || 0);
         const label = item.variant_name_snapshot ? `${item.item_name_snapshot || item.item_name} · ${item.variant_name_snapshot}` : (item.item_name_snapshot || item.item_name || '');
+        const meta = [];
+        meta.push(`Ã—${item.quantity} Â· â‚±${formatPrice(item.unit_price)} each${item.addons && item.addons.length ? ' + add-ons' : ''}`);
+        if (Math.abs(paidTotal - lineTotal) > 0.004) meta.push(`Paid after discount: â‚±${formatPrice(paidTotal)}`);
+        if (refundedAmount > 0.004) meta.push(`Already refunded: â‚±${formatPrice(refundedAmount)}`);
         return `<div class="refund-item-row">
-            <input type="checkbox" class="refund-item-check" data-item-id="${item.order_item_id}" data-max="${lineTotal.toFixed(2)}" id="ritem_${item.order_item_id}">
+            <input type="checkbox" class="refund-item-check" data-item-id="${item.order_item_id}" data-max="${remainingCap.toFixed(2)}" id="ritem_${item.order_item_id}" ${remainingCap <= 0 ? 'disabled' : ''}>
             <label for="ritem_${item.order_item_id}" style="flex:1;cursor:pointer;line-height:1.35;">
                 <div style="font-weight:600;color:var(--navy);">${escapeHtml(label)}</div>
                 <div style="font-size:0.76rem;color:var(--warm-gray);">×${item.quantity} · ₱${formatPrice(item.unit_price)} each${item.addons && item.addons.length ? ' + add-ons' : ''}</div>
             </label>
             <div style="display:flex;align-items:center;gap:0.3rem;">
                 <span style="font-size:0.75rem;color:var(--warm-gray);">₱</span>
-                <input type="number" class="refund-item-amount" data-item-id="${item.order_item_id}" min="0.01" step="0.01" max="${lineTotal.toFixed(2)}" value="${lineTotal.toFixed(2)}" disabled placeholder="${lineTotal.toFixed(2)}">
+                <input type="number" class="refund-item-amount" data-item-id="${item.order_item_id}" min="0.01" step="0.01" max="${remainingCap.toFixed(2)}" value="${remainingCap.toFixed(2)}" disabled placeholder="${remainingCap.toFixed(2)}">
             </div>
         </div>`;
     }).join('');
@@ -1288,6 +1401,54 @@ function buildRefundItemsList(items) {
         });
     });
     container.querySelectorAll('.refund-item-amount').forEach(inp => { inp.addEventListener('input', updateRefundPartialTotal); });
+}
+
+function buildRefundItemsList(items) {
+    const container = document.getElementById('refundItemsList');
+    if (!container) return;
+    if (!items || items.length === 0) {
+        container.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--warm-gray);font-size:0.83rem;">No refundable items.</div>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => {
+        const lineTotal = parseFloat(item.line_total || 0);
+        const paidTotal = parseFloat(item.paid_total || lineTotal || 0);
+        const refundedAmount = parseFloat(item.refunded_amount || 0);
+        const remainingCap = parseFloat(item.remaining_refundable || paidTotal || 0);
+        const label = item.variant_name_snapshot
+            ? `${item.item_name_snapshot || item.item_name} - ${item.variant_name_snapshot}`
+            : (item.item_name_snapshot || item.item_name || '');
+        const meta = [];
+
+        meta.push(`x${item.quantity} - \u20b1${formatPrice(item.unit_price)} each${item.addons && item.addons.length ? ' + add-ons' : ''}`);
+        if (Math.abs(paidTotal - lineTotal) > 0.004) meta.push(`Paid after discount: \u20b1${formatPrice(paidTotal)}`);
+        if (refundedAmount > 0.004) meta.push(`Already refunded: \u20b1${formatPrice(refundedAmount)}`);
+        meta.push(`Refundable now: \u20b1${formatPrice(remainingCap)}`);
+
+        return `<div class="refund-item-row">
+            <input type="checkbox" class="refund-item-check" data-item-id="${item.order_item_id}" data-max="${remainingCap.toFixed(2)}" id="ritem_${item.order_item_id}" ${remainingCap <= 0 ? 'disabled' : ''}>
+            <label for="ritem_${item.order_item_id}" style="flex:1;cursor:pointer;line-height:1.35;">
+                <div style="font-weight:600;color:var(--navy);">${escapeHtml(label)}</div>
+                <div style="font-size:0.76rem;color:var(--warm-gray);">${escapeHtml(meta.join(' | '))}</div>
+            </label>
+            <div style="display:flex;align-items:center;gap:0.3rem;">
+                <span style="font-size:0.75rem;color:var(--warm-gray);">\u20b1</span>
+                <input type="number" class="refund-item-amount" data-item-id="${item.order_item_id}" min="0.01" step="0.01" max="${remainingCap.toFixed(2)}" value="${remainingCap.toFixed(2)}" disabled placeholder="${remainingCap.toFixed(2)}">
+            </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.refund-item-check').forEach(cb => {
+        cb.addEventListener('change', function () {
+            const inp = container.querySelector(`.refund-item-amount[data-item-id="${this.dataset.itemId}"]`);
+            if (inp) inp.disabled = !this.checked;
+            updateRefundPartialTotal();
+        });
+    });
+    container.querySelectorAll('.refund-item-amount').forEach(inp => {
+        inp.addEventListener('input', updateRefundPartialTotal);
+    });
 }
 
 function updateRefundPartialTotal() {
@@ -1737,6 +1898,92 @@ async function refreshOrderDetailsModal(orderId) {
     } catch (err) { /* silent */ }
 }
 
+function ensureOrderDetailsTotalsRows() {
+    const subtotalValue = document.getElementById('detailSubtotal');
+    const vatValue = document.getElementById('detailVat');
+    const subtotalRow = subtotalValue?.closest('.od-totals-row');
+    const vatRow = vatValue?.closest('.od-totals-row');
+
+    if (!subtotalRow || !vatRow) return;
+
+    const subtotalLabel = subtotalRow.querySelector('span:first-child');
+    if (subtotalLabel) subtotalLabel.id = 'detailSubtotalLabel';
+
+    vatRow.id = 'detailVatRow';
+    const vatLabel = vatRow.querySelector('span:first-child');
+    if (vatLabel) vatLabel.id = 'detailVatLabel';
+
+    if (!document.getElementById('detailDiscountRow')) {
+        subtotalRow.insertAdjacentHTML('afterend', `
+            <div class="od-totals-row" id="detailDiscountRow" style="display:none;">
+                <span id="detailDiscountLabel">Discount</span>
+                <span>-&#8369;<span id="detailDiscount">0.00</span></span>
+            </div>
+        `);
+    }
+
+    const discountRow = document.getElementById('detailDiscountRow');
+    if (discountRow && !document.getElementById('detailVatableRow')) {
+        discountRow.insertAdjacentHTML('afterend', `
+            <div class="od-totals-row" id="detailVatableRow" style="display:none;">
+                <span id="detailVatableLabel">VATable Sales</span>
+                <span>&#8369;<span id="detailVatable">0.00</span></span>
+            </div>
+        `);
+    }
+
+    if (!document.getElementById('detailVatExemptRow')) {
+        vatRow.insertAdjacentHTML('afterend', `
+            <div class="od-totals-row" id="detailVatExemptRow" style="display:none;">
+                <span>VAT Exempt Sales</span>
+                <span>&#8369;<span id="detailVatExempt">0.00</span></span>
+            </div>
+        `);
+    }
+
+    const vatExemptRow = document.getElementById('detailVatExemptRow');
+    if (vatExemptRow && !document.getElementById('detailZeroRatedRow')) {
+        vatExemptRow.insertAdjacentHTML('afterend', `
+            <div class="od-totals-row" id="detailZeroRatedRow" style="display:none;">
+                <span>Zero-Rated Sales</span>
+                <span>&#8369;<span id="detailZeroRated">0.00</span></span>
+            </div>
+        `);
+    }
+}
+
+function applyOrderDetailsFinancials(order, set) {
+    ensureOrderDetailsTotalsRows();
+
+    const financials = getOrderFinancials(order);
+    const toggleRow = (id, show) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = show ? '' : 'none';
+    };
+
+    const subtotalLabel = document.getElementById('detailSubtotalLabel');
+    const discountLabel = document.getElementById('detailDiscountLabel');
+    const vatLabel = document.getElementById('detailVatLabel');
+
+    if (subtotalLabel) subtotalLabel.textContent = financials.hasDiscount ? 'Gross Subtotal' : 'Subtotal';
+    if (discountLabel) discountLabel.textContent = getDiscountLabel(financials.discountType);
+    if (vatLabel) vatLabel.textContent = 'VAT';
+
+    set('detailSubtotal', financials.subtotal.toFixed(2));
+    set('detailDiscount', financials.discountAmount.toFixed(2));
+    set('detailVatable', financials.vatableSales.toFixed(2));
+    set('detailVat', financials.vatAmount.toFixed(2));
+    set('detailVatExempt', financials.vatExempt.toFixed(2));
+    set('detailZeroRated', financials.zeroRated.toFixed(2));
+    set('detailTotal', financials.total.toFixed(2));
+
+    toggleRow('detailDiscountRow', financials.hasDiscount);
+    toggleRow('detailVatableRow', financials.hasVat);
+    toggleRow('detailVatRow', financials.hasVat);
+    toggleRow('detailVatExemptRow', financials.hasVatExempt);
+    toggleRow('detailZeroRatedRow', financials.hasZeroRated);
+}
+
 function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit, refunds) {
     window._lastOrderRefunds = refunds || null;
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -1826,12 +2073,7 @@ function populateOrderDetailsModal(order, items, payment, cancelAudit, voidAudit
             });
         });
     }
-    const total = parseFloat(order.total_amount || 0);
-    const subtotal = total / 1.12;
-    const vat = total - subtotal;
-    set('detailSubtotal', subtotal.toFixed(2));
-    set('detailVat', vat.toFixed(2));
-    set('detailTotal', total.toFixed(2));
+    applyOrderDetailsFinancials(order, set);
     const totalDisplay = document.getElementById('detailTotalDisplay');
     if (totalDisplay) totalDisplay.style.color = order.status === 'completed' ? 'var(--success)' : 'var(--danger)';
     ['detailPaymentSection', 'detailCancelSection', 'detailVoidSection', 'detailRefundSection', 'detailRefundsHistorySection'].forEach(id => {
@@ -1975,6 +2217,7 @@ function printFinalReceipt(order, items, payment, refunds) {
         }
     });
     const refundsSection = _buildReceiptRefundsSection(grossTotal, refunds || window._lastOrderRefunds);
+    const receiptTotalsMarkup = buildReceiptTotalsMarkup(order);
     const html = `
         <div style="text-align:center;">
             <div style="font-size:13px;font-weight:bold;">DINE WITH DIN CAFETERIA</div>
@@ -1998,8 +2241,7 @@ function printFinalReceipt(order, items, payment, refunds) {
         </div>
         ${itemsHTML}
         <hr style="border:none;border-top:3px double #000;margin:5px 0;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span>Subtotal:</span><span>PHP ${grossTotal.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;"><span>TOTAL:</span><span>PHP ${grossTotal.toFixed(2)}</span></div>
+        ${receiptTotalsMarkup}
         <hr style="border:none;border-top:1px dashed #000;margin:5px 0;">
         <div style="border:1px solid #000;padding:5px 6px;font-size:11px;">
             <div style="display:flex;justify-content:space-between;"><span>Method:</span><span>${payMethod}</span></div>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/refundHelper.php';
 
 header('Content-Type: application/json');
 requireRole(['admin', 'cashier', 'kitchen']);
@@ -34,6 +35,7 @@ if (!$data) {
 // All consumers in manage_orders.js now read from d.refunds only.
 
 $data['refunds'] = null;
+$totalRefunded = 0.0;
 try {
     $refundsStmt = $pdo->prepare("
         SELECT
@@ -65,6 +67,24 @@ try {
     }
 } catch (Exception $e) {
     // Non-fatal — refunds table may not exist on older installs
+}
+
+if (!empty($data['items']) && !empty($data['order'])) {
+    $data['items'] = refund_hydrate_order_items($pdo, $data['order'], $data['items']);
+}
+
+if (!empty($data['order'])) {
+    $data['order']['effective_discount_total'] = max(
+        0.0,
+        round(
+            (float) ($data['order']['subtotal'] ?? 0) - (float) ($data['order']['total_amount'] ?? 0),
+            2
+        )
+    );
+    $data['order']['refund_remaining'] = max(
+        0.0,
+        round((float) ($data['order']['total_amount'] ?? 0) - $totalRefunded, 2)
+    );
 }
 
 echo json_encode(['success' => true, 'data' => $data]);

@@ -3,6 +3,9 @@ session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
+require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/refundHelper.php';
+require_once __DIR__ . '/../core/VatHelper.php';
 
 header('Content-Type: application/json');
 
@@ -46,6 +49,41 @@ if ($refund_amount < 0) {
     exit;
 }
 
+function resolveOrderDiscountPct(PDO $pdo, int $order_id, string $discountType, float $fallbackAmount = 0.0, float $fallbackBase = 0.0): float
+{
+    if ($discountType === 'none' || $discountType === '') {
+        return 0.0;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT discount_pct
+        FROM order_discounts
+        WHERE order_id = ?
+          AND discount_type = ?
+        ORDER BY created_at DESC, discount_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$order_id, $discountType]);
+    $storedPct = (float) ($stmt->fetchColumn() ?: 0);
+    if ($storedPct > 0) {
+        return $storedPct;
+    }
+
+    if ($discountType === 'senior') {
+        return VatHelper::getSeniorDiscountPct($pdo);
+    }
+
+    if ($discountType === 'pwd') {
+        return VatHelper::getPwdDiscountPct($pdo);
+    }
+
+    if ($fallbackAmount > 0 && $fallbackBase > 0) {
+        return round(($fallbackAmount / $fallbackBase) * 100, 2);
+    }
+
+    return 0.0;
+}
+
 try {
     $pdo->beginTransaction();
 
@@ -78,7 +116,11 @@ try {
             oi.status          AS item_status,
             oi.item_name_snapshot,
             o.status           AS order_status,
+            o.subtotal         AS order_subtotal,
+            o.total_amount     AS order_total_amount,
             o.discount         AS order_discount,
+            o.discount_amount  AS order_discount_amount,
+            o.discount_type    AS order_discount_type,
             o.cashier_id
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
@@ -192,20 +234,29 @@ try {
 
         // ── Validate refund amount cap ────────────────────────────────────────
         if ($refund_amount > 0) {
-            $sellingSubtotal = (float) $item['subtotal'];
+            $orderForRefund = [
+                'order_id'     => (int) $item['order_id'],
+                'subtotal'     => (float) $item['order_subtotal'],
+                'total_amount' => (float) $item['order_total_amount'],
+            ];
+            $orderItems = getOrderItems($pdo, (int) $item['order_id']);
+            foreach ($orderItems as &$orderItem) {
+                $orderItem['addons'] = getOrderItemAddons($pdo, (int) $orderItem['order_item_id']);
+            }
+            unset($orderItem);
 
-            $addonSellingStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(oia.price * oia.quantity), 0) AS addon_selling
-                FROM order_item_addons oia
-                WHERE oia.order_item_id = ?
-            ");
-            $addonSellingStmt->execute([$order_item_id]);
-            $addonSelling     = (float) $addonSellingStmt->fetchColumn();
-            $itemSellingTotal = round($sellingSubtotal + $addonSelling, 2);
+            $orderItems = refund_hydrate_order_items($pdo, $orderForRefund, $orderItems);
+            $matchedItem = null;
+            foreach ($orderItems as $orderItem) {
+                if ((int) $orderItem['order_item_id'] === $order_item_id) {
+                    $matchedItem = $orderItem;
+                    break;
+                }
+            }
 
             $refundCap = $totalPaid > 0
-                ? min($itemSellingTotal, $totalPaid)
-                : $itemSellingTotal;
+                ? round((float) ($matchedItem['remaining_refundable'] ?? 0), 2)
+                : 0.0;
 
             if ($refund_amount > $refundCap + 0.01) {
                 $pdo->rollBack();
@@ -333,16 +384,74 @@ try {
         $addonTotal = (float) $addonTotalsStmt->fetchColumn();
 
         $newSubtotal    = round($activeSubtotal + $addonTotal, 2);
-        $discount       = (float) $item['order_discount'];
-        $newTotalAmount = round(max(0, $newSubtotal - $discount), 2);
+        $discountType   = (string) ($item['order_discount_type'] ?? 'none');
+        $oldDiscountAmt = (float) ($item['order_discount_amount'] ?? $item['order_discount'] ?? 0);
+        $oldSubtotal    = (float) ($item['order_subtotal'] ?? 0);
+        $discountPct    = resolveOrderDiscountPct($pdo, (int) $order_id, $discountType, $oldDiscountAmt, $oldSubtotal);
+
+        if ($newSubtotal > 0 && $discountType !== 'none' && $discountPct > 0) {
+            $discountResult      = VatHelper::applyDiscount($discountType, $newSubtotal, $discountPct, $pdo);
+            $newDiscountAmount   = round((float) $discountResult['discount_amount'], 2);
+            $newTotalAmount      = round((float) $discountResult['total_after_discount'], 2);
+            $newVatAmount        = round((float) $discountResult['vat_amount'], 2);
+            $newVatExemptAmount  = round((float) $discountResult['vat_exempt_amount'], 2);
+            $newZeroRatedAmount  = round((float) $discountResult['zero_rated_amount'], 2);
+        } else {
+            if ($newSubtotal <= 0 || $discountPct <= 0) {
+                $discountType = 'none';
+            }
+            $newDiscountAmount   = 0.0;
+            $newTotalAmount      = round($newSubtotal, 2);
+            $newBreakdown        = VatHelper::orderBreakdown($newTotalAmount, $pdo, 'none');
+            $newVatAmount        = round((float) $newBreakdown['vat_amount'], 2);
+            $newVatExemptAmount  = round((float) $newBreakdown['vat_exempt_amount'], 2);
+            $newZeroRatedAmount  = round((float) $newBreakdown['zero_rated_amount'], 2);
+        }
 
         $pdo->prepare("
-            UPDATE orders SET subtotal = ?, total_amount = ? WHERE order_id = ?
-        ")->execute([$newSubtotal, $newTotalAmount, $order_id]);
+            UPDATE orders
+            SET subtotal = ?,
+                discount = ?,
+                discount_amount = ?,
+                total_amount = ?,
+                vat_amount = ?,
+                vat_exempt_amount = ?,
+                zero_rated_amount = ?,
+                discount_type = ?
+            WHERE order_id = ?
+        ")->execute([
+            $newSubtotal,
+            $newDiscountAmount,
+            $newDiscountAmount,
+            $newTotalAmount,
+            $newVatAmount,
+            $newVatExemptAmount,
+            $newZeroRatedAmount,
+            $discountType,
+            $order_id,
+        ]);
+
+        if ($newDiscountAmount > 0 && $discountType !== 'none') {
+            $pdo->prepare("
+                UPDATE order_discounts
+                SET discount_pct = ?, discount_amt = ?
+                WHERE order_id = ?
+            ")->execute([
+                $discountPct,
+                $newDiscountAmount,
+                $order_id,
+            ]);
+        } else {
+            $pdo->prepare("
+                UPDATE order_discounts
+                SET discount_pct = 0, discount_amt = 0
+                WHERE order_id = ?
+            ")->execute([$order_id]);
+        }
     } else {
-        // void_item: read current totals unchanged for the JSON response
-        $newSubtotal    = (float) $item['subtotal']; // not updated, just for response
-        $newTotalAmount = $newSubtotal - (float) $item['order_discount'];
+        // void_item: the order financials stay intact; return the parent order totals
+        $newSubtotal    = (float) ($item['order_subtotal'] ?? 0);
+        $newTotalAmount = (float) ($item['order_total_amount'] ?? 0);
     }
 
     // ── 7. Recalculate order status ───────────────────────────────────────────

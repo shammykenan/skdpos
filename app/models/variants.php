@@ -83,13 +83,13 @@ function deleteVariant(PDO $pdo, int $variant_id): bool
 /**
  * Pricing Rule Enforcement:
  * When an item has variants, its base_price and cost_price in menu_items
- * must be NULL. Call this whenever a variant is added to an item.
+ * should stay at 0.00 because the live app schema keeps both columns NOT NULL.
  */
 function nullifyItemBasePricing(PDO $pdo, int $item_id): bool
 {
     try {
         $stmt = $pdo->prepare("
-            UPDATE menu_items SET base_price = NULL, cost_price = NULL WHERE item_id = ?
+            UPDATE menu_items SET base_price = 0.00, cost_price = 0.00 WHERE item_id = ?
         ");
         return $stmt->execute([$item_id]);
     } catch (PDOException $e) {

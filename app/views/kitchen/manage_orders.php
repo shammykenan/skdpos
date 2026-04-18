@@ -540,8 +540,8 @@
                         </div>
                         <!-- Totals -->
                         <div class="od-totals-card">
-                            <div class="od-totals-row"><span>Subtotal (excl. VAT)</span><span>₱<span id="detailSubtotal">0.00</span></span></div>
-                            <div class="od-totals-row"><span>VAT (12%)</span><span>₱<span id="detailVat">0.00</span></span></div>
+                            <div class="od-totals-row"><span>Subtotal</span><span>₱<span id="detailSubtotal">0.00</span></span></div>
+                            <div class="od-totals-row"><span>VAT</span><span>₱<span id="detailVat">0.00</span></span></div>
                             <div class="od-totals-row od-totals-total"><span>Total</span><span id="detailTotalDisplay">₱<span id="detailTotal">0.00</span></span></div>
                         </div>
                     </div>

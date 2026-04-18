@@ -3,6 +3,8 @@ session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
+require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/refundHelper.php';
 
 header('Content-Type: application/json');
 
@@ -39,7 +41,7 @@ try {
 
     // ── Fetch order ──────────────────────────────────────────────
     $stmt = $pdo->prepare("
-        SELECT order_id, order_number, status, total_amount, cashier_id
+        SELECT order_id, order_number, status, subtotal, total_amount, cashier_id
         FROM orders WHERE order_id = ? LIMIT 1
     ");
     $stmt->execute([$order_id]);
@@ -82,6 +84,18 @@ try {
         exit;
     }
 
+    $orderItems = getOrderItems($pdo, $order_id);
+    foreach ($orderItems as &$orderItem) {
+        $orderItem['addons'] = getOrderItemAddons($pdo, (int) $orderItem['order_item_id']);
+    }
+    unset($orderItem);
+
+    $orderItems = refund_hydrate_order_items($pdo, $order, $orderItems);
+    $orderItemsById = [];
+    foreach ($orderItems as $orderItem) {
+        $orderItemsById[(int) $orderItem['order_item_id']] = $orderItem;
+    }
+
     $insertedRefunds = [];
 
     if ($refund_type === 'full') {
@@ -110,26 +124,13 @@ try {
             exit;
         }
 
-        $itemStmt = $pdo->prepare("
-            SELECT order_item_id, subtotal, status
-            FROM order_items
-            WHERE order_item_id = ? AND order_id = ?
-            LIMIT 1
-        ");
-        $itemAlreadyStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(amount), 0)
-            FROM refunds
-            WHERE order_item_id = ?
-        ");
-
         foreach ($selectedItems as $sel) {
             $oi_id  = (int)   ($sel['order_item_id'] ?? 0);
             $amount = (float) ($sel['amount'] ?? 0);
 
             if (!$oi_id || $amount <= 0) continue;
 
-            $itemStmt->execute([$oi_id, $order_id]);
-            $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
+            $item = $orderItemsById[$oi_id] ?? null;
 
             if (!$item) {
                 $pdo->rollBack();
@@ -137,15 +138,13 @@ try {
                 exit;
             }
 
-            if (in_array($item['status'], ['cancelled', 'voided'], true)) {
+            if (in_array($item['item_status'], ['cancelled', 'voided'], true)) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'error' => 'Cancelled or voided items cannot be refunded.']);
                 exit;
             }
 
-            $itemAlreadyStmt->execute([$oi_id]);
-            $itemAlreadyRefunded = (float) $itemAlreadyStmt->fetchColumn();
-            $itemCap = round($item['subtotal'] - $itemAlreadyRefunded, 2);
+            $itemCap = round((float) ($item['remaining_refundable'] ?? 0), 2);
 
             if ($amount > $itemCap) {
                 $pdo->rollBack();

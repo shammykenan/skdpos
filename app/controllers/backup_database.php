@@ -126,12 +126,20 @@ function splitSqlStatements(string $sql): array {
 // Use the download button in the table to download the file.
 // ============================================================================
 if ($action === 'export') {
+    $schemaSync = function_exists('dbs_sync_database_schema_if_needed')
+        ? dbs_sync_database_schema_if_needed($pdo)
+        : ['ran' => false, 'changes' => []];
+
     $label = makeBackupFilename($_GET['label'] ?? 'manual');
     $fp    = BACKUP_DIR . '/' . $label;
     $fh    = fopen($fp, 'w');
     if (!$fh) { http_response_code(500); exit('Cannot write to backup folder.'); }
     writeDump($pdo, $fh); fclose($fh); pruneBackups();
+    $syncNote = !empty($schemaSync['changes'])
+        ? ' Schema sync applied: ' . count($schemaSync['changes']) . ' fix(es).'
+        : '';
     $_SESSION['backup_success'] = 'Backup saved: ' . $label . ' (' . number_format(filesize($fp) / 1024, 1) . ' KB) — click the download button to save it.';
+    if ($syncNote !== '') $_SESSION['backup_success'] .= $syncNote;
     header('Location: ' . $baseUrl . '/index.php?page=backup_database');
     exit;
 }
@@ -188,10 +196,19 @@ if ($action === 'import' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->exec("SET FOREIGN_KEY_CHECKS=0"); $pdo->exec("SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO'"); $pdo->exec("SET NAMES utf8mb4");
                     $stmts = splitSqlStatements($sql); $exec = $skip = 0;
                     foreach ($stmts as $s) { $t = trim($s); if (!$t) { $skip++; continue; } $pdo->exec($t); $exec++; }
+                    $schemaSync = function_exists('dbs_sync_database_schema')
+                        ? dbs_sync_database_schema($pdo)
+                        : ['ran' => false, 'changes' => []];
                     $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
                     $importSuccess = true; $importResult = 'Import completed successfully.';
-                    $importDetails = ['filename'=>$file['name'],'size'=>$file['size']>=1048576?number_format($file['size']/1048576,2).' MB':number_format($file['size']/1024,1).' KB','executed'=>$exec,'skipped'=>$skip];
-                } catch (PDOException $e) {
+                    $importDetails = [
+                        'filename'     => $file['name'],
+                        'size'         => $file['size']>=1048576?number_format($file['size']/1048576,2).' MB':number_format($file['size']/1024,1).' KB',
+                        'executed'     => $exec,
+                        'skipped'      => $skip,
+                        'schema_fixes' => count($schemaSync['changes'] ?? []),
+                    ];
+                } catch (Throwable $e) {
                     try { $pdo->exec("SET FOREIGN_KEY_CHECKS=1"); } catch(Exception $_e){}
                     $importError = 'SQL error: ' . $e->getMessage();
                 }
@@ -386,6 +403,7 @@ input[type=file]{display:none;}
         <div class="di"><div class="dil">Size</div><div class="div2"><?= htmlspecialchars($importDetails['size']) ?></div></div>
         <div class="di"><div class="dil">Executed</div><div class="div2"><?= (int)$importDetails['executed'] ?></div></div>
         <div class="di"><div class="dil">Skipped</div><div class="div2"><?= (int)$importDetails['skipped'] ?></div></div>
+        <div class="di"><div class="dil">Schema Fixes</div><div class="div2"><?= (int)($importDetails['schema_fixes'] ?? 0) ?></div></div>
       </div></div></div>
   <?php endif; ?>
   <div class="ab ab-w" style="margin-bottom:1.1rem;"><i class="fas fa-triangle-exclamation"></i>

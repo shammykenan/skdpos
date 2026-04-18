@@ -306,7 +306,6 @@
             <!-- Draft banner -->
             <div id="draftBanner" class="draft-restored-banner d-none">
                 <i class="fas fa-clock-rotate-left"></i>
-                <span>Cart restored from your last session.</span>
                 <button class="draft-dismiss-btn" onclick="dismissDraftBanner()"><i class="fas fa-times"></i></button>
             </div>
 
@@ -384,7 +383,6 @@
 
     <div class="drawer-body">
         <div class="cart-fields">
-            <!-- CHANGE: mobile field order — type → table → name (matches dine-in workflow) -->
             <div class="mb-2">
                 <label class="form-label">Order Type <span class="text-danger">*</span></label>
                 <div class="order-type-container">
@@ -423,7 +421,6 @@
             </div>
             <div id="draftBannerM" class="draft-restored-banner d-none" style="margin:0.75rem 0 0;">
                 <i class="fas fa-clock-rotate-left"></i>
-                <span>Cart restored from your last session.</span>
                 <button class="draft-dismiss-btn" onclick="dismissDraftBanner()"><i class="fas fa-times"></i></button>
             </div>
         </div>
@@ -611,6 +608,70 @@
                     <div class="pm-total-label">Total Due</div>
                     <div class="pm-total-amount">₱<span id="pmTotalAmount">0.00</span></div>
                 </div>
+                <!-- ── Discount Section ── -->
+<div id="pmDiscountSection" style="margin:0 0 1rem;">
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--warm-gray);margin-bottom:0.5rem;">
+        <i class="fas fa-tag me-1"></i>Discount
+    </div>
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;">
+        <button class="pm-disc-btn active" data-type="none"    onclick="setDiscountType('none')">None</button>
+        <button class="pm-disc-btn"        data-type="senior"  onclick="setDiscountType('senior')">Senior (20%)</button>
+        <button class="pm-disc-btn"        data-type="pwd"     onclick="setDiscountType('pwd')">PWD (20%)</button>
+        <button class="pm-disc-btn"        data-type="promo"   onclick="setDiscountType('promo')">Promo</button>
+    </div>
+
+    <!-- Reference number (Senior / PWD) -->
+    <div id="pmDiscRefWrap" style="display:none;margin-bottom:0.5rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+        <input type="text" id="pmDiscRef" class="pm-cash-input"
+               style="font-size:0.88rem;padding:0.45rem 0.75rem;flex:1;"
+               placeholder="Senior/PWD ID number" maxlength="50">
+        <button class="pm-disc-btn active" onclick="applyFixedDiscount(_discountType)"
+                style="white-space:nowrap;">Apply</button>
+    </div>
+</div>
+
+    <!-- Promo % -->
+    <div id="pmDiscPromoWrap" style="display:none;margin-bottom:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+            <input type="number" id="pmDiscPromoPct" class="pm-cash-input"
+                   style="font-size:0.88rem;padding:0.45rem 0.75rem;width:100px;"
+                   placeholder="%" min="1" max="100" step="1">
+            <button class="pm-disc-btn active" onclick="applyPromoDiscount()"
+                    style="white-space:nowrap;">Apply</button>
+        </div>
+    </div>
+
+    <!-- Applied discount summary -->
+    <div id="pmDiscApplied" style="display:none;padding:0.55rem 0.85rem;background:rgba(44,122,90,0.07);border:1px solid rgba(44,122,90,0.2);border-radius:8px;font-size:0.83rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span id="pmDiscAppliedLabel" style="color:var(--success);font-weight:600;"></span>
+            <span id="pmDiscAppliedAmt"   style="color:var(--success);font-weight:700;"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:0.2rem;color:var(--navy);font-weight:700;">
+            <span>New Total</span>
+            <span id="pmDiscNewTotal"></span>
+        </div>
+    </div>
+</div>
+                <!-- VAT Breakdown (shown only when VAT-registered) -->
+                <div id="pmVatBreakdown" style="display:none; margin: 0 0 1rem; padding: 0.75rem 1rem; background: rgba(15,76,92,0.05); border: 1px solid rgba(15,76,92,0.12); border-radius: 10px; font-size: 0.82rem;">
+                    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--primary);margin-bottom:0.5rem;">
+                        <i class="fas fa-percent me-1"></i>VAT Breakdown
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;color:var(--warm-gray);">
+                        <span>VATable Sales</span>
+                        <span id="pmVatableSales">₱0.00</span>
+                    </div>
+                    <div id="pmVatExemptRow" style="display:none;justify-content:space-between;margin-bottom:0.2rem;color:var(--warm-gray);">
+                        <span>VAT-Exempt Sales</span>
+                        <span id="pmVatExemptSales">₱0.00</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-weight:600;color:var(--primary-dark);">
+                        <span>VAT (<span id="pmVatRateLabel">12</span>%)</span>
+                        <span id="pmVatAmount">₱0.00</span>
+                    </div>
+                </div>
 
                 <div class="pm-input-section">
                     <div class="pm-input-label">
@@ -621,7 +682,6 @@
                         <input type="number" id="pmCashInput" class="pm-cash-input"
                                placeholder="0.00" min="0" step="0.01" autocomplete="off">
                     </div>
-                    <!-- CHANGE: enter key hint for desktop cashiers -->
                     <div class="pm-enter-hint">
                         <kbd>Enter</kbd> to confirm payment
                     </div>
@@ -664,10 +724,10 @@ const addonsMap      = <?= json_encode($addons_map       ?? []) ?>;
 const variantsMap    = <?= json_encode($variants_map     ?? []) ?>;
 const DB_DRAFT_CART  = <?= json_encode($draft_cart      ?? []) ?>;
 const DB_DRAFT_META  = <?= json_encode($draft_meta      ?? null) ?>;
-const BASE_URL       = <?= json_encode($baseUrl) ?>;
-const CASHIER_NAME   = <?= json_encode($_SESSION['full_name'] ?? 'Cashier') ?>;
-
-/* CHANGE: PHP-side available table count for auto-select */
+const BASE_URL              = <?= json_encode($baseUrl) ?>;
+const CASHIER_NAME          = <?= json_encode($_SESSION['full_name'] ?? 'Cashier') ?>;
+const POS_IS_VAT_REGISTERED = <?= json_encode(VatHelper::isVatRegistered($pdo)) ?>;
+const POS_VAT_RATE          = <?= json_encode(VatHelper::getVatRate($pdo)) ?>;
 const AVAILABLE_TABLES = <?= json_encode($available_tables ?? []) ?>;
 
 let cart               = [];
@@ -677,7 +737,6 @@ let currentVariantName = null;
 let currentOrderType   = 'dine_in';
 let hasStockIssues     = false;
 let lastOrderData      = null;
-/* CHANGE: submit guard — prevents double-submit */
 let _submitting        = false;
 
 const isMobile = () => window.innerWidth < 992;
@@ -712,7 +771,6 @@ function flashCard(itemId) {
 }
 
 // ─── DRAFT PERSISTENCE ───────────────────────────────────────────
-/* CHANGE: debounced server save — no beacon on every keystroke */
 let _draftTimer = null;
 function saveDraftToServer() {
     const mobile = isMobile();
@@ -744,7 +802,6 @@ function showModal(id) {
     new bootstrap.Modal(el).show();
 }
 function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id))?.hide(); }
-/* CHANGE: 200ms timeout before backdrop cleanup — prevents flicker in variant→addons chain */
 document.addEventListener('hidden.bs.modal', () => {
     setTimeout(() => {
         if (document.querySelector('.modal.show')) return;
@@ -825,7 +882,7 @@ function buildDemandMap(rows) {
             d[ing.ingredient_id].needed += ing.quantity_required * row.quantity;
         });
         (row.addons || []).forEach(a => {
-            (addonStockData[a.id]?.ingredients || []).forEach(ing => {
+            (addonStockData[a.id]?.ingredients || []).map(ing => {
                 if (!ing.quantity_required || ing.quantity_required <= 0) return;
                 if (!d[ing.ingredient_id]) {
                     d[ing.ingredient_id] = { name: ing.ingredient_name, needed: 0, available: +ing.stock_quantity };
@@ -951,8 +1008,6 @@ function buildCartItemHTML(row, idx, containerKey) {
             <button class="note-save-btn" onclick="saveNote('${key}',${idx})"><i class="fas fa-check me-1"></i>Save</button>
         </div>
     </div>`;
-
-    /* CHANGE: trash icon when qty=1 (single click to remove), minus when qty>1 */
     const minusIcon = row.quantity <= 1
         ? `<i class="fas fa-trash-alt"></i>`
         : `<i class="fas fa-minus"></i>`;
@@ -978,7 +1033,6 @@ function buildCartItemHTML(row, idx, containerKey) {
     </div>`;
 }
 
-/* CHANGE: update checkout button label to "Charge ₱X.XX" */
 function updateCheckoutButtonLabel() {
     const total = cart.reduce((s,r) => s + (r.price + r.addons.reduce((a,b) => a + b.price*b.quantity, 0)) * r.quantity, 0);
     const textEl  = document.getElementById('collectPaymentBtnText');
@@ -1036,12 +1090,8 @@ function renderCart() {
         if (bdg) { bdg.textContent = cnt > 0 ? cnt : ''; bdg.style.display = cnt > 0 ? 'flex' : 'none'; }
         card.classList.toggle('in-cart', cnt > 0);
     });
-
-    /* CHANGE: scroll cart to bottom so newest item is always visible */
     const wrapper = document.getElementById('cartItemsWrapper');
     if (wrapper && cart.length > 0) wrapper.scrollTop = wrapper.scrollHeight;
-
-    /* CHANGE: dynamic checkout button label */
     updateCheckoutButtonLabel();
 }
 
@@ -1090,7 +1140,6 @@ function setOrderType(type, context) {
     debouncedSave();
 }
 
-/* CHANGE: keyboard shortcuts D/T for order type (desktop only) */
 document.addEventListener('keydown', e => {
     if (isMobile()) return;
     if (e.target.matches('input, textarea, select')) return;
@@ -1247,8 +1296,6 @@ document.querySelectorAll('.menu-item-card').forEach(card => {
 
         const activeAddons = (addonsMap[itemId] || []).filter(a => a.is_active);
 
-        /* CHANGE: skip modal entirely for items with no variants and no active add-ons
-           — direct add to cart with quantity 1, no note */
         if (activeAddons.length === 0) {
             const c = checkCanAdd(itemId, 1, [], null);
             if (!c.success) { showStockErrorModal(`Cannot add "${itemName}" — exceeds stock`, c.missingIngredients); return; }
@@ -1256,7 +1303,6 @@ document.querySelectorAll('.menu-item-card').forEach(card => {
             return;
         }
 
-        /* items with add-ons still open the modal */
         currentVariantId = null; currentVariantName = null;
         openAddonsModal(item, null, null);
     });
@@ -1295,7 +1341,153 @@ function collectOrderData() {
         : document.getElementById('table_id');
     return { orderType, customerName, tableId: tableIdEl?.value || '' };
 }
+// ─── DISCOUNT ────────────────────────────────────────────────────────
+let _discountType   = 'none';
+let _discountPct    = 0;
+let _discountAmount = 0;
+let _discountedTotal = 0;
+let _discountRef    = '';
 
+function setDiscountType(type) {
+    _discountType   = type;
+    _discountPct    = 0;
+    _discountAmount = 0;
+    _discountedTotal = _pmTotal;
+    _discountRef    = '';
+
+    document.querySelectorAll('.pm-disc-btn[data-type]').forEach(b => {
+        b.classList.toggle('active', b.dataset.type === type);
+    });
+
+    document.getElementById('pmDiscRefWrap').style.display   = (type === 'senior' || type === 'pwd') ? '' : 'none';
+    document.getElementById('pmDiscPromoWrap').style.display = type === 'promo' ? '' : 'none';
+    document.getElementById('pmDiscApplied').style.display   = 'none';
+    if (document.getElementById('pmDiscRef')) document.getElementById('pmDiscRef').value = '';
+    if (document.getElementById('pmDiscPromoPct')) document.getElementById('pmDiscPromoPct').value = '';
+
+    // Reset total display back to base when switching types
+    document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
+    buildQuickAmounts(_pmTotal);
+    const cashInput = document.getElementById('pmCashInput');
+    const paid = parseFloat(cashInput.value) || 0;
+    updateChangeDisplay(paid, cashInput.value !== '');
+    document.getElementById('pmConfirmBtn').disabled = paid < _pmTotal;
+    renderVatBreakdown();
+
+    if (type === 'none') {
+        resetDiscountedTotal();
+    }
+    // Senior/PWD: do NOT auto-apply — wait for user to enter ID and click Apply
+}
+
+async function applyFixedDiscount(type) {
+    const ref = document.getElementById('pmDiscRef')?.value.trim() || '';
+    const payload = new URLSearchParams({
+        discount_type: type,
+        reference_no:  ref,
+        subtotal:      _pmTotal.toFixed(2),
+    });
+    try {
+        const res  = await fetch('index.php?page=ajax_apply_discount', { method: 'POST', body: payload });
+        const data = await res.json();
+        if (!data.success) { showErrorModal('Discount Error', data.message); return; }
+        applyDiscountResult(data);
+    } catch(e) {
+        showErrorModal('Discount Error', 'Could not compute discount. Try again.');
+    }
+}
+
+async function applyPromoDiscount() {
+    const pct = parseFloat(document.getElementById('pmDiscPromoPct')?.value) || 0;
+    if (pct <= 0 || pct > 100) { showErrorModal('Invalid %', 'Enter a promo percentage between 1 and 100.'); return; }
+    const payload = new URLSearchParams({
+        discount_type: 'promo',
+        reference_no:  '',
+        subtotal:      _pmTotal.toFixed(2),
+        promo_pct:     pct,
+    });
+    try {
+        const res  = await fetch('index.php?page=ajax_apply_discount', { method: 'POST', body: payload });
+        const data = await res.json();
+        if (!data.success) { showErrorModal('Discount Error', data.message); return; }
+        applyDiscountResult(data);
+    } catch(e) {
+        showErrorModal('Discount Error', 'Could not compute discount. Try again.');
+    }
+}
+
+function applyDiscountResult(data) {
+    _discountPct     = data.discount_pct;
+    _discountAmount  = data.discount_amount;
+    _discountedTotal = data.total_after;
+    _discountRef     = data.reference_no || '';
+
+    const label = _discountType === 'senior' ? `Senior Citizen (${_discountPct}%)`
+                : _discountType === 'pwd'    ? `PWD (${_discountPct}%)`
+                : `Promo (${_discountPct}%)`;
+
+    document.getElementById('pmDiscAppliedLabel').textContent = label;
+    document.getElementById('pmDiscAppliedAmt').textContent   = `-₱${_discountAmount.toFixed(2)}`;
+    document.getElementById('pmDiscNewTotal').textContent     = `₱${_discountedTotal.toFixed(2)}`;
+    document.getElementById('pmDiscApplied').style.display   = '';
+
+    // Update the total display and recalculate change
+    document.getElementById('pmTotalAmount').textContent = _discountedTotal.toFixed(2);
+    const cashInput = document.getElementById('pmCashInput');
+    const paid = parseFloat(cashInput.value) || 0;
+    updateChangeDisplay(paid, cashInput.value !== '');
+    document.getElementById('pmConfirmBtn').disabled = paid < _discountedTotal;
+
+    // Rebuild quick amounts based on new total
+    buildQuickAmounts(_discountedTotal);
+    renderVatBreakdown(data);
+}
+
+function resetDiscountedTotal() {
+    _discountPct     = 0;
+    _discountAmount  = 0;
+    _discountedTotal = _pmTotal;
+    _discountRef     = '';
+    document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
+    buildQuickAmounts(_pmTotal);
+    const cashInput = document.getElementById('pmCashInput');
+    const paid = parseFloat(cashInput.value) || 0;
+    updateChangeDisplay(paid, cashInput.value !== '');
+    document.getElementById('pmConfirmBtn').disabled = paid < _pmTotal;
+    renderVatBreakdown();
+}
+
+function renderVatBreakdown(vatData = null) {
+    const wrap = document.getElementById('pmVatBreakdown');
+    if (!wrap) return;
+
+    if (!POS_IS_VAT_REGISTERED) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    const rate = parseFloat(POS_VAT_RATE) || 0;
+    let vatableSales = 0;
+    let vatAmount = 0;
+    let vatExemptSales = 0;
+
+    if (vatData) {
+        vatableSales = parseFloat(vatData.vatable_sales ?? 0) || 0;
+        vatAmount = parseFloat(vatData.vat_amount ?? 0) || 0;
+        vatExemptSales = parseFloat(vatData.vat_exempt ?? 0) || 0;
+    } else {
+        const divisor = 1 + (rate / 100);
+        vatableSales = Math.round((_pmTotal / divisor) * 100) / 100;
+        vatAmount = Math.round((_pmTotal - vatableSales) * 100) / 100;
+    }
+
+    document.getElementById('pmVatRateLabel').textContent = rate.toString();
+    document.getElementById('pmVatableSales').textContent = `₱${vatableSales.toFixed(2)}`;
+    document.getElementById('pmVatAmount').textContent = `₱${vatAmount.toFixed(2)}`;
+    document.getElementById('pmVatExemptSales').textContent = `₱${vatExemptSales.toFixed(2)}`;
+    document.getElementById('pmVatExemptRow').style.display = vatExemptSales > 0 ? 'flex' : 'none';
+    wrap.style.display = 'block';
+}
 // ─── PAYMENT MODAL ───────────────────────────────────────────────
 let _pmTotal = 0;
 function openPaymentModal() {
@@ -1324,15 +1516,31 @@ function openPaymentModal() {
     summaryHTML += `<hr class="pm-summary-divider"><div class="pm-summary-item-row" style="font-weight:700;"><span>Total</span><span>₱${_pmTotal.toFixed(2)}</span></div>`;
     summaryEl.innerHTML = summaryHTML;
     document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
+    // Reset discount state
+_discountType   = 'none';
+_discountPct    = 0;
+_discountAmount = 0;
+_discountedTotal = _pmTotal;
+_discountRef    = '';
+document.querySelectorAll('.pm-disc-btn[data-type]').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === 'none');
+});
+document.getElementById('pmDiscRefWrap').style.display   = 'none';
+document.getElementById('pmDiscPromoWrap').style.display = 'none';
+document.getElementById('pmDiscApplied').style.display   = 'none';
+if (document.getElementById('pmDiscRef'))     document.getElementById('pmDiscRef').value     = '';
+if (document.getElementById('pmDiscPromoPct')) document.getElementById('pmDiscPromoPct').value = '';
+    renderVatBreakdown();
+
     const cashInput = document.getElementById('pmCashInput');
     cashInput.value = ''; cashInput.className = 'pm-cash-input';
     updateChangeDisplay(0, false);
     document.getElementById('pmConfirmBtn').disabled = true;
     buildQuickAmounts(_pmTotal);
     showModal('paymentModal');
-    /* CHANGE: reduced focus delay 350→200ms + select() to overwrite previous value */
     setTimeout(() => { cashInput.focus(); cashInput.select(); }, 200);
 }
+
 function buildQuickAmounts(total) {
     const roundUp = (n,to) => Math.ceil(n/to)*to;
     const suggestions = new Set([total]);
@@ -1351,12 +1559,12 @@ function setQuickAmount(amt) {
 }
 document.getElementById('pmCashInput')?.addEventListener('input', function() {
     const val = parseFloat(this.value) || 0;
-    const valid = val >= _pmTotal && _pmTotal > 0;
+    const effectiveTotal = (_discountAmount > 0) ? _discountedTotal : _pmTotal;
+    const valid = val >= effectiveTotal && effectiveTotal > 0;
     this.className = 'pm-cash-input' + (this.value === '' ? '' : (valid ? ' valid' : ' invalid'));
     updateChangeDisplay(val, this.value !== '');
     document.getElementById('pmConfirmBtn').disabled = !valid;
 });
-/* CHANGE: Enter key confirms payment from cash input */
 document.getElementById('pmCashInput')?.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -1368,11 +1576,12 @@ function updateChangeDisplay(amountPaid, hasInput) {
     const card = document.getElementById('pmChangeCard');
     const valueEl = document.getElementById('pmChangeValue');
     const iconEl = card.querySelector('.pm-change-icon i');
-    if (!hasInput || _pmTotal <= 0) {
+    const effectiveTotal = (_discountAmount > 0) ? _discountedTotal : _pmTotal;
+    if (!hasInput || effectiveTotal <= 0) {
         card.className = 'pm-change-card change-none';
         valueEl.textContent = '—'; iconEl.className = 'fas fa-coins'; return;
     }
-    const change = amountPaid - _pmTotal;
+    const change = amountPaid - effectiveTotal;
     if (change < 0) {
         card.className = 'pm-change-card change-err';
         valueEl.textContent = `₱${Math.abs(change).toFixed(2)} short`;
@@ -1390,32 +1599,56 @@ function updateChangeDisplay(amountPaid, hasInput) {
 
 // ─── CONFIRM PAYMENT & SUBMIT ────────────────────────────────────
 async function confirmPaymentAndSubmit() {
-    /* CHANGE: double-submit guard */
     if (_submitting) return;
-    const amountPaid = parseFloat(document.getElementById('pmCashInput').value) || 0;
-    const changeAmt  = Math.max(0, amountPaid - _pmTotal);
-    if (amountPaid < _pmTotal) { showErrorModal('Insufficient Amount', 'Cash tendered must be ≥ the order total.'); return; }
+    const amountPaid  = parseFloat(document.getElementById('pmCashInput').value) || 0;
+const effectiveTotal = (_discountAmount > 0) ? _discountedTotal : _pmTotal;
+const changeAmt   = Math.max(0, amountPaid - effectiveTotal);
+if (amountPaid < effectiveTotal) { showErrorModal('Insufficient Amount', 'Cash tendered must be ≥ the order total.'); return; }
     const { orderType, customerName, tableId } = collectOrderData();
     const btn = document.getElementById('pmConfirmBtn');
     _submitting = true;
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing…';
     const payload = new URLSearchParams({
-        action: 'pay_and_submit', customer_name: customerName || '',
-        table_id: orderType === 'dine_in' ? tableId : '',
-        order_type: orderType, cart_data: JSON.stringify(cart),
-        amount_paid: amountPaid.toFixed(2), change_amount: changeAmt.toFixed(2),
-    });
+    action:          'pay_and_submit',
+    customer_name:   customerName || '',
+    table_id:        orderType === 'dine_in' ? tableId : '',
+    order_type:      orderType,
+    cart_data:       JSON.stringify(cart),
+    amount_paid:     amountPaid.toFixed(2),
+    change_amount:   changeAmt.toFixed(2),
+    discount_type:   _discountType,
+    discount_ref:    _discountRef,
+    discount_pct:    _discountPct.toFixed(2),
+    discount_amount: _discountAmount.toFixed(2),
+});
     try {
         const resp = await fetch('index.php?page=manage_pos', {
             method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload,
         });
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Unknown error from server.');
+
+        // ── Store VAT data from server response for receipt ───────────────
+        const vatData = data.vat || null;
+
         lastOrderData = {
-            orderNumber: data.order_number, orderType, customerName,
-            tableName: data.table_name || '', items: [...cart], total: _pmTotal,
-            amountPaid, changeAmt, cashierName: CASHIER_NAME,
-        };
+    orderNumber:     data.order_number,
+    orNumber:        data.or_number,
+    orderType,
+    customerName,
+    tableName:       data.table_name || '',
+    items:           [...cart],
+    total:           effectiveTotal,   // ← discounted total
+    amountPaid,
+    changeAmt,
+    cashierName:     CASHIER_NAME,
+    vat:             vatData,
+    discountType:    _discountType,
+    discountAmount:  _discountAmount,
+};
+
+        renderVatBreakdown(vatData);
+
         cart = [];
         localStorage.removeItem('pos_cart');
         sessionStorage.removeItem('draft_banner_shown');
@@ -1428,13 +1661,11 @@ async function confirmPaymentAndSubmit() {
         _submitting = false;
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirm & Place Order';
-        showSuccessToast(`Order #${data.order_number} created successfully!`);
-        // Refresh table availability after successful dine-in order
+        showSuccessToast(`OR ${data.or_number} — Order placed!`);
         if (orderType === 'dine_in') {
             await refreshTableAvailability();
         }
         setTimeout(() => printReceiptESC(lastOrderData), 300);
-        /* CHANGE: auto-focus search after order completion so cashier is ready for next order */
         if (!isMobile()) setTimeout(() => document.getElementById('menuSearch')?.focus(), 400);
     } catch (err) {
         _submitting = false;
@@ -1450,45 +1681,26 @@ async function refreshTableAvailability() {
         const response = await fetch('app/ajax/get_tables.php');
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Failed to fetch tables');
-        
-        // Filter only available tables for POS dropdown
         const availableTables = data.tables.filter(table => table.status === 'available');
-        
-        // Update both desktop and mobile table dropdowns
         ['table_id', 'table_id_m'].forEach(selectId => {
             const select = document.getElementById(selectId);
             const container = select?.closest('div[id$="Container"]');
             if (!select || !container) return;
-            
-            // Clear existing options except the default
             select.innerHTML = '<option value="">— Choose a table —</option>';
-            
             if (availableTables.length > 0) {
-                // Add available tables
                 availableTables.forEach(table => {
                     const option = document.createElement('option');
                     option.value = table.table_id;
                     option.textContent = `${table.table_name} (${table.capacity} seats)`;
                     select.appendChild(option);
                 });
-                
-                // Update table count hint
                 const hint = container.querySelector('.table-count-hint');
-                if (hint) {
-                    hint.innerHTML = `<i class="fas fa-circle-check"></i>${availableTables.length} table${availableTables.length !== 1 ? 's' : ''} available`;
-                }
-                
-                // Show the select dropdown, hide unavailable notice
+                if (hint) hint.innerHTML = `<i class="fas fa-circle-check"></i>${availableTables.length} table${availableTables.length !== 1 ? 's' : ''} available`;
                 select.style.display = '';
                 const unavailableNotice = container.querySelector('.table-unavailable-notice');
                 if (unavailableNotice) unavailableNotice.style.display = 'none';
-                
-                // Auto-select if only one table available
-                if (availableTables.length === 1) {
-                    select.value = String(availableTables[0].table_id);
-                }
+                if (availableTables.length === 1) select.value = String(availableTables[0].table_id);
             } else {
-                // No tables available
                 select.style.display = 'none';
                 let unavailableNotice = container.querySelector('.table-unavailable-notice');
                 if (!unavailableNotice) {
@@ -1527,7 +1739,6 @@ function setSidebarOpen(open) {
 document.getElementById('menuToggle')?.addEventListener('click', () => setSidebarOpen(!document.getElementById('sidebar').classList.contains('show')));
 document.getElementById('sidebarOverlay')?.addEventListener('click', () => setSidebarOpen(false));
 
-/* CHANGE: debounced draft save on input instead of immediate */
 document.getElementById('customer_name')?.addEventListener('input',   debouncedSave);
 document.getElementById('customer_name_m')?.addEventListener('input', debouncedSave);
 
@@ -1591,7 +1802,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     validateAndRender();
 
-    /* CHANGE: auto-select table when only one available */
     if (AVAILABLE_TABLES.length === 1) {
         const tid = String(AVAILABLE_TABLES[0].table_id);
         ['table_id','table_id_m'].forEach(id => {
@@ -1600,7 +1810,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* CHANGE: auto-focus search on desktop page load */
     if (!isMobile()) {
         setTimeout(() => document.getElementById('menuSearch')?.focus(), 150);
     }

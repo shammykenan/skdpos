@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
+require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/refundHelper.php';
 
 header('Content-Type: application/json');
 
@@ -40,7 +42,7 @@ try {
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("
-        SELECT oi.*, o.status AS order_status
+        SELECT oi.*, o.status AS order_status, o.subtotal AS order_subtotal, o.total_amount AS order_total_amount
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
         WHERE oi.order_item_id = ?
@@ -276,16 +278,31 @@ if ($action === 'partial_complete') {
         $paidStmt->execute([$order_id]);
         $totalPaid = (float)$paidStmt->fetchColumn();
 
-        $unitSelling   = (float)$item['unit_price'];
-        $addonSellStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(price * quantity), 0)
-            FROM order_item_addons
-            WHERE order_item_id = ?
-        ");
-        $addonSellStmt->execute([$order_item_id]);
-        $addonSellPerUnit = (float)$addonSellStmt->fetchColumn() / max($total_qty, 1);
-        $maxRefund        = round(($unitSelling + $addonSellPerUnit) * $partial_qty, 2);
-        $refundCap        = $totalPaid > 0 ? min($maxRefund, $totalPaid) : $maxRefund;
+        $orderForRefund = [
+            'order_id'     => $order_id,
+            'subtotal'     => (float) ($item['order_subtotal'] ?? 0),
+            'total_amount' => (float) ($item['order_total_amount'] ?? 0),
+        ];
+        $orderItems = getOrderItems($pdo, $order_id);
+        foreach ($orderItems as &$orderItem) {
+            $orderItem['addons'] = getOrderItemAddons($pdo, (int) $orderItem['order_item_id']);
+        }
+        unset($orderItem);
+
+        $orderItems = refund_hydrate_order_items($pdo, $orderForRefund, $orderItems);
+        $matchedItem = null;
+        foreach ($orderItems as $orderItem) {
+            if ((int) $orderItem['order_item_id'] === $order_item_id) {
+                $matchedItem = $orderItem;
+                break;
+            }
+        }
+
+        $remainingRefundable = round((float) ($matchedItem['remaining_refundable'] ?? 0), 2);
+        $remainingActiveQty = max(1, (int) ($matchedItem['remaining_active_qty'] ?? ($total_qty - $qty_voided)));
+        $unitRefundable = $remainingRefundable / $remainingActiveQty;
+        $maxRefund = min($remainingRefundable, round($unitRefundable * $partial_qty, 2));
+        $refundCap = $totalPaid > 0 ? $maxRefund : 0.0;
 
         if ($refund_amount > $refundCap + 0.01) {
             $pdo->rollBack();

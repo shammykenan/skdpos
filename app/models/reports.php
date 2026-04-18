@@ -150,12 +150,12 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     $stmt = $pdo->prepare("
         SELECT
             COUNT(DISTINCT o.order_id)                                        AS total_orders,
-            COALESCE(SUM(o.total_amount), 0)                                  AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                                      AS total_discounts,
+            COALESCE(SUM(o.subtotal), 0)                                      AS gross_revenue,
+            COALESCE(SUM(o.subtotal - o.total_amount), 0)                     AS total_discounts,
             COALESCE(SUM(o.total_amount) / NULLIF(COUNT(DISTINCT o.order_id), 0), 0) AS avg_order_value,
             COUNT(DISTINCT o.cashier_id)                                      AS active_cashiers,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                           AS net_revenue_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)          AS total_vat_collected,
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0)      AS net_revenue_excl_vat,
+            COALESCE(SUM(COALESCE(o.vat_amount, 0)), 0)                       AS total_vat_collected,
             (
                 SELECT COUNT(*) FROM orders cx
                 WHERE cx.status = 'cancelled'
@@ -202,7 +202,10 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     $row['total_refunds'] = (float) $rstmt->fetchColumn();
 
     // Net Revenue = Gross − Refunds (floor 0)
-    $row['net_revenue'] = max(0.0, (float) $row['gross_revenue'] - $row['total_refunds']);
+    $row['net_revenue'] = max(
+        0.0,
+        (float) $row['gross_revenue'] - (float) $row['total_discounts'] - $row['total_refunds']
+    );
 
     // ── COGS & Waste ──────────────────────────────────────────────────────────
     $cid_part    = $cashier_id !== null ? ' AND o.cashier_id = :df_cid' : '';
@@ -213,9 +216,9 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
     $row['cogs']             = $cogs;
-    $row['gross_profit']     = (float) $row['net_revenue'] - $cogs;
+    $row['gross_profit']     = (float) $row['gross_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
-    $row['net_profit']       = $row['gross_profit'] - $waste;
+    $row['net_profit']       = (float) $row['net_revenue'] - $cogs - $waste;
 
     return $row;
 }
@@ -232,10 +235,10 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
             u.username,
             COUNT(DISTINCT o.order_id)                                          AS total_orders,
             COALESCE(SUM(o.subtotal), 0)                                        AS gross_sales,
-            COALESCE(SUM(o.discount), 0)                                        AS total_discounts,
+            COALESCE(SUM(o.subtotal - o.total_amount), 0)                       AS total_discounts,
             COALESCE(SUM(o.total_amount), 0)                                    AS net_sales,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                             AS net_sales_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)            AS vat_collected,
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0)        AS net_sales_excl_vat,
+            COALESCE(SUM(COALESCE(o.vat_amount, 0)), 0)                         AS vat_collected,
             (
                 SELECT COUNT(*) FROM orders cx
                 WHERE cx.cashier_id       = :cid_c
@@ -370,12 +373,12 @@ function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
     $stmt = $pdo->prepare("
         SELECT
             COUNT(DISTINCT o.order_id)                                        AS total_orders,
-            COALESCE(SUM(o.total_amount), 0)                                  AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                                      AS total_discounts,
+            COALESCE(SUM(o.subtotal), 0)                                      AS gross_revenue,
+            COALESCE(SUM(o.subtotal - o.total_amount), 0)                     AS total_discounts,
             COALESCE(SUM(o.total_amount) / NULLIF(COUNT(DISTINCT o.order_id), 0), 0) AS avg_order_value,
             COUNT(DISTINCT o.cashier_id)                                      AS active_cashiers,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                           AS net_revenue_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)          AS total_vat_collected
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0)      AS net_revenue_excl_vat,
+            COALESCE(SUM(COALESCE(o.vat_amount, 0)), 0)                       AS total_vat_collected
         FROM orders o
         WHERE o.status IN (" . RPT_ACTIVE_STATUSES . ")
           AND YEAR(o.created_at)  = :year
@@ -406,16 +409,19 @@ function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
     ");
     $rstmt->execute([':year' => $year, ':month' => $month]);
     $row['total_refunds'] = (float) $rstmt->fetchColumn();
-    $row['net_revenue']   = max(0.0, (float) $row['gross_revenue'] - $row['total_refunds']);
+    $row['net_revenue']   = max(
+        0.0,
+        (float) $row['gross_revenue'] - (float) $row['total_discounts'] - $row['total_refunds']
+    );
 
     $date_filter = 'YEAR(o.created_at) = :df_year AND MONTH(o.created_at) = :df_month';
     $df_params   = [':df_year' => $year, ':df_month' => $month];
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
     $row['cogs']             = $cogs;
-    $row['gross_profit']     = (float) $row['net_revenue'] - $cogs;
+    $row['gross_profit']     = (float) $row['gross_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
-    $row['net_profit']       = $row['gross_profit'] - $waste;
+    $row['net_profit']       = (float) $row['net_revenue'] - $cogs - $waste;
 
     return $row;
 }
@@ -430,8 +436,8 @@ function rpt_daily_breakdown(PDO $pdo, int $year, int $month): array
             DATE(o.created_at)                                       AS sale_date,
             COUNT(DISTINCT o.order_id)                               AS total_orders,
             COALESCE(SUM(o.total_amount), 0)                         AS revenue,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS revenue_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0) AS vat_amount
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0) AS revenue_excl_vat,
+            COALESCE(SUM(COALESCE(o.vat_amount, 0)), 0)              AS vat_amount
         FROM orders o
         WHERE o.status IN (" . RPT_ACTIVE_STATUSES . ")
           AND YEAR(o.created_at)  = :year
@@ -455,11 +461,11 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
     $stmt = $pdo->prepare("
         SELECT
             COUNT(DISTINCT o.order_id)                                        AS total_orders,
-            COALESCE(SUM(o.total_amount), 0)                                  AS gross_revenue,
-            COALESCE(SUM(o.discount), 0)                                      AS total_discounts,
+            COALESCE(SUM(o.subtotal), 0)                                      AS gross_revenue,
+            COALESCE(SUM(o.subtotal - o.total_amount), 0)                     AS total_discounts,
             COALESCE(SUM(o.total_amount) / NULLIF(COUNT(DISTINCT o.order_id), 0), 0) AS avg_order_value,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                           AS net_revenue_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)          AS total_vat_collected
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0)      AS net_revenue_excl_vat,
+            COALESCE(SUM(COALESCE(o.vat_amount, 0)), 0)                       AS total_vat_collected
         FROM orders o
         WHERE o.status IN (" . RPT_ACTIVE_STATUSES . ")
           AND YEAR(o.created_at) = :year
@@ -486,16 +492,19 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
     ");
     $rstmt->execute([':year' => $year]);
     $row['total_refunds'] = (float) $rstmt->fetchColumn();
-    $row['net_revenue']   = max(0.0, (float) $row['gross_revenue'] - $row['total_refunds']);
+    $row['net_revenue']   = max(
+        0.0,
+        (float) $row['gross_revenue'] - (float) $row['total_discounts'] - $row['total_refunds']
+    );
 
     $date_filter = 'YEAR(o.created_at) = :df_year';
     $df_params   = [':df_year' => $year];
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
     $row['cogs']             = $cogs;
-    $row['gross_profit']     = (float) $row['net_revenue'] - $cogs;
+    $row['gross_profit']     = (float) $row['gross_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
-    $row['net_profit']       = $row['gross_profit'] - $waste;
+    $row['net_profit']       = (float) $row['net_revenue'] - $cogs - $waste;
 
     // Monthly bar chart data
     $mstmt = $pdo->prepare("
@@ -714,8 +723,8 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
             u.username,
             COALESCE(c.orders_handled,    0)                   AS orders_handled,
             COALESCE(c.total_sales,       0)                   AS total_sales,
-            COALESCE(c.total_sales / 1.12, 0)                  AS total_sales_excl_vat,
-            COALESCE(c.total_sales - c.total_sales / 1.12, 0)  AS vat_collected,
+            COALESCE(c.total_sales_excl_vat, 0)                AS total_sales_excl_vat,
+            COALESCE(c.vat_collected, 0)                       AS vat_collected,
             COALESCE(c.avg_order_value,   0)                   AS avg_order_value,
             COALESCE(c.discounts_given,   0)                   AS discounts_given,
             COALESCE(x.cancelled_orders,  0)                   AS cancelled_orders,
@@ -727,7 +736,9 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
                    COUNT(DISTINCT order_id) AS orders_handled,
                    SUM(total_amount)        AS total_sales,
                    AVG(total_amount)        AS avg_order_value,
-                   SUM(discount)            AS discounts_given
+                   SUM(subtotal - total_amount) AS discounts_given,
+                   SUM(total_amount - COALESCE(vat_amount, 0)) AS total_sales_excl_vat,
+                   SUM(COALESCE(vat_amount, 0))                AS vat_collected
             FROM orders
             WHERE status IN (" . RPT_ACTIVE_STATUSES . ")
               AND DATE(created_at) BETWEEN :s1 AND :e1
@@ -786,7 +797,7 @@ function rpt_peak_hours(PDO $pdo, string $start, string $end): array
             HOUR(o.created_at)                                       AS hour_of_day,
             COUNT(DISTINCT o.order_id)                               AS total_orders,
             COALESCE(SUM(o.total_amount), 0)                         AS revenue,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                  AS revenue_excl_vat
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0) AS revenue_excl_vat
         FROM orders o
         WHERE o.status IN (" . RPT_ACTIVE_STATUSES . ")
           AND DATE(o.created_at) BETWEEN :start AND :end
@@ -812,7 +823,7 @@ function rpt_order_type_breakdown(PDO $pdo, string $start, string $end): array
             o.order_source,
             COUNT(DISTINCT o.order_id)               AS total_orders,
             COALESCE(SUM(o.total_amount), 0)          AS revenue,
-            COALESCE(SUM(o.total_amount / 1.12), 0)   AS revenue_excl_vat
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0) AS revenue_excl_vat
         FROM orders o
         WHERE o.status IN (" . RPT_ACTIVE_STATUSES . ")
           AND DATE(o.created_at) BETWEEN :start AND :end
@@ -868,8 +879,8 @@ function rpt_discount_audit(PDO $pdo, string $start, string $end): array
             o.subtotal,
             o.discount,
             o.total_amount,
-            ROUND(o.total_amount / 1.12, 2)                  AS amount_excl_vat,
-            ROUND(o.total_amount - o.total_amount / 1.12, 2) AS vat_amount,
+            ROUND(o.total_amount - COALESCE(o.vat_amount, 0), 2) AS amount_excl_vat,
+            ROUND(COALESCE(o.vat_amount, 0), 2)                  AS vat_amount,
             o.status,
             o.customer_name,
             o.created_at,
@@ -910,8 +921,8 @@ function rpt_payment_reconciliation(PDO $pdo, string $start, string $end): array
             COALESCE(SUM(p.change_amount), 0)                            AS change_given,
             COALESCE(SUM(p.amount_paid - p.change_amount), 0)            AS net_cash,
             COALESCE(SUM(o.total_amount), 0)                             AS expected_from_orders,
-            COALESCE(SUM(o.total_amount / 1.12), 0)                      AS expected_excl_vat,
-            COALESCE(SUM(o.total_amount - o.total_amount / 1.12), 0)     AS vat_in_expected,
+            COALESCE(SUM(o.total_amount - COALESCE(o.vat_amount, 0)), 0) AS expected_excl_vat,
+            COALESCE(SUM(COALESCE(o.vat_amount, 0)), 0)                  AS vat_in_expected,
             COALESCE(SUM(p.amount_paid - p.change_amount), 0)
                 - COALESCE(SUM(o.total_amount), 0)                       AS variance,
             SUM(CASE WHEN p.processed_by IS NOT NULL
@@ -1017,8 +1028,8 @@ function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end,
         $stmt = $pdo->prepare("
             SELECT
                 COUNT(DISTINCT o.order_id)       AS total_orders,
-                COALESCE(SUM(o.total_amount), 0) AS gross_revenue,
-                COALESCE(SUM(o.discount), 0)     AS total_discounts,
+                COALESCE(SUM(o.subtotal), 0)     AS gross_revenue,
+                COALESCE(SUM(o.subtotal - o.total_amount), 0) AS total_discounts,
                 COALESCE(SUM(o.total_amount) / NULLIF(COUNT(DISTINCT o.order_id), 0), 0) AS avg_order_value,
                 (SELECT COUNT(*) FROM orders
                  WHERE status = 'cancelled'
@@ -1044,15 +1055,16 @@ function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end,
         $refunds = (float) $rstmt->fetchColumn();
 
         $gross_revenue = (float) ($row['gross_revenue'] ?? 0);
-        $net_revenue   = max(0.0, $gross_revenue - $refunds);
+        $total_discounts = (float) ($row['total_discounts'] ?? 0);
+        $net_revenue   = max(0.0, $gross_revenue - $total_discounts - $refunds);
 
         // COGS & Waste for accurate profit comparison
         $date_filter = 'DATE(o.created_at) BETWEEN :df_start AND :df_end';
         $df_params   = [':df_start' => $start, ':df_end' => $end];
         [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
-        $gross_profit = $net_revenue - $cogs;
-        $net_profit   = $gross_profit - $waste;
+        $gross_profit = $gross_revenue - $cogs;
+        $net_profit   = $net_revenue - $cogs - $waste;
 
         $row['cogs'] = $cogs;
 

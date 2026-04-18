@@ -47,7 +47,24 @@ switch ($page) {
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/admin_manage_variants_controller.php';
         break;
+    case 'bir_settings':
+    requireRole(['admin']);
+    require_once BASE_PATH . '/app/controllers/admin_bir_settings_controller.php';
+    break;
 
+    case 'ajax_save_bir_settings':
+        requireRole(['admin']);
+        require_once BASE_PATH . '/app/ajax/save_bir_settings.php';
+        exit;
+    case 'ajax_generate_z_reading':
+        requireRole(['admin']);
+        require_once BASE_PATH . '/app/ajax/generate_z_reading.php';
+        exit;
+        
+    case 'print_z_reading':
+        requireRole(['admin']);
+        require_once BASE_PATH . '/app/print/print-z-reading.php';
+        exit;
     //cashier
     case 'manage_pos':
         requireRole(['cashier', 'admin']);
@@ -61,6 +78,10 @@ switch ($page) {
         requireRole(['cashier', 'admin']);
         require_once BASE_PATH . '/app/controllers/view_reports_controller.php';
         break;
+    case 'ajax_apply_discount':
+    requireRole(['admin', 'cashier']);
+    require_once BASE_PATH . '/app/ajax/apply_discount.php';
+    exit;
     //kitchen
     case 'manage_orders':
         requireRole(['cashier', 'admin', 'kitchen']);

@@ -107,26 +107,23 @@ try {
     $paidStmt->execute([$order_id]);
     $totalPaid = (float) $paidStmt->fetchColumn();
 
-    // Max refund is based on active (non-cancelled, non-voided) items
-    $maxRefundStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(oi.subtotal), 0) AS items_subtotal
-        FROM order_items oi
-        WHERE oi.order_id = ? AND oi.status NOT IN ('cancelled', 'voided')
+    $alreadyRefundedStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0)
+        FROM refunds
+        WHERE order_id = ?
     ");
-    $maxRefundStmt->execute([$order_id]);
-    $itemsSubtotal = (float) $maxRefundStmt->fetchColumn();
+    $alreadyRefundedStmt->execute([$order_id]);
+    $alreadyRefunded = (float) $alreadyRefundedStmt->fetchColumn();
 
-    $addonSubtotalStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(oia.price * oia.quantity), 0) AS addon_total
-        FROM order_item_addons oia
-        JOIN order_items oi ON oia.order_item_id = oi.order_item_id
-        WHERE oi.order_id = ? AND oi.status NOT IN ('cancelled', 'voided')
-    ");
-    $addonSubtotalStmt->execute([$order_id]);
-    $addonSubtotal = (float) $addonSubtotalStmt->fetchColumn();
+    $remainingRefundable = max(
+        0.0,
+        round((float) $order['total_amount'] - $alreadyRefunded, 2)
+    );
 
-    $maxRefund  = round($itemsSubtotal + $addonSubtotal, 2);
-    $refundCap  = $totalPaid > 0 ? min($maxRefund, $totalPaid) : $maxRefund;
+    $maxRefund = $totalPaid > 0
+        ? $remainingRefundable
+        : 0.0;
+    $refundCap = $maxRefund;
 
     if ($refund_amount > $refundCap + 0.01) {
         $pdo->rollBack();

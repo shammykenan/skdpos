@@ -9,6 +9,7 @@ require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/tableHelper.php';
 require_once __DIR__ . '/../models/pos.php';
 require_once __DIR__ . '/../models/variants.php';
+require_once __DIR__ . '/../core/VatHelper.php';
 
 requireRole(['admin', 'cashier']);
 $baseUrl = $_ENV['BASE_URL'] ?? '';
@@ -46,7 +47,7 @@ if (
             );
             echo json_encode(['ok' => true, 'draft_id' => $draft_id]);
         }
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
     }
@@ -74,7 +75,6 @@ if (
         if (empty($order_type)) throw new Exception('Order type is required.');
         if ($amount_paid <= 0)  throw new Exception('Invalid payment amount.');
 
-        // Re-load helpers needed for stock checks
         $variants_map = getAllVariantsGrouped($pdo);
 
         // ── Table resolution ──────────────────────────────────────────────────
@@ -254,9 +254,42 @@ if (
             ];
         }
 
-        // ── Verify payment covers total ───────────────────────────────────────
-        $discount     = 0;
-        $total_amount = $subtotal - $discount;
+        // ── Discount resolution ───────────────────────────────────────────────
+        $discount_type   = trim($_POST['discount_type'] ?? 'none');
+        $discount_ref    = trim($_POST['discount_ref']  ?? '');
+        $discount_pct    = 0.0;
+        $discount_amount = 0.0;
+
+        if (!in_array($discount_type, ['senior', 'pwd', 'promo', 'none'])) {
+            $discount_type = 'none';
+        }
+
+        if (in_array($discount_type, ['senior', 'pwd'], true) && $discount_ref === '') {
+            throw new Exception('Please enter the Senior/PWD ID number before applying the discount.');
+        }
+
+        if ($discount_type === 'senior') {
+            $discount_pct = VatHelper::getSeniorDiscountPct($pdo);
+        } elseif ($discount_type === 'pwd') {
+            $discount_pct = VatHelper::getPwdDiscountPct($pdo);
+        } elseif ($discount_type === 'promo') {
+            $discount_pct = (float)($_POST['discount_pct'] ?? 0);
+            if ($discount_pct <= 0 || $discount_pct > 100) {
+                throw new Exception('Invalid promo percentage.');
+            }
+        }
+
+        // Re-validate discount server-side — never trust client-computed amounts
+        if ($discount_type !== 'none') {
+            $disc_result     = VatHelper::applyDiscount($discount_type, $subtotal, $discount_pct, $pdo);
+            $discount_amount = $disc_result['discount_amount'];
+            $total_amount    = $disc_result['total_after_discount'];
+        } else {
+            $discount_amount = 0.0;
+            $total_amount    = $subtotal;
+        }
+
+        $discount = $discount_amount;
 
         if ($amount_paid < $total_amount) {
             throw new Exception(sprintf(
@@ -264,6 +297,13 @@ if (
                 $amount_paid, $total_amount
             ));
         }
+
+        // ── Build VAT summary before transaction ──────────────────────────────
+        // Computed here so it never runs after commit where a throw would
+        // attempt to roll back an already-committed transaction.
+        $is_vat   = VatHelper::isVatRegistered($pdo);
+        $vat_rate = VatHelper::getVatRate($pdo);
+        $vat_bd   = VatHelper::orderBreakdown($total_amount, $pdo, $discount_type);
 
         // ── Persist — single transaction ──────────────────────────────────────
         $pdo->beginTransaction();
@@ -278,7 +318,9 @@ if (
             $subtotal,
             $discount,
             $total_amount,
-            $table_id
+            $table_id,
+            $discount_type,
+            $discount_amount
         );
 
         // Fetch generated order number
@@ -286,7 +328,19 @@ if (
         $stmt->execute([$order_id]);
         $order_number = $stmt->fetchColumn();
 
-        // Create order items
+        // assignOrNumberAndVat() uses FOR UPDATE internally — must be inside transaction
+        $or_number = assignOrNumberAndVat($pdo, $order_id, $total_amount, $discount_type);
+
+        recordOrderDiscount(
+            $pdo,
+            $order_id,
+            $discount_type,
+            $discount_ref,
+            $discount_pct,
+            $discount_amount,
+            $_SESSION['user_id']
+        );
+
         foreach ($order_details as $detail) {
             $order_item_id = createOrderItem(
                 $pdo,
@@ -304,38 +358,55 @@ if (
             }
         }
 
-        // Record payment immediately
+        // ── Record payment ────────────────────────────────────────────────────
         $stmt = $pdo->prepare("
             INSERT INTO payments
-                (order_id, payment_method, amount_paid, change_amount,
+                (order_id, or_number, payment_method, amount_paid, change_amount,
                  payment_status, cashier_id, processed_by)
-            VALUES (?, 'cash', ?, ?, 'paid', ?, ?)
+            VALUES (?, ?, 'cash', ?, ?, 'paid', ?, ?)
         ");
         $stmt->execute([
             $order_id,
+            $or_number,
             $amount_paid,
             $change_amount,
             $_SESSION['user_id'],
             $_SESSION['user_id'],
         ]);
 
-        // Clear draft
-        clearDraftOrder($pdo, $_SESSION['user_id']);
-
         $pdo->commit();
 
+        // ── Clear draft after commit — not inside transaction ─────────────────
+        // Draft cleanup is non-critical. If it fails the order is already saved.
+        try {
+            clearDraftOrder($pdo, $_SESSION['user_id']);
+        } catch (Throwable $e) {
+            error_log('[pos_controller] clearDraftOrder failed for user ' . $_SESSION['user_id'] . ': ' . $e->getMessage());
+        }
+
         echo json_encode([
-            'success'      => true,
-            'order_id'     => $order_id,
-            'order_number' => $order_number,
-            'table_name'   => $table_name,
-            'total'        => $total_amount,
-            'amount_paid'  => $amount_paid,
-            'change_amount'=> $change_amount,
-            'created_at'   => date('Y-m-d H:i:s'),
+            'success'         => true,
+            'order_id'        => $order_id,
+            'order_number'    => $order_number,
+            'or_number'       => $or_number,
+            'table_name'      => $table_name,
+            'total'           => $total_amount,
+            'amount_paid'     => $amount_paid,
+            'change_amount'   => $change_amount,
+            'discount_type'   => $discount_type,
+            'discount_amount' => $discount_amount,
+            'created_at'      => date('Y-m-d H:i:s'),
+            'vat' => [
+                'is_registered' => $is_vat,
+                'rate'          => $vat_rate,
+                'vatable_sales' => $vat_bd['vatable_sales'],
+                'vat_amount'    => $vat_bd['vat_amount'],
+                'vat_exempt'    => $vat_bd['vat_exempt_amount'],
+                'zero_rated'    => $vat_bd['zero_rated_amount'],
+            ],
         ]);
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(422);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -412,7 +483,7 @@ $draft_data = loadDraftCart($pdo, $_SESSION['user_id']);
 $draft_cart = $draft_data['cart'];
 $draft_meta = $draft_data['meta'];
 
-// ── Legacy form-submit fallback (kept for safety, should not be triggered) ───
+// ── Legacy form-submit fallback ───────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_order'])) {
     $_SESSION['error'] = 'Please use the payment flow to place orders.';
     header("Location: index.php?page=manage_pos");
