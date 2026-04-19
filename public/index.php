@@ -9,9 +9,9 @@ require_once BASE_PATH . '/app/core/authHelper.php';
 $page = $_GET['page'] ?? 'login';
 
 switch ($page) {
-    case 'login':
-        require_once BASE_PATH . '/app/controllers/auth_controller.php';
-        break;
+    case 'landing':
+    require_once BASE_PATH . '/app/controllers/auth_controller.php';
+    break;
     case 'backup_database':
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/backup_database.php';
@@ -108,8 +108,8 @@ switch ($page) {
         require_once BASE_PATH . '/config/logout.php';
         break;
 
-    default:
-        http_response_code(404);
-        echo "Page not found";
-        break;
+    // update default to serve the landing page instead of 404
+default:
+    require_once BASE_PATH . '/app/controllers/auth_controller.php';
+    break;
 }
