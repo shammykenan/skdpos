@@ -691,7 +691,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
             <div>
                 <div class="s-label">Total Waste Cost</div>
                 <div class="s-value" style="color:var(--danger);">' . peso($waste) . '</div>
-                <div class="s-sub">From voided items only</div>
+                <div class="s-sub">From voided and refunded items</div>
             </div>
         </div>';
     }
@@ -1104,7 +1104,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
             <div>
                 <div class="s-label">Gross Profit</div>
                 <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
-                <div class="profit-breakdown">Gross Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
+                <div class="profit-breakdown">Net Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-teal">
@@ -1220,7 +1220,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
             <div>
                 <div class="s-label">Gross Profit</div>
                 <div class="s-value"><?= peso((float)($s['gross_profit']??0)) ?></div>
-                <div class="profit-breakdown">Gross Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
+                <div class="profit-breakdown">Net Sales: <span class="pos"><?= peso((float)($s['gross_revenue']??0)) ?></span> &minus; COGS: <span class="neg"><?= peso((float)($s['cogs']??0)) ?></span></div>
             </div>
         </div>
         <div class="stat-card c-teal">
@@ -1370,7 +1370,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
             <div>
                 <div class="s-label">Gross Profit <?=$filter_year?></div>
                 <div class="s-value"><?=peso((float)($s['gross_profit']??0))?></div>
-                <div class="profit-breakdown">Gross Sales: <span class="pos"><?=peso((float)($s['gross_revenue']??0))?></span> &minus; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span></div>
+                <div class="profit-breakdown">Net Sales: <span class="pos"><?=peso((float)($s['gross_revenue']??0))?></span> &minus; COGS: <span class="neg"><?=peso((float)($s['cogs']??0))?></span></div>
             </div>
         </div>
         <div class="stat-card c-teal">

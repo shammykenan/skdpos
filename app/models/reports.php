@@ -1,6 +1,6 @@
 <?php
 /**
- * reports_model.php – v10 (pay-first accurate)
+ * reports_model.php – v11 (refund table correctly separated from waste)
  *
  * ═══════════════════════════════════════════════════════════════════
  * SYSTEM FACTS (pay-first cafeteria)
@@ -21,26 +21,39 @@
  * FORMULA CHAIN
  * ═══════════════════════════════════════════════════════════════════
  *
- *  Gross Revenue  = SUM(o.total_amount) WHERE status IN (active statuses)
- *                   AND payment exists  [already excludes voided/cancelled items]
+ *  Gross Revenue  = SUM(o.subtotal) WHERE status IN (active statuses)
+ *                   AND payment exists
  *
- *  Total Refunds  = SUM(refunds.amount) scoped to the period AND
- *                   scoped to the ORDER's cashier (not the refund processor)
- *                   — so admin-processed refunds still reduce the cashier's total
+ *  Total Discounts = SUM(o.subtotal - o.total_amount)
  *
- *  Net Revenue    = Gross Revenue − Total Refunds  (floor 0)
+ *  Total Refunds  = SUM(refunds.amount) from the refunds table
+ *                   scoped to the ORDER's cashier_id (not processed_by)
  *
- *  COGS           = SUM(cost_price × qty + addon_cost) for active items
- *                   NOT cancelled, NOT voided, NOT individually refunded
- *                   Same order status scope as Gross Revenue
+ *  Net Revenue    = Gross Revenue − Total Discounts − Total Refunds (floor 0)
  *
- *  Gross Profit   = Net Revenue − COGS
+ *  COGS           = SUM(cost_price × qty + addon_cost)
+ *                   for items in status: preparing / ready / completed
+ *                   EXCLUDING only void_item refunded items
+ *                   (post_sale refunds do NOT exclude from COGS —
+ *                    ingredients were consumed even if customer was refunded)
  *
- *  Waste Cost     = SUM(oi.waste_cost) WHERE oi.status='voided'
+ *  Gross Profit   = Gross Revenue − COGS
+ *
+ *  Waste Cost     = SUM(oi.waste_cost) WHERE oi.status = 'voided'
  *                   AND oi.waste_cost IS NOT NULL
  *                   (NULL = item was pending when voided, no ingredients used)
+ *                   Post-sale refunds are NOT waste — food was served.
  *
- *  Net Profit     = Gross Profit − Waste Cost
+ *  Net Profit     = Net Revenue − COGS − Waste Cost
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ * REFUND vs WASTE — KEY DISTINCTION
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  void_order / void_item refunds → kitchen threw food away → WASTE
+ *  post_sale refunds              → food was served, customer complained
+ *                                   → REFUND only, NOT waste
+ *                                   → ingredients were consumed → still COGS
  *
  * ═══════════════════════════════════════════════════════════════════
  * REFUND SCOPING RULE
@@ -62,37 +75,26 @@
  *  (excludes 'draft', 'cancelled', 'voided')
  */
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANT: active order statuses for revenue counting
-// ─────────────────────────────────────────────────────────────────────────────
 define('RPT_ACTIVE_STATUSES', "'pending','preparing','ready','completed'");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED COGS + WASTE HELPER
-//
-// $date_filter  : SQL fragment referencing table alias 'o' (orders table)
-//                 All param names MUST start with :df_
-//                 e.g. "DATE(o.created_at) = :df_date"
-//                      "YEAR(o.created_at) = :df_year AND MONTH(o.created_at) = :df_month"
-// $params       : array of [':df_xxx' => value, ...]
-//
-// Returns: [float $cogs, float $waste]
 // ─────────────────────────────────────────────────────────────────────────────
 function _rpt_cogs_and_waste(PDO $pdo, string $date_filter, array $params): array
 {
-    // ── COGS ─────────────────────────────────────────────────────────────────
-    // Only count items where ingredients have actually been deducted.
-    // Deduction happens when kitchen marks an item 'preparing'.
-    // 'pending' items = payment collected but kitchen hasn't started yet
-    //                 = NO ingredients consumed yet = NOT a COGS event yet.
+    // ── COGS ────────────────────────────────────────────────────────────────
+    // Ingredients consumed for orders that generated revenue.
+    // Exclude items whose cost has been written off as waste:
+    //   - voided items (status = 'voided')
+    //   - refunded items (waste_cost IS NOT NULL, set by process_refund.php)
     $cogs_stmt = $pdo->prepare("
         SELECT COALESCE(SUM(
             (COALESCE(mv.cost_price, mi.cost_price) * oi.quantity)
             + COALESCE(ac.addon_cost, 0)
         ), 0)
         FROM order_items oi
-        JOIN orders     o  ON oi.order_id  = o.order_id
-        JOIN menu_items mi ON oi.item_id   = mi.item_id
+        JOIN orders o ON oi.order_id = o.order_id
+        JOIN menu_items mi ON oi.item_id = mi.item_id
         LEFT JOIN menu_variants mv ON oi.variant_id = mv.variant_id
         LEFT JOIN (
             SELECT oia.order_item_id,
@@ -105,30 +107,29 @@ function _rpt_cogs_and_waste(PDO $pdo, string $date_filter, array $params): arra
           AND $date_filter
           AND EXISTS (
               SELECT 1 FROM payments px
-              WHERE px.order_id = o.order_id AND px.amount_paid > 0
+              WHERE px.order_id = o.order_id
+                AND px.amount_paid > 0
           )
           AND oi.status IN ('preparing', 'ready', 'completed')
-          AND oi.order_item_id NOT IN (
-              SELECT r.order_item_id
-              FROM refunds r
-              WHERE r.order_item_id IS NOT NULL
-                AND r.order_id = oi.order_id
-          )
+          AND oi.waste_cost IS NULL          -- not written off as waste
     ");
     $cogs_stmt->execute($params);
     $cogs = (float) $cogs_stmt->fetchColumn();
 
-    // ── WASTE (unchanged) ─────────────────────────────────────────────────────
+    // ── WASTE ───────────────────────────────────────────────────────────────
+    // All items where cost was written off: voided items AND refunded items.
+    // process_refund.php sets waste_cost on refunded items (completed/preparing/ready).
+    // void_item also sets waste_cost. Both are captured here via waste_cost IS NOT NULL.
     $waste_stmt = $pdo->prepare("
         SELECT COALESCE(SUM(oi.waste_cost), 0)
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE oi.status     = 'voided'
-          AND oi.waste_cost IS NOT NULL
+        WHERE oi.waste_cost IS NOT NULL
           AND $date_filter
           AND EXISTS (
               SELECT 1 FROM payments px
-              WHERE px.order_id = o.order_id AND px.amount_paid > 0
+              WHERE px.order_id = o.order_id
+                AND px.amount_paid > 0
           )
     ");
     $waste_stmt->execute($params);
@@ -144,9 +145,6 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
 {
     $cid_and = $cashier_id !== null ? 'AND o.cashier_id = :cid' : '';
 
-    // ── Gross Revenue + order counts ──────────────────────────────────────────
-    // Use SUM(o.total_amount) — already adjusted for voided/cancelled items.
-    // Include ALL active statuses, not just 'completed'.
     $stmt = $pdo->prepare("
         SELECT
             COUNT(DISTINCT o.order_id)                                        AS total_orders,
@@ -183,11 +181,10 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
         'avg_order_value'      => 0, 'gross_profit'        => 0,
         'total_waste_cost'     => 0, 'total_refunds'       => 0,
         'active_cashiers'      => 0, 'cancelled_orders'    => 0,
-        'net_profit'           => 0,
+        'net_profit'           => 0, 'cogs'                => 0,
     ], $row);
 
-    // ── Refunds scoped by ORDER's cashier (not processed_by) ─────────────────
-    // If admin refunds a cashier's order, it reduces THAT cashier's net revenue.
+    // ── Refunds from refunds table, scoped by order's cashier ─────────────────
     $r_cid_and = $cashier_id !== null ? 'AND o.cashier_id = :r_cid' : '';
     $r_p       = [':r_date' => $date];
     if ($cashier_id !== null) $r_p[':r_cid'] = $cashier_id;
@@ -201,13 +198,11 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     $rstmt->execute($r_p);
     $row['total_refunds'] = (float) $rstmt->fetchColumn();
 
-    // Net Revenue = Gross − Refunds (floor 0)
     $row['net_revenue'] = max(
         0.0,
         (float) $row['gross_revenue'] - (float) $row['total_discounts'] - $row['total_refunds']
     );
 
-    // ── COGS & Waste ──────────────────────────────────────────────────────────
     $cid_part    = $cashier_id !== null ? ' AND o.cashier_id = :df_cid' : '';
     $date_filter = "DATE(o.created_at) = :df_date$cid_part";
     $df_params   = [':df_date' => $date];
@@ -216,7 +211,7 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
     $row['cogs']             = $cogs;
-    $row['gross_profit']     = (float) $row['gross_revenue'] - $cogs;
+    $row['gross_profit'] = (float) $row['net_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
     $row['net_profit']       = (float) $row['net_revenue'] - $cogs - $waste;
 
@@ -228,7 +223,6 @@ function rpt_daily_summary(PDO $pdo, string $date, ?int $cashier_id = null): arr
 // ─────────────────────────────────────────────────────────────────────────────
 function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
 {
-    // Sales summary for this cashier's paid orders on this date
     $stmt = $pdo->prepare("
         SELECT
             u.full_name                                                         AS cashier_name,
@@ -261,7 +255,6 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
                     ':cid_c' => $cashier_id, ':date_c' => $date]);
     $summary = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Cash collected through this cashier's payment records
     $stmt2 = $pdo->prepare("
         SELECT
             COALESCE(SUM(p.amount_paid), 0)                   AS cash_received,
@@ -279,23 +272,22 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     $stmt2->execute([':cid' => $cashier_id, ':date' => $date]);
     $cash = $stmt2->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Refunds on THIS CASHIER's orders (scoped by order.cashier_id, NOT processed_by)
-    // This is correct: if admin refunds cashier's order, cash comes from cashier's drawer.
+    // ── All refunds on this cashier's orders (all types) ──────────────────────
+    // void_order, void_item, post_sale — all reduce the cashier's cash to turn over
     $stmt3 = $pdo->prepare("
         SELECT COALESCE(SUM(r.amount), 0)
         FROM refunds r
         JOIN orders o ON r.order_id = o.order_id
-        WHERE o.cashier_id        = :cid
-          AND DATE(r.created_at)  = :date
+        WHERE o.cashier_id       = :cid
+          AND DATE(r.created_at) = :date
     ");
     $stmt3->execute([':cid' => $cashier_id, ':date' => $date]);
     $refunds = (float) $stmt3->fetchColumn();
 
-    // Cash to turn over = cash collected − refunds paid back to customers
     $cash_collected    = (float) ($cash['cash_collected'] ?? 0);
     $cash_to_turn_over = max(0.0, $cash_collected - $refunds);
 
-    // Waste on this cashier's voided items today
+    // ── Waste: only physically voided items (not post-sale refunds) ───────────
     $stmt4 = $pdo->prepare("
         SELECT COALESCE(SUM(oi.waste_cost), 0)
         FROM order_items oi
@@ -308,7 +300,6 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     $stmt4->execute([':cid' => $cashier_id, ':date' => $date]);
     $waste = (float) $stmt4->fetchColumn();
 
-    // Top 5 items this shift
     $stmt5 = $pdo->prepare("
         SELECT
             COALESCE(oi.item_name_snapshot, mi.item_name) AS item_name,
@@ -334,7 +325,6 @@ function rpt_closeout(PDO $pdo, string $date, int $cashier_id): array
     $stmt5->execute([':cid' => $cashier_id, ':date' => $date]);
     $top_items = $stmt5->fetchAll(PDO::FETCH_ASSOC);
 
-    // Orders by hour this shift
     $stmt6 = $pdo->prepare("
         SELECT
             HOUR(o.created_at)               AS hour_of_day,
@@ -391,15 +381,15 @@ function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
     $stmt->execute([':year' => $year, ':month' => $month]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     $row = array_merge([
-        'total_orders'         => 0, 'gross_revenue'    => 0,
-        'total_discounts'      => 0, 'net_revenue'      => 0,
+        'total_orders'         => 0, 'gross_revenue'       => 0,
+        'total_discounts'      => 0, 'net_revenue'         => 0,
         'net_revenue_excl_vat' => 0, 'total_vat_collected' => 0,
-        'avg_order_value'      => 0, 'gross_profit'     => 0,
-        'total_waste_cost'     => 0, 'total_refunds'    => 0,
-        'active_cashiers'      => 0, 'net_profit'       => 0,
+        'avg_order_value'      => 0, 'gross_profit'        => 0,
+        'total_waste_cost'     => 0, 'total_refunds'       => 0,
+        'active_cashiers'      => 0, 'net_profit'          => 0,
+        'cogs'                 => 0,
     ], $row);
 
-    // Refunds scoped by order's cashier (join to orders)
     $rstmt = $pdo->prepare("
         SELECT COALESCE(SUM(r.amount), 0)
         FROM refunds r
@@ -419,7 +409,7 @@ function rpt_monthly_summary(PDO $pdo, int $year, int $month): array
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
     $row['cogs']             = $cogs;
-    $row['gross_profit']     = (float) $row['gross_revenue'] - $cogs;
+    $row['gross_profit'] = (float) $row['net_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
     $row['net_profit']       = (float) $row['net_revenue'] - $cogs - $waste;
 
@@ -477,12 +467,12 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
     $stmt->execute([':year' => $year]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     $row = array_merge([
-        'total_orders'         => 0, 'gross_revenue'    => 0,
-        'total_discounts'      => 0, 'net_revenue'      => 0,
+        'total_orders'         => 0, 'gross_revenue'       => 0,
+        'total_discounts'      => 0, 'net_revenue'         => 0,
         'net_revenue_excl_vat' => 0, 'total_vat_collected' => 0,
-        'avg_order_value'      => 0, 'gross_profit'     => 0,
-        'total_waste_cost'     => 0, 'total_refunds'    => 0,
-        'net_profit'           => 0,
+        'avg_order_value'      => 0, 'gross_profit'        => 0,
+        'total_waste_cost'     => 0, 'total_refunds'       => 0,
+        'net_profit'           => 0, 'cogs'                => 0,
     ], $row);
 
     $rstmt = $pdo->prepare("
@@ -502,7 +492,7 @@ function rpt_yearly_summary(PDO $pdo, int $year): array
     [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
 
     $row['cogs']             = $cogs;
-    $row['gross_profit']     = (float) $row['gross_revenue'] - $cogs;
+    $row['gross_profit'] = (float) $row['net_revenue'] - $cogs;
     $row['total_waste_cost'] = $waste;
     $row['net_profit']       = (float) $row['net_revenue'] - $cogs - $waste;
 
@@ -638,7 +628,6 @@ function rpt_waste_summary(PDO $pdo, string $start, string $end, ?int $cashier_i
         'total_waste_cost' => 0, 'avg_waste_per_item' => 0,
     ];
 
-    // Top wasted items
     $topStmt = $pdo->prepare("
         SELECT
             COALESCE(oi.item_name_snapshot, mi.item_name) AS item_name,
@@ -660,7 +649,6 @@ function rpt_waste_summary(PDO $pdo, string $start, string $end, ?int $cashier_i
     $topStmt->execute($params);
     $summary['top_wasted_items'] = $topStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Waste by reason
     $rStmt = $pdo->prepare("
         SELECT
             COALESCE(oi.void_reason, 'No reason given') AS reason,
@@ -729,7 +717,8 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
             COALESCE(c.discounts_given,   0)                   AS discounts_given,
             COALESCE(x.cancelled_orders,  0)                   AS cancelled_orders,
             COALESCE(p.admin_processed,   0)                   AS admin_processed_count,
-            COALESCE(w.total_waste,       0)                   AS total_waste_cost
+            COALESCE(w.total_waste,       0)                   AS total_waste_cost,
+            COALESCE(rf.total_refunded,   0)                   AS total_refunded
         FROM users u
         LEFT JOIN (
             SELECT cashier_id,
@@ -773,6 +762,13 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
               AND DATE(o.created_at) BETWEEN :s4 AND :e4
             GROUP BY o.cashier_id
         ) w ON u.user_id = w.cashier_id
+        LEFT JOIN (
+            SELECT o.cashier_id, COALESCE(SUM(r.amount), 0) AS total_refunded
+            FROM refunds r
+            JOIN orders o ON r.order_id = o.order_id
+            WHERE DATE(r.created_at) BETWEEN :s5 AND :e5
+            GROUP BY o.cashier_id
+        ) rf ON u.user_id = rf.cashier_id
         WHERE u.role IN ('cashier', 'admin')
           AND u.is_active = 1
           AND (c.cashier_id IS NOT NULL OR x.cashier_id IS NOT NULL)
@@ -783,6 +779,7 @@ function rpt_cashier_performance(PDO $pdo, string $start, string $end): array
         ':s2' => $start, ':e2' => $end,
         ':s3' => $start, ':e3' => $end,
         ':s4' => $start, ':e4' => $end,
+        ':s5' => $start, ':e5' => $end,
     ]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -1045,7 +1042,6 @@ function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end,
         $stmt->execute([':start' => $start, ':end' => $end, ':s2' => $start, ':e2' => $end]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-        // Refunds for the period
         $rstmt = $pdo->prepare("
             SELECT COALESCE(SUM(r.amount), 0)
             FROM refunds r
@@ -1054,11 +1050,10 @@ function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end,
         $rstmt->execute([':start' => $start, ':end' => $end]);
         $refunds = (float) $rstmt->fetchColumn();
 
-        $gross_revenue = (float) ($row['gross_revenue'] ?? 0);
+        $gross_revenue   = (float) ($row['gross_revenue']   ?? 0);
         $total_discounts = (float) ($row['total_discounts'] ?? 0);
-        $net_revenue   = max(0.0, $gross_revenue - $total_discounts - $refunds);
+        $net_revenue     = max(0.0, $gross_revenue - $total_discounts - $refunds);
 
-        // COGS & Waste for accurate profit comparison
         $date_filter = 'DATE(o.created_at) BETWEEN :df_start AND :df_end';
         $df_params   = [':df_start' => $start, ':df_end' => $end];
         [$cogs, $waste] = _rpt_cogs_and_waste($pdo, $date_filter, $df_params);
@@ -1066,19 +1061,18 @@ function rpt_period_comparison(PDO $pdo, string $cur_start, string $cur_end,
         $gross_profit = $gross_revenue - $cogs;
         $net_profit   = $net_revenue - $cogs - $waste;
 
-        $row['cogs'] = $cogs;
-
         return array_merge([
             'total_orders'     => 0, 'gross_revenue'   => 0,
             'net_revenue'      => 0, 'total_discounts' => 0,
             'avg_order_value'  => 0, 'total_refunds'   => 0,
             'gross_profit'     => 0, 'net_profit'      => 0,
-            'cancelled_orders' => 0,
+            'cancelled_orders' => 0, 'cogs'            => 0,
         ], $row, [
-            'net_revenue'  => $net_revenue,
-            'total_refunds'=> $refunds,
-            'gross_profit' => $gross_profit,
-            'net_profit'   => $net_profit,
+            'net_revenue'   => $net_revenue,
+            'total_refunds' => $refunds,
+            'gross_profit'  => $gross_profit,
+            'net_profit'    => $net_profit,
+            'cogs'          => $cogs,
         ]);
     };
 
