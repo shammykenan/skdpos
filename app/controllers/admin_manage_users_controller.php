@@ -141,19 +141,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
 
 // ── TOGGLE USER STATUS (activate / deactivate) ────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_user'])) {
-    $user_id   = (int) $_POST['user_id'];
-    $is_active = (int) $_POST['is_active']; // 0 = deactivate, 1 = activate
 
-    // Safety: cannot change own account status
-    if ($user_id === (int)($_SESSION['user_id'] ?? 0)) {
+    $user_id = (int) $_POST['user_id'];
+    $is_active = isset($_POST['is_active']) ? 1 : 0;
+
+    $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+
+    // ── SAFETY: cannot change own account status ───────────────────────────
+    if ($user_id === $currentUserId) {
         $_SESSION['error'] = 'You cannot change the status of your own account.';
         header('Location: ' . $baseUrl . '/index.php?page=manage_users');
         exit;
     }
 
-    if (toggleUserStatus($pdo, $user_id, $is_active)) {
+    // ── UPDATE USER STATUS ────────────────────────────────────────────────
+    $stmt = $pdo->prepare("
+        UPDATE users 
+        SET is_active = :is_active 
+        WHERE user_id = :user_id
+    ");
+
+    $result = $stmt->execute([
+        ':is_active' => $is_active,
+        ':user_id'   => $user_id
+    ]);
+
+    // ── RESPONSE ───────────────────────────────────────────────────────────
+    if ($result) {
         $action = $is_active ? 'activated' : 'deactivated';
-        $_SESSION['success'] = 'User has been ' . $action . ' successfully.';
+        $_SESSION['success'] = "User has been {$action} successfully.";
     } else {
         $_SESSION['error'] = 'Failed to update user status.';
     }

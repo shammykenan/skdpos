@@ -575,6 +575,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
         <a href="<?= $baseUrl ?>/index.php?page=manage_pos"    class="nav-link"><i class="fas fa-cash-register"></i> POS System</a>
         <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a>
         <a href="<?= $baseUrl ?>/index.php?page=reports"       class="nav-link active"><i class="fas fa-chart-bar"></i> Reports</a>
+        <div class="nav-section">Configuration</div>
+        <a href="<?= $baseUrl ?>/index.php?page=bir_settings" class="nav-link"><i class="fa-solid fa-building"></i>BIR Settings</a>
         <?php endif; ?>
         <?php if (hasRole('cashier') && !hasRole('admin')): ?>
         <div class="nav-section">Management</div>

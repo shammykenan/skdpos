@@ -124,7 +124,7 @@ $printer->text(divider('=', $COL) . "\n");
 
 // ── Receipt type header ───────────────────────────────
 $printer->setJustification(Printer::JUSTIFY_CENTER);
-$printer->text("OFFICIAL RECEIPT\n");
+$printer->text("SALES RECEIPT\n");
 $printer->setEmphasis(true);
 $printer->text("[ PAID ]\n");
 $printer->setEmphasis(false);

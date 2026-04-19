@@ -407,6 +407,8 @@
         <a href="<?= $baseUrl ?>/index.php?page=manage_pos"    class="nav-link"><i class="fas fa-cash-register"></i> POS System</a>
         <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link"><i class="fas fa-receipt"></i> Orders</a>
         <a href="<?= $baseUrl ?>/index.php?page=reports"       class="nav-link"><i class="fas fa-chart-bar"></i> Reports</a>
+        <div class="nav-section">Configuration</div>
+        <a href="<?= $baseUrl ?>/index.php?page=bir_settings" class="nav-link"><i class="fa-solid fa-building"></i>BIR Settings</a>
     </div>
 </nav>
 
@@ -721,15 +723,40 @@
                                     <option value="kitchen" <?= $user['role']==='kitchen' ? 'selected':'' ?>>Kitchen Staff</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 d-flex align-items-end pb-1">
-                                <div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="ea_<?= $user['user_id'] ?>" name="is_active" value="1" <?= $isActive ? 'checked' : '' ?>>
-                                        <label class="form-check-label" for="ea_<?= $user['user_id'] ?>" style="font-size:0.85rem;font-weight:600;">Account Active</label>
-                                    </div>
-                                    <div class="form-text">Inactive users cannot log in.</div>
-                                </div>
-                            </div>
+                            
+                            <?php
+$currentUserId = $_SESSION['user_id']; // logged-in admin
+$isSelf = ($user['user_id'] == $currentUserId);
+?>
+
+<div class="col-md-6 d-flex align-items-end pb-1">
+    <div>
+        <div class="form-check form-switch">
+            <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="ea_<?= $user['user_id'] ?>" 
+                name="is_active" 
+                value="1"
+                <?= $isActive ? 'checked' : '' ?>
+                <?= $isSelf ? 'disabled' : '' ?>
+            >
+            <label class="form-check-label" for="ea_<?= $user['user_id'] ?>" style="font-size:0.85rem;font-weight:600;">
+                Account Active
+            </label>
+        </div>
+
+        <?php if ($isSelf): ?>
+            <div class="form-text text-danger">
+                You cannot deactivate your own account.
+            </div>
+        <?php else: ?>
+            <div class="form-text">
+                Inactive users cannot log in.
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">New Password <span style="font-weight:400;color:var(--warm-gray);">(optional)</span></label>

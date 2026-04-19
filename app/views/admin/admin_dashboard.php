@@ -585,6 +585,8 @@
         <a href="<?= $baseUrl ?>/index.php?page=manage_pos"    class="nav-link-custom"><i class="fas fa-cash-register"></i> POS System</a>
         <a href="<?= $baseUrl ?>/index.php?page=manage_orders" class="nav-link-custom"><i class="fas fa-receipt"></i> Orders</a>
         <a href="<?= $baseUrl ?>/index.php?page=reports"       class="nav-link-custom"><i class="fas fa-chart-bar"></i> Reports</a>
+        <div class="nav-section">Configuration</div>
+        <a href="<?= $baseUrl ?>/index.php?page=bir_settings" class="nav-link-custom"><i class="fa-solid fa-building"></i>BIR Settings</a>
     </div>
 </nav>
 
