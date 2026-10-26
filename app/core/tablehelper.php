@@ -8,18 +8,23 @@
  * Get all tables with their current order info if occupied.
  */
 function getAllTables(PDO $pdo): array {
-    $stmt = $pdo->query("
-        SELECT t.*,
-               o.order_number,
-               o.customer_name,
-               o.created_at   AS order_started_at,
-               o.total_amount,
-               o.status       AS order_status
-        FROM `tables` t
-        LEFT JOIN orders o ON t.current_order_id = o.order_id
-        ORDER BY t.table_name ASC
-    ");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("
+            SELECT t.*,
+                   o.order_number,
+                   o.customer_name,
+                   o.created_at   AS order_started_at,
+                   o.total_amount,
+                   o.status       AS order_status
+            FROM `tables` t
+            LEFT JOIN orders o ON t.current_order_id = o.order_id
+            ORDER BY t.table_name ASC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAllTables: " . $e->getMessage());
+        return [];
+    }
 }
 
 /**
@@ -35,28 +40,38 @@ function getTableById(PDO $pdo, int $table_id): ?array {
  * Get only available tables — used for POS dropdown.
  */
 function getAvailableTables(PDO $pdo): array {
-    $stmt = $pdo->query("
-        SELECT table_id, table_name, capacity
-        FROM `tables`
-        WHERE status = 'available'
-        ORDER BY table_name ASC
-    ");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("
+            SELECT table_id, table_name, capacity
+            FROM `tables`
+            WHERE status = 'available'
+            ORDER BY table_name ASC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAvailableTables: " . $e->getMessage());
+        return [];
+    }
 }
 
 /**
  * Get table stats: total, available, occupied counts.
  */
 function getTableStats(PDO $pdo): array {
-    $stmt = $pdo->query("
-        SELECT
-            COUNT(*)                  AS total,
-            SUM(status = 'available') AS available,
-            SUM(status = 'occupied')  AS occupied
-        FROM `tables`
-    ");
-    return $stmt->fetch(PDO::FETCH_ASSOC)
-        ?: ['total' => 0, 'available' => 0, 'occupied' => 0];
+    try {
+        $stmt = $pdo->query("
+            SELECT
+                COUNT(*)                  AS total,
+                SUM(status = 'available') AS available,
+                SUM(status = 'occupied')  AS occupied
+            FROM `tables`
+        ");
+        return $stmt->fetch(PDO::FETCH_ASSOC)
+            ?: ['total' => 0, 'available' => 0, 'occupied' => 0];
+    } catch (PDOException $e) {
+        error_log("Error in getTableStats: " . $e->getMessage());
+        return ['total' => 0, 'available' => 0, 'occupied' => 0];
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

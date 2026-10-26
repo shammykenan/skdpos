@@ -7,43 +7,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>Menu Management — Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Management — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
     <style>
         /* ── TOKENS ──────────────────────────────────────────────────────── */
-        :root {
-            --primary:       #0f4c5c;
-            --primary-dark:  #0a3a47;
-            --primary-light: #1f7a8c;
-            --secondary:     #ff6b4a;
-            --accent:        #fee440;
-            --navy:          #1e2f4e;
-            --lavender:      #e2e6f0;
-            --light-bg:      #f8faff;
-            --warm-gray:     #4a5568;
-            --border:        #cbd5e0;
-            --success:       #2c7a5a;
-            --danger:        #d64045;
-            --warning:       #f4b942;
-            --info:          #5e9b9e;
-            --dark:          #1a202c;
-
-            --success-soft:  #eaf7ef;
-            --danger-soft:   #fdecea;
-            --warning-soft:  #fef8e7;
-            --info-soft:     rgba(94,155,158,0.1);
-
-            --sidebar-w: 260px;
-            --top-h:     64px;
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 18px;
-            --radius-xl: 24px;
-        }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
@@ -228,8 +201,29 @@
         .data-table tbody tr.needs-price td { background: #fff8f8; }
 
         /* ── ITEM IMAGE ──────────────────────────────────────────────────── */
-        .item-img { width: 50px; height: 50px; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--border); flex-shrink: 0; }
-        .item-img-ph { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: #f2f6fc; border-radius: var(--radius-md); border: 1px solid var(--border); color: var(--primary-light); font-size: 1.1rem; flex-shrink: 0; }
+        .item-img {
+    width: 56px;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: center;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    display: block;
+}
+.item-img-ph {
+    width: 56px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f2f6fc;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    color: var(--primary-light);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
         .item-name { font-weight: 700; font-size: 0.9rem; color: var(--navy); }
         .item-desc { font-size: 0.78rem; color: var(--warm-gray); margin-top: 2px; }
 
@@ -334,20 +328,35 @@
         .img-preview { max-width: 100%; max-height: 130px; border-radius: var(--radius-sm); display: block; margin: 0 auto; }
         .img-preview-ph { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 0.75rem; background: var(--light-bg); }
         /* Make edit modal body scrollable and footer always visible */
-#editMenuItemModal .modal-dialog {
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-}
-#editMenuItemModal .modal-content {
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-#editMenuItemModal .modal-body {
-    overflow-y: auto;
-    max-height: 70vh;          /* adjust as needed */
-}
+        #editMenuItemModal .modal-dialog {
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #editMenuItemModal .modal-content {
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        #editMenuItemModal .modal-body {
+            overflow-y: auto;
+            max-height: 70vh;          /* adjust as needed */
+        }
+        /* Make add item modal body scrollable and footer always visible */
+        #addMenuItemModal .modal-dialog {
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #addMenuItemModal .modal-content {
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        #addMenuItemModal .modal-body {
+            overflow-y: auto;
+            max-height: 70vh;
+        }
         /* ── CONFIRM MODAL ──────────────────────────────────────────────── */
         .confirm-icon { width: 64px; height: 64px; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 1rem; }
         .confirm-icon.danger { background: rgba(214,64,69,0.1); color: var(--danger); }
@@ -457,11 +466,11 @@
     </button>
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -808,70 +817,81 @@
     </div>
 
     <!-- ═══ ADD CATEGORY MODAL ══════════════════════════════════════════════ -->
-    <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-folder-plus" style="color:var(--secondary);font-size:1rem;"></i> Categories</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" id="addCategoryForm" novalidate>
-                    <div class="modal-body">
-                        <input type="hidden" name="add_category" value="1">
-                        <label for="modal_category_name" class="form-label">New Category Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="modal_category_name" name="category_name"
-                               placeholder="e.g. Hot Beverages, Snacks…" maxlength="80" required autocomplete="off">
-                        <div class="char-counter" id="catCharCounter">0 / 80</div>
-                        <div id="dupWarning" class="alert-bar danger d-none mt-2" style="padding:0.6rem 0.9rem;font-size:0.8rem;margin-bottom:0;">
-                            <i class="fas fa-exclamation-triangle me-1"></i> A category with this name already exists.
-                        </div>
-                        <div style="margin-top:1.25rem;">
-                            <div class="form-label">Existing Categories</div>
-                            <?php if (empty($categories)): ?>
-                                <p style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;">No categories yet.</p>
-                            <?php else: ?>
-                                <div class="cat-list">
-                                    <?php foreach ($categories as $cat): ?>
-                                        <div class="cat-list-item">
-                                            <span style="font-size:0.88rem;font-weight:600;color:var(--navy);"><?= htmlspecialchars($cat['category_name']) ?></span>
-                                            <div style="display:flex;gap:0.35rem;">
-                                                <button type="button" class="btn-act btn-act-edit"
-                                                        onclick="catEditInline(<?= $cat['category_id'] ?>, <?= htmlspecialchars(json_encode($cat['category_name'])) ?>)">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" style="margin:0;"
-                                                      onsubmit="return confirm('Delete \'<?= htmlspecialchars(addslashes($cat['category_name'])) ?>\'?')">
-                                                    <input type="hidden" name="delete_category" value="1">
-                                                    <input type="hidden" name="category_id" value="<?= $cat['category_id'] ?>">
-                                                    <button type="submit" class="btn-act btn-act-del"><i class="fas fa-trash"></i></button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                        <div id="catEditSection" class="cat-edit-box d-none">
-                            <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu">
-                                <input type="hidden" name="update_category" value="1">
-                                <input type="hidden" name="category_id" id="editCatId">
-                                <label class="form-label" style="font-size:0.78rem;">Rename Category</label>
-                                <div class="d-flex gap-2">
-                                    <input type="text" class="form-control" name="category_name" id="editCatName" maxlength="80" required>
-                                    <button type="submit" class="btn-modal-primary" style="white-space:nowrap;"><i class="fas fa-save me-1"></i> Save</button>
-                                    <button type="button" class="btn-modal-secondary" onclick="document.getElementById('catEditSection').classList.add('d-none')">Cancel</button>
-                                </div>
-                            </form>
-                        </div>
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-folder-plus" style="color:var(--secondary);font-size:1rem;"></i> Categories</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- ADD CATEGORY FORM — standalone, no nesting -->
+            <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" id="addCategoryForm" novalidate>
+                <input type="hidden" name="add_category" value="1">
+                <div class="modal-body">
+                    <label for="modal_category_name" class="form-label">New Category Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="modal_category_name" name="category_name"
+                           placeholder="e.g. Hot Beverages, Snacks…" maxlength="80" required autocomplete="off">
+                    <div class="char-counter" id="catCharCounter">0 / 80</div>
+                    <div id="dupWarning" class="alert-bar danger d-none mt-2" style="padding:0.6rem 0.9rem;font-size:0.8rem;margin-bottom:0;">
+                        <i class="fas fa-exclamation-triangle me-1"></i> A category with this name already exists.
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn-modal-primary" id="saveCategoryBtn"><i class="fas fa-folder-plus me-1"></i> Add Category</button>
+
+                    <div style="margin-top:1.25rem;">
+                        <div class="form-label">Existing Categories</div>
+                        <?php if (empty($categories)): ?>
+                            <p style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;">No categories yet.</p>
+                        <?php else: ?>
+                            <div class="cat-list">
+                                <?php foreach ($categories as $cat): ?>
+                                    <div class="cat-list-item">
+                                        <span style="font-size:0.88rem;font-weight:600;color:var(--navy);"><?= htmlspecialchars($cat['category_name']) ?></span>
+                                        <div style="display:flex;gap:0.35rem;">
+                                            <button type="button" class="btn-act btn-act-edit"
+                                                    onclick="catEditInline(<?= $cat['category_id'] ?>, <?= htmlspecialchars(json_encode($cat['category_name'])) ?>)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn-act btn-act-del"
+                                                    onclick="deleteCategory(<?= $cat['category_id'] ?>, '<?= htmlspecialchars(addslashes($cat['category_name'])) ?>')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn-modal-primary" id="saveCategoryBtn"><i class="fas fa-folder-plus me-1"></i> Add Category</button>
+                </div>
+            </form>
+
+            <!-- EDIT CATEGORY FORM — sibling to addCategoryForm, never nested inside it -->
+            <div id="catEditSection" class="cat-edit-box d-none" style="margin:0 1.6rem 1.2rem;">
+                <form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu">
+                    <input type="hidden" name="update_category" value="1">
+                    <input type="hidden" name="category_id" id="editCatId">
+                    <label class="form-label" style="font-size:0.78rem;">Rename Category</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control" name="category_name" id="editCatName" maxlength="80" required>
+                        <button type="submit" class="btn-modal-primary" style="white-space:nowrap;"><i class="fas fa-save me-1"></i> Save</button>
+                        <button type="button" class="btn-modal-secondary"
+                                onclick="document.getElementById('catEditSection').classList.add('d-none')">Cancel</button>
                     </div>
                 </form>
             </div>
+
         </div>
     </div>
+</div>
+
+<!-- DELETE CATEGORY hidden form — lives outside the modal entirely -->
+<form method="POST" action="<?= $baseUrl ?>/index.php?page=manage_menu" id="deleteCategoryForm" style="display:none;">
+    <input type="hidden" name="delete_category" value="1">
+    <input type="hidden" name="category_id" id="deleteCategoryId">
+</form>
 
     <!-- ═══ ADD MENU ITEM MODAL ═════════════════════════════════════════════ -->
     <div class="modal fade" id="addMenuItemModal" tabindex="-1" aria-hidden="true">
@@ -931,8 +951,11 @@
                             <label class="form-label">Item Image</label>
                             <input type="file" class="form-control" id="modal_image" name="image" accept="image/*">
                             <div class="form-text">Max 2 MB — JPG, PNG, GIF, WebP</div>
-                            <div class="img-preview-ph mt-2 d-none" id="modalImagePreviewContainer">
+                            <div class="img-preview-ph mt-2 d-none position-relative" id="modalImagePreviewContainer">
                                 <img id="modalImagePreview" class="img-preview" alt="Preview">
+                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 rounded-circle" onclick="clearModalImage()" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1047,7 +1070,7 @@
 
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
 /* ── Sidebar ──────────────────────────────────────────────────────── */
 document.getElementById('menuToggle')?.addEventListener('click', () => {
@@ -1082,6 +1105,16 @@ function wirePreview(inputId, previewId, wrapperId) {
 }
 wirePreview('modal_image', 'modalImagePreview', 'modalImagePreviewContainer');
 wirePreview('edit_image',  'editImagePreview',  'editImagePreviewContainer');
+
+function clearModalImage() {
+    const input = document.getElementById('modal_image');
+    const previewContainer = document.getElementById('modalImagePreviewContainer');
+    const previewImg = document.getElementById('modalImagePreview');
+    
+    if (input) input.value = '';
+    if (previewImg) previewImg.src = '';
+    if (previewContainer) previewContainer.classList.add('d-none');
+}
 
 /* ── Delete modals ────────────────────────────────────────────────── */
 function confirmDeleteItem(id, name) {
@@ -1228,11 +1261,11 @@ function renderVariantList(variants) {
             <div>${statusHtml}</div>
             <div class="mv-act">
                 <button type="button" class="btn-mv-edit"
-                        onclick="showEditVariantForm(${v.variant_id}, '${v.variant_name.replace(/'/g,"\\'")}', ${v.price}, ${v.cost_price}, ${v.is_active ? 1 : 0})">
+                        onclick="showEditVariantForm(${v.variant_id}, '${esc(v.variant_name).replace(/'/g,"\\'")}', ${v.price}, ${v.cost_price}, ${v.is_active ? 1 : 0})">
                     <i class="fas fa-edit"></i>
                 </button>
                 <button type="button" class="btn-mv-del"
-                        onclick="confirmDeleteVariant(${v.variant_id}, '${v.variant_name.replace(/'/g,"\\'")}')">
+                        onclick="confirmDeleteVariant(${v.variant_id}, '${esc(v.variant_name).replace(/'/g,"\\'")}')">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -1308,7 +1341,11 @@ function catEditInline(id, name) {
     document.getElementById('catEditSection').classList.remove('d-none');
     document.getElementById('editCatName').focus();
 }
-
+function deleteCategory(id, name) {
+    if (!confirm("Delete '" + name + "'?")) return;
+    document.getElementById('deleteCategoryId').value = id;
+    document.getElementById('deleteCategoryForm').submit();
+}
 /* ── Clean up Bootstrap modal artifacts ───────────────────────────── */
 document.addEventListener('hidden.bs.modal', function() {
     if (document.querySelector('.modal.show')) return;

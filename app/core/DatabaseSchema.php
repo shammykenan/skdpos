@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Bump this whenever the schema definitions below change. The synced version is
+ * stamped into app_settings so steady-state requests skip the catalog probing
+ * entirely (one indexed lookup instead of ~13 INFORMATION_SCHEMA queries).
+ */
+const DBS_SCHEMA_VERSION = '2026.08.22.7';
+
+
 function dbs_table_exists(PDO $pdo, string $table): bool
 {
     $stmt = $pdo->prepare("
@@ -103,8 +111,13 @@ function dbs_seed_business_info(PDO $pdo, array &$changes): void
         return;
     }
 
-    $stmt = $pdo->query("SELECT COUNT(*) FROM business_info WHERE info_id = 1");
-    if ((int) $stmt->fetchColumn() > 0) {
+    try {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM business_info WHERE info_id = 1");
+        if ((int) $stmt->fetchColumn() > 0) {
+            return;
+        }
+    } catch (PDOException $e) {
+        error_log("Error in dbs_seed_business_info: " . $e->getMessage());
         return;
     }
 
@@ -236,12 +249,17 @@ function dbs_sync_orders(PDO $pdo, array &$changes): void
         return;
     }
 
-    $vatRow = $pdo->query("
-        SELECT vat_registered, vat_rate
-        FROM business_info
-        WHERE info_id = 1
-        LIMIT 1
-    ")->fetch(PDO::FETCH_ASSOC) ?: ['vat_registered' => 0, 'vat_rate' => 12.00];
+    try {
+        $vatRow = $pdo->query("
+            SELECT vat_registered, vat_rate
+            FROM business_info
+            WHERE info_id = 1
+            LIMIT 1
+        ")->fetch(PDO::FETCH_ASSOC) ?: ['vat_registered' => 0, 'vat_rate' => 12.00];
+    } catch (PDOException $e) {
+        error_log("Error in dbs_migrate_vat_columns: " . $e->getMessage());
+        $vatRow = ['vat_registered' => 0, 'vat_rate' => 12.00];
+    }
 
     $vatRegistered = (int) ($vatRow['vat_registered'] ?? 0) === 1;
     $vatRate = (float) ($vatRow['vat_rate'] ?? 12.00);
@@ -331,7 +349,7 @@ function dbs_sync_payments(PDO $pdo, array &$changes): void
 
 function dbs_schema_needs_sync(PDO $pdo): bool
 {
-    $requiredTables = ['business_info', 'or_sequences', 'order_discounts', 'z_readings', 'order_item_reasons'];
+    $requiredTables = ['business_info', 'or_sequences', 'order_discounts', 'z_readings', 'order_item_reasons', 'app_settings', 'product_addons', 'refunds', 'sales_ledger'];
     foreach ($requiredTables as $table) {
         if (!dbs_table_exists($pdo, $table)) {
             return true;
@@ -339,6 +357,9 @@ function dbs_schema_needs_sync(PDO $pdo): bool
     }
 
     $requiredColumns = [
+        ['order_items', 'quantity_started'],
+        ['order_items', 'quantity_ready'],
+        ['order_items', 'quantity_voided'],
         ['orders', 'or_number'],
         ['orders', 'discount_amount'],
         ['orders', 'discount_type'],
@@ -358,13 +379,18 @@ function dbs_schema_needs_sync(PDO $pdo): bool
         return true;
     }
 
-    $stmt = $pdo->query("SELECT COUNT(*) FROM business_info WHERE info_id = 1");
-    if ((int) $stmt->fetchColumn() === 0) {
+    try {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM business_info WHERE info_id = 1");
+        if ((int) $stmt->fetchColumn() === 0) {
+            return true;
+        }
+
+        $stmt = $pdo->query("SELECT COUNT(*) FROM order_item_reasons");
+        return (int) $stmt->fetchColumn() === 0;
+    } catch (PDOException $e) {
+        error_log("Error in dbs_is_fresh_install: " . $e->getMessage());
         return true;
     }
-
-    $stmt = $pdo->query("SELECT COUNT(*) FROM order_item_reasons");
-    return (int) $stmt->fetchColumn() === 0;
 }
 
 function dbs_sync_database_schema(PDO $pdo): array
@@ -382,6 +408,8 @@ function dbs_sync_database_schema(PDO $pdo): array
             `machine_serial_no` VARCHAR(50) DEFAULT NULL,
             `ptu_number` VARCHAR(50) DEFAULT NULL,
             `accreditation_no` VARCHAR(50) DEFAULT NULL,
+            `document_label` VARCHAR(40) NOT NULL DEFAULT 'SALES INVOICE',
+            `max_promo_discount` DECIMAL(5,2) NOT NULL DEFAULT 20.00,
             `min_pwd_discount` DECIMAL(5,2) NOT NULL DEFAULT 20.00,
             `min_senior_discount` DECIMAL(5,2) NOT NULL DEFAULT 20.00,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -462,6 +490,117 @@ function dbs_sync_database_schema(PDO $pdo): array
         ", $changes);
     }
 
+    dbs_ensure_table($pdo, 'product_addons', "
+        CREATE TABLE `product_addons` (
+            `product_addon_id` INT AUTO_INCREMENT PRIMARY KEY,
+            `item_id` INT NOT NULL,
+            `addon_id` INT NOT NULL,
+            `is_active` TINYINT(1) DEFAULT 1,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY `uq_item_addon` (`item_id`, `addon_id`),
+            CONSTRAINT `fk_product_addons_item`
+                FOREIGN KEY (`item_id`) REFERENCES `menu_items` (`item_id`) ON DELETE CASCADE,
+            CONSTRAINT `fk_product_addons_addon`
+                FOREIGN KEY (`addon_id`) REFERENCES `addons` (`addon_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ", $changes);
+
+    dbs_ensure_table($pdo, 'refunds', "
+        CREATE TABLE `refunds` (
+            `refund_id` INT AUTO_INCREMENT PRIMARY KEY,
+            `order_id` INT NOT NULL,
+            `order_item_id` INT DEFAULT NULL,
+            `refund_type` ENUM('void_order','void_item','post_sale') DEFAULT NULL,
+            `amount` DECIMAL(10,2) NOT NULL,
+            `quantity` INT NOT NULL DEFAULT 1,
+            `reason` VARCHAR(255) NOT NULL,
+            `refund_method` ENUM('cash') DEFAULT 'cash',
+            `note` VARCHAR(255) DEFAULT NULL,
+            `processed_by` INT NOT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            KEY `idx_refunds_order_id` (`order_id`),
+            KEY `idx_refunds_order_item_id` (`order_item_id`),
+            KEY `idx_refunds_processed_by` (`processed_by`),
+            CONSTRAINT `fk_refunds_order`
+                FOREIGN KEY (`order_id`) REFERENCES `orders` (`order_id`),
+            CONSTRAINT `fk_refunds_order_item`
+                FOREIGN KEY (`order_item_id`) REFERENCES `order_items` (`order_item_id`) ON DELETE SET NULL,
+            CONSTRAINT `fk_refunds_processed_by`
+                FOREIGN KEY (`processed_by`) REFERENCES `users` (`user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ", $changes);
+
+    dbs_ensure_table($pdo, 'app_settings', "
+        CREATE TABLE `app_settings` (
+            `setting_id` INT AUTO_INCREMENT PRIMARY KEY,
+            `setting_key` VARCHAR(100) NOT NULL,
+            `setting_value` TEXT NOT NULL,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY `uq_app_settings_key` (`setting_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ", $changes);
+
+    // Printed document type must match what the PTU sample layout was approved as.
+    dbs_ensure_column($pdo, 'business_info', 'document_label',
+        "VARCHAR(40) NOT NULL DEFAULT 'SALES INVOICE'", $changes, 'accreditation_no');
+
+    // Per-unit kitchen counters. partial_item_action.php and
+    // getCommittedIngredientDemand() both derive "not yet prepared" from
+    // quantity - started - ready - voided, so these must exist.
+    dbs_ensure_column($pdo, 'order_items', 'quantity_started',
+        "INT NOT NULL DEFAULT 0", $changes, 'quantity');
+    dbs_ensure_column($pdo, 'order_items', 'quantity_ready',
+        "INT NOT NULL DEFAULT 0", $changes, 'quantity_started');
+    dbs_ensure_column($pdo, 'order_items', 'quantity_voided',
+        "INT NOT NULL DEFAULT 0", $changes, 'quantity_ready');
+
+    // Ceiling for manual promo discounts — without one a cashier can ring 99% off.
+    dbs_ensure_column($pdo, 'business_info', 'max_promo_discount',
+        "DECIMAL(5,2) NOT NULL DEFAULT 20.00", $changes, 'min_senior_discount');
+
+    // ── BIR accumulators ──────────────────────────────────────────────────
+    // Append-only sales ledger. The accumulated Grand Total is the running_gt
+    // of the newest row; each row also carries a hash of the previous one, so
+    // altering or removing any historical sale breaks every hash after it and
+    // is detectable by gt_verify(). Rows are never updated or deleted.
+    dbs_ensure_table($pdo, 'sales_ledger', "
+        CREATE TABLE `sales_ledger` (
+            `entry_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+            `order_id` INT NOT NULL,
+            `or_number` VARCHAR(20) NOT NULL,
+            `gross_amount` DECIMAL(12,2) NOT NULL,
+            `net_amount` DECIMAL(12,2) NOT NULL,
+            `running_gt` DECIMAL(14,2) NOT NULL,
+            `recorded_at` DATETIME NOT NULL,
+            `prev_hash` CHAR(64) NOT NULL,
+            `entry_hash` CHAR(64) NOT NULL,
+            UNIQUE KEY `uq_sales_ledger_order` (`order_id`),
+            KEY `idx_sales_ledger_or` (`or_number`),
+            KEY `idx_sales_ledger_recorded` (`recorded_at`),
+            CONSTRAINT `fk_sales_ledger_order`
+                FOREIGN KEY (`order_id`) REFERENCES `orders` (`order_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ", $changes);
+
+    // Machine Identification Number, issued by BIR for a registered POS.
+    dbs_ensure_column($pdo, 'business_info', 'min_number',
+        "VARCHAR(30) NOT NULL DEFAULT ''", $changes, 'machine_serial_no');
+
+    // Z-counter increments per Z-reading; reset counter per authorised reset.
+    dbs_ensure_column($pdo, 'z_readings', 'z_counter',
+        "INT NOT NULL DEFAULT 0", $changes, 'reading_date');
+    dbs_ensure_column($pdo, 'z_readings', 'reset_counter',
+        "INT NOT NULL DEFAULT 0", $changes, 'z_counter');
+    dbs_ensure_column($pdo, 'z_readings', 'old_gt',
+        "DECIMAL(14,2) NOT NULL DEFAULT 0.00", $changes, 'ending_or');
+    dbs_ensure_column($pdo, 'z_readings', 'new_gt',
+        "DECIMAL(14,2) NOT NULL DEFAULT 0.00", $changes, 'old_gt');
+    // Head of the sales-ledger hash chain at close of day. Printed on the
+    // Z-reading, so the paper copy filed with BIR anchors the chain outside
+    // the database — a chain rebuilt later cannot match hashes already filed.
+    dbs_ensure_column($pdo, 'z_readings', 'ledger_hash',
+        "CHAR(64) NOT NULL DEFAULT ''", $changes, 'new_gt');
+
     dbs_seed_business_info($pdo, $changes);
     dbs_seed_order_item_reasons($pdo, $changes);
     dbs_sync_orders($pdo, $changes);
@@ -473,14 +612,54 @@ function dbs_sync_database_schema(PDO $pdo): array
     ];
 }
 
+/**
+ * Schema version currently stamped in the database, or null if unknown.
+ * Returns null rather than throwing when app_settings does not exist yet.
+ */
+function dbs_stamped_version(PDO $pdo): ?string
+{
+    try {
+        $stmt = $pdo->prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'schema_version'");
+        $stmt->execute();
+        $v = $stmt->fetchColumn();
+        return $v === false ? null : (string) $v;
+    } catch (PDOException $e) {
+        return null; // table missing on a fresh install
+    }
+}
+
+function dbs_stamp_version(PDO $pdo): void
+{
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO app_settings (setting_key, setting_value)
+            VALUES ('schema_version', :v)
+            ON DUPLICATE KEY UPDATE setting_value = :v2, updated_at = CURRENT_TIMESTAMP
+        ");
+        $stmt->execute([':v' => DBS_SCHEMA_VERSION, ':v2' => DBS_SCHEMA_VERSION]);
+    } catch (PDOException $e) {
+        error_log('[db schema sync] could not stamp version: ' . $e->getMessage());
+    }
+}
+
 function dbs_sync_database_schema_if_needed(PDO $pdo): array
 {
-    if (!dbs_schema_needs_sync($pdo)) {
+    // Fast path: one indexed lookup. Once the stamped version matches, the
+    // ~13 INFORMATION_SCHEMA probes are skipped entirely on every request.
+    if (dbs_stamped_version($pdo) === DBS_SCHEMA_VERSION) {
         return [
             'ran'     => false,
             'changes' => [],
         ];
     }
 
-    return dbs_sync_database_schema($pdo);
+    // The stamp is missing or stale, so the definitions below may have changed.
+    // Run the FULL sync rather than consulting dbs_schema_needs_sync(): that
+    // function only knows a fixed checklist, so anything newly added would be
+    // skipped and then stamped as done. Every ensure_*() tests for existence
+    // first, so this is idempotent — it only acts where something is missing.
+    $result = dbs_sync_database_schema($pdo);
+    dbs_stamp_version($pdo);
+
+    return $result;
 }

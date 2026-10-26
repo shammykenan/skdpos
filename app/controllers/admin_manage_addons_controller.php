@@ -3,8 +3,11 @@ require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/addons.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
 
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 // Auth check
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
@@ -13,13 +16,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit;
 }
 
-// Initialize PDO
-$pdo = new PDO(
-    "mysql:host={$_ENV['DB_HOST']};dbname={$_ENV['DB_NAME']};charset=utf8mb4",
-    $_ENV['DB_USER'],
-    $_ENV['DB_PASS'],
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-);
+// Use the PDO connection from config/db.php
 
 // ── Handle Add Add-on ─────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_addon'])) {

@@ -25,17 +25,22 @@ function getVariantById(PDO $pdo, int $variant_id): ?array
  */
 function getAllVariantsGrouped(PDO $pdo): array
 {
-    $stmt = $pdo->query("
-        SELECT * FROM menu_variants
-        WHERE is_active = 1
-        ORDER BY item_id, price ASC
-    ");
-    $rows    = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $grouped = [];
-    foreach ($rows as $row) {
-        $grouped[(int)$row['item_id']][] = $row;
+    try {
+        $stmt = $pdo->query("
+            SELECT * FROM menu_variants
+            WHERE is_active = 1
+            ORDER BY item_id, price ASC
+        ");
+        $rows    = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[(int)$row['item_id']][] = $row;
+        }
+        return $grouped;
+    } catch (PDOException $e) {
+        error_log("Error in getAllVariantsGrouped: " . $e->getMessage());
+        return [];
     }
-    return $grouped;
 }
 
 function addVariant(PDO $pdo, int $item_id, string $name, float $price, float $cost_price, int $is_active = 1): ?int

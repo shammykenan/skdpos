@@ -1,4 +1,5 @@
 # ESC/POS Print Driver for PHP
+
 [![Build Status](https://travis-ci.org/mike42/escpos-php.svg?branch=master)](https://travis-ci.org/mike42/escpos-php) [![Latest Stable Version](https://poser.pugx.org/mike42/escpos-php/v/stable)](https://packagist.org/packages/mike42/escpos-php)
 [![Total Downloads](https://poser.pugx.org/mike42/escpos-php/downloads)](https://packagist.org/packages/mike42/escpos-php)
 [![License](https://poser.pugx.org/mike42/escpos-php/license)](https://packagist.org/packages/mike42/escpos-php)
@@ -11,6 +12,7 @@ The library was developed to add drop-in support for receipt printing to any PHP
 ## Compatibility
 
 ### Interfaces and operating systems
+
 This driver is known to work with the following OS/interface combinations:
 
 <table>
@@ -65,6 +67,7 @@ This driver is known to work with the following OS/interface combinations:
 </table>
 
 ### Printers
+
 Many thermal receipt printers support ESC/POS to some degree. This driver has been known to work with:
 
 - 3nStar RPT-008
@@ -80,7 +83,7 @@ Many thermal receipt printers support ESC/POS to some degree. This driver has be
 - CHD TH-305N
 - Citizen CBM1000-II
 - Citizen CT-S310II
-- Dapper-Geyi Q583P 
+- Dapper-Geyi Q583P
 - Daruma DR800
 - DR-MP200 (manufacturer unknown)
 - EPOS TEP 220M
@@ -102,7 +105,7 @@ Many thermal receipt printers support ESC/POS to some degree. This driver has be
 - Epson TM-U590 and TM-U590P
 - Equal (EQ-IT-001) POS-58
 - Everycom EC-58
-- Excelvan HOP-E200 
+- Excelvan HOP-E200
 - Excelvan HOP-E58
 - Excelvan HOP-E801
 - Gainscha GP-2120TF
@@ -304,16 +307,19 @@ Other examples are located in the [example/](https://github.com/mike42/escpos-ph
 
 ## Available methods
 
-### __construct(PrintConnector $connector, CapabilityProfile $profile)
+### \_\_construct(PrintConnector $connector, CapabilityProfile $profile)
+
 Construct new print object.
 
 Parameters:
+
 - `PrintConnector $connector`: The PrintConnector to send data to.
 - `CapabilityProfile $profile` Supported features of this printer. If not set, the "default" CapabilityProfile will be used, which is suitable for Epson printers.
 
 See [example/interface/](https://github.com/mike42/escpos-php/tree/master/example/interface/) for ways to open connections for different platforms and interfaces.
 
 ### barcode($content, $type)
+
 Print a barcode.
 
 Parameters:
@@ -334,9 +340,11 @@ Currently supported barcode standards are (depending on your printer):
 Note that some barcode standards can only encode numbers, so attempting to print non-numeric codes with them may result in strange behaviour.
 
 ### bitImage(EscposImage $image, $size)
+
 See [graphics()](#graphicsescposimage-image-size) below.
 
 ### cut($mode, $lines)
+
 Cut the paper.
 
 Parameters:
@@ -345,6 +353,7 @@ Parameters:
 - `int $lines`: Number of lines to feed before cutting. If not specified, 3 will be used.
 
 ### feed($lines)
+
 Print and feed line / Print and feed n lines.
 
 Parameters:
@@ -352,9 +361,11 @@ Parameters:
 - `int $lines`: Number of lines to feed
 
 ### feedForm()
+
 Some printers require a form feed to release the paper. On most printers, this command is only useful in page mode, which is not implemented in this driver.
 
 ### feedReverse($lines)
+
 Print and reverse feed n lines.
 
 Parameters:
@@ -362,6 +373,7 @@ Parameters:
 - `int $lines`: number of lines to feed. If not specified, 1 line will be fed.
 
 ### graphics(EscposImage $image, $size)
+
 Print an image to the printer.
 
 Parameters:
@@ -388,9 +400,11 @@ See the [example/](https://github.com/mike42/escpos-php/blob/master/example/) fo
 The function [bitImage()](#bitimageescposimage-image-size) takes the same parameters, and can be used if your printer doesn't support the newer graphics commands. As an additional fallback, the `bitImageColumnFormat()` function is also provided.
 
 ### initialize()
+
 Initialize printer. This resets formatting back to the defaults.
 
 ### pdf417Code($content, $width, $heightMultiplier, $dataColumnCount, $ec, $options)
+
 Print a two-dimensional data code using the PDF417 standard.
 
 Parameters:
@@ -403,6 +417,7 @@ Parameters:
 - `number $options`: Standard code `Printer::PDF417_STANDARD` with start/end bars, or truncated code `Printer::PDF417_TRUNCATED` with start bars only.
 
 ### pulse($pin, $on_ms, $off_ms)
+
 Generate a pulse, for opening a cash drawer if one is connected. The default settings (0, 120, 240) should open an Epson drawer.
 
 Parameters:
@@ -412,6 +427,7 @@ Parameters:
 - `int $off_ms`: pulse OFF time, in milliseconds.
 
 ### qrCode($content, $ec, $size, $model)
+
 Print the given data as a QR code on the printer.
 
 - `string $content`: The content of the code. Numeric data will be more efficiently compacted.
@@ -420,13 +436,14 @@ Print the given data as a QR code on the printer.
 - `int $model`: QR code model to use. Must be one of `Printer::QR_MODEL_1`, `Printer::QR_MODEL_2` (default) or `Printer::QR_MICRO` (not supported by all printers).
 
 ### selectPrintMode($mode)
+
 Select print mode(s).
 
 Parameters:
 
 - `int $mode`: The mode to use. Default is `Printer::MODE_FONT_A`, with no special formatting. This has a similar effect to running `initialize()`.
 
-Several MODE_* constants can be OR'd together passed to this function's `$mode` argument. The valid modes are:
+Several MODE\_\* constants can be OR'd together passed to this function's `$mode` argument. The valid modes are:
 
 - `MODE_FONT_A`
 - `MODE_FONT_B`
@@ -436,6 +453,7 @@ Several MODE_* constants can be OR'd together passed to this function's `$mode` 
 - `MODE_UNDERLINE`
 
 ### setBarcodeHeight($height)
+
 Set barcode height.
 
 Parameters:
@@ -443,6 +461,7 @@ Parameters:
 - `int $height`: Height in dots. If not specified, 8 will be used.
 
 ### setBarcodeWidth($width)
+
 Set barcode bar width.
 
 Parameters:
@@ -450,6 +469,7 @@ Parameters:
 - `int $width`: Bar width in dots. If not specified, 3 will be used. Values above 6 appear to have no effect.
 
 ### setColor($color)
+
 Select print color - on printers that support multiple colors.
 
 Parameters:
@@ -457,6 +477,7 @@ Parameters:
 - `int $color`: Color to use. Must be either `Printer::COLOR_1` (default), or `Printer::COLOR_2`
 
 ### setDoubleStrike($on)
+
 Turn double-strike mode on/off.
 
 Parameters:
@@ -464,6 +485,7 @@ Parameters:
 - `boolean $on`: true for double strike, false for no double strike.
 
 ### setEmphasis($on)
+
 Turn emphasized mode on/off.
 
 Parameters:
@@ -471,6 +493,7 @@ Parameters:
 - `boolean $on`: true for emphasis, false for no emphasis.
 
 ### setFont($font)
+
 Select font. Most printers have two fonts (Fonts A and B), and some have a third (Font C).
 
 Parameters:
@@ -478,6 +501,7 @@ Parameters:
 - `int $font`: The font to use. Must be either `Printer::FONT_A`, `Printer::FONT_B`, or `Printer::FONT_C`.
 
 ### setJustification($justification)
+
 Select justification.
 
 Parameters:
@@ -492,7 +516,7 @@ Some printers will allow you to overlap lines with a smaller line feed.
 
 Parameters:
 
-- `int	$height`:	The height of each line, in dots. If not set, the printer will reset to its default line spacing.
+- `int	$height`: The height of each line, in dots. If not set, the printer will reset to its default line spacing.
 
 ### setPrintLeftMargin($margin)
 
@@ -511,6 +535,7 @@ Parameters:
 - `int $width`: The width of the page print area, in dots.
 
 ### setReverseColors($on)
+
 Set black/white reverse mode on or off. In this mode, text is printed white on a black background.
 
 Parameters:
@@ -518,6 +543,7 @@ Parameters:
 - `boolean $on`: True to enable, false to disable.
 
 ### setTextSize($widthMultiplier, $heightMultiplier)
+
 Set the size of text, as a multiple of the normal size.
 
 Parameters:
@@ -526,6 +552,7 @@ Parameters:
 - `int $heightMultiplier`: Multiple of the regular height to use (range 1 - 8).
 
 ### setUnderline($underline)
+
 Set underline for printed text.
 
 Parameters:
@@ -533,6 +560,7 @@ Parameters:
 - `int $underline`: Either `true`/`false`, or one of `Printer::UNDERLINE_NONE`, `Printer::UNDERLINE_SINGLE` or `Printer::UNDERLINE_DOUBLE`. Defaults to `Printer::UNDERLINE_SINGLE`.
 
 ### text($str)
+
 Add text to the buffer. Text should either be followed by a line-break, or `feed()` should be called after this.
 
 Parameters:
@@ -540,11 +568,12 @@ Parameters:
 - `string $str`: The string to print.
 
 # Further notes
+
 Posts I've written up for people who are learning how to use receipt printers:
 
-* [What is ESC/POS, and how do I use it?](https://mike42.me/blog/what-is-escpos-and-how-do-i-use-it), which documents the output of `example/demo.php`.
-* [Setting up an Epson receipt printer](https://mike42.me/blog/2014-20-26-setting-up-an-epson-receipt-printer)
-* [Getting a USB receipt printer working on Linux](https://mike42.me/blog/2015-03-getting-a-usb-receipt-printer-working-on-linux)
+- [What is ESC/POS, and how do I use it?](https://mike42.me/blog/what-is-escpos-and-how-do-i-use-it), which documents the output of `example/demo.php`.
+- [Setting up an Epson receipt printer](https://mike42.me/blog/2014-20-26-setting-up-an-epson-receipt-printer)
+- [Getting a USB receipt printer working on Linux](https://mike42.me/blog/2015-03-getting-a-usb-receipt-printer-working-on-linux)
 
 # Development
 

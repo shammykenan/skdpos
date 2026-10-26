@@ -1,5 +1,7 @@
 <?php
 ini_set('session.cookie_path', '/');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.use_strict_mode', '1');
 session_start();
 date_default_timezone_set('Asia/Manila');
 define('BASE_PATH', realpath(__DIR__ . '/../'));
@@ -11,6 +13,12 @@ $page = $_GET['page'] ?? 'login';
 switch ($page) {
     case 'landing':
     require_once BASE_PATH . '/app/controllers/auth_controller.php';
+    break;
+    case 'terms':
+    require_once BASE_PATH . '/app/views/auth/terms.php';
+    break;
+    case 'privacy':
+    require_once BASE_PATH . '/app/views/auth/privacy.php';
     break;
     case 'backup_database':
         requireRole(['admin']);
@@ -43,10 +51,6 @@ switch ($page) {
         requireRole(['admin']);
         require_once BASE_PATH . '/app/controllers/admin_manage_addons_controller.php';
         break;
-    case 'manage_variants':
-        requireRole(['admin']);
-        require_once BASE_PATH . '/app/controllers/admin_manage_variants_controller.php';
-        break;
     case 'bir_settings':
     requireRole(['admin']);
     require_once BASE_PATH . '/app/controllers/admin_bir_settings_controller.php';
@@ -55,6 +59,18 @@ switch ($page) {
     case 'ajax_save_bir_settings':
         requireRole(['admin']);
         require_once BASE_PATH . '/app/ajax/save_bir_settings.php';
+        exit;
+    case 'ajax_verify_ledger':
+        requireRole(['admin']);
+        require_once BASE_PATH . '/app/ajax/verify_ledger.php';
+        exit;
+    case 'ajax_x_reading':
+        requireRole(['admin', 'cashier']);
+        require_once BASE_PATH . '/app/ajax/get_x_reading.php';
+        exit;
+    case 'print_x_reading':
+        requireRole(['admin', 'cashier']);
+        require_once BASE_PATH . '/app/print/print-x-reading.php';
         exit;
     case 'ajax_generate_z_reading':
         requireRole(['admin']);
@@ -87,10 +103,6 @@ switch ($page) {
         requireRole(['cashier', 'admin', 'kitchen']);
         require_once BASE_PATH . '/app/controllers/manage_orders_controller.php';
         break;
-    case 'manage_reports':
-        requireRole(['cashier', 'admin']);
-        require_once BASE_PATH . '/app/controllers/manage_reports_controller.php';
-        break;
     case 'forgot_password':
         require_once BASE_PATH . '/app/controllers/forgot_password_controller.php';
         break;
@@ -99,9 +111,11 @@ switch ($page) {
         require_once BASE_PATH . '/app/controllers/reset_password_controller.php';
         break;
     case 'print_receipt':
+        requireRole(['admin', 'cashier']);
         require_once BASE_PATH . '/app/print/print-receipt.php';
         exit;
     case 'print_closeout':
+        requireRole(['admin', 'cashier']);
         require_once BASE_PATH . '/app/print/print-closeout.php';
         exit;
     case 'logout':

@@ -2,6 +2,8 @@
 // app/ajax/generate_z_reading.php
 
 require_once BASE_PATH . '/app/models/ZReading.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 header('Content-Type: application/json');
 

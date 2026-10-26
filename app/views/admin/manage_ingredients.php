@@ -6,42 +6,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>Ingredient Management — Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingredient Management — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
     <style>
         /* ── TOKENS ──────────────────────────────────────────────────────── */
-        :root {
-            --primary:       #0f4c5c;
-            --primary-dark:  #0a3a47;
-            --primary-light: #1f7a8c;
-            --secondary:     #ff6b4a;
-            --navy:          #1e2f4e;
-            --lavender:      #e2e6f0;
-            --light-bg:      #f8faff;
-            --warm-gray:     #4a5568;
-            --border:        #cbd5e0;
-            --success:       #2c7a5a;
-            --danger:        #d64045;
-            --warning:       #f4b942;
-            --info:          #5e9b9e;
-            --dark:          #1a202c;
-
-            --success-soft:  #eaf7ef;
-            --danger-soft:   #fdecea;
-            --warning-soft:  #fef8e7;
-            --info-soft:     rgba(94,155,158,0.1);
-
-            --sidebar-w: 260px;
-            --top-h:     64px;
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 18px;
-            --radius-xl: 24px;
-        }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
@@ -304,11 +278,11 @@
     <button class="mobile-toggle" id="menuToggle" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -697,98 +671,108 @@
     <?php endforeach; ?>
 
     <!-- ═══ MANAGE UNITS MODAL ══════════════════════════════════════════════ -->
-    <div class="modal fade" id="manageUnitsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-ruler-combined" style="color:var(--secondary);font-size:1rem;"></i> Manage Units</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="index.php?page=manage_ingredients" id="addUnitForm" novalidate>
-                    <div class="modal-body">
-                        <input type="hidden" name="add_unit" value="1">
-                        <div class="row g-3 mb-2">
-                            <div class="col-4">
-                                <label for="modal_unit_code" class="form-label">Code <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="modal_unit_code" name="unit_code"
-                                       placeholder="e.g. kg" maxlength="20" autocomplete="off" required>
-                                <div class="char-counter" id="unitCodeCounter">0 / 20</div>
-                            </div>
-                            <div class="col-8">
-                                <label for="modal_unit_label" class="form-label">Label <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="modal_unit_label" name="unit_label"
-                                       placeholder="e.g. Kilogram" maxlength="50" autocomplete="off" required>
-                            </div>
-                        </div>
-                        <div id="unitDupWarning" class="alert-bar danger d-none" style="padding:0.6rem 0.9rem;font-size:0.8rem;margin-bottom:0;">
-                            <i class="fas fa-exclamation-triangle me-1"></i> A unit with this code already exists.
-                        </div>
+<div class="modal fade" id="manageUnitsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-ruler-combined" style="color:var(--secondary);font-size:1rem;"></i> Manage Units</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
 
-                        <div style="margin-top:1.25rem;">
-                            <div class="form-label">Existing Units</div>
-                            <?php if (empty($units_raw)): ?>
-                                <p style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;">No units yet.</p>
-                            <?php else: ?>
-                                <div class="units-list">
-                                    <?php foreach ($units_raw as $u): ?>
-                                    <div class="units-list-item">
-                                        <div style="display:flex;align-items:center;gap:0.6rem;">
-                                            <span style="font-size:0.88rem;font-weight:600;color:var(--navy);"><?= htmlspecialchars($u['unit_label']) ?></span>
-                                            <span class="unit-badge"><?= htmlspecialchars($u['unit_code']) ?></span>
-                                        </div>
-                                        <div style="display:flex;gap:0.35rem;">
-                                            <button type="button" class="btn-act btn-act-edit"
-                                                    onclick="unitEditInline(<?= $u['unit_id'] ?>, <?= htmlspecialchars(json_encode($u['unit_code'])) ?>, <?= htmlspecialchars(json_encode($u['unit_label'])) ?>)"
-                                                    title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <form method="POST" action="index.php?page=manage_ingredients" style="margin:0;"
-                                                  onsubmit="return confirm('Delete unit \'<?= htmlspecialchars(addslashes($u['unit_label'])) ?>\'?')">
-                                                <input type="hidden" name="delete_unit" value="1">
-                                                <input type="hidden" name="unit_id" value="<?= $u['unit_id'] ?>">
-                                                <button type="submit" class="btn-act btn-act-del" title="Delete"><i class="fas fa-trash"></i></button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
+            <!-- ADD UNIT FORM — standalone, no nesting -->
+            <form method="POST" action="index.php?page=manage_ingredients" id="addUnitForm" novalidate>
+                <input type="hidden" name="add_unit" value="1">
+                <div class="modal-body">
+                    <div class="row g-3 mb-2">
+                        <div class="col-4">
+                            <label for="modal_unit_code" class="form-label">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="modal_unit_code" name="unit_code"
+                                   placeholder="e.g. kg" maxlength="20" autocomplete="off" required>
+                            <div class="char-counter" id="unitCodeCounter">0 / 20</div>
                         </div>
-
-                        <div id="unitEditSection" class="unit-edit-box d-none">
-                            <form method="POST" action="index.php?page=manage_ingredients">
-                                <input type="hidden" name="edit_unit" value="1">
-                                <input type="hidden" name="unit_id" id="editUnitId">
-                                <label class="form-label" style="font-size:0.78rem;">Edit Unit</label>
-                                <div class="row g-2 mb-2">
-                                    <div class="col-4">
-                                        <input type="text" class="form-control form-control-sm" name="unit_code" id="editUnitCode" placeholder="Code" maxlength="20" required>
-                                        <div class="form-text">Code</div>
-                                    </div>
-                                    <div class="col-8">
-                                        <input type="text" class="form-control form-control-sm" name="unit_label" id="editUnitLabel" placeholder="Label" required>
-                                        <div class="form-text">Label</div>
-                                    </div>
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn-modal-primary" style="font-size:0.82rem;padding:0.4rem 1rem;"><i class="fas fa-save me-1"></i> Save</button>
-                                    <button type="button" class="btn-modal-secondary" style="font-size:0.82rem;padding:0.4rem 1rem;" onclick="document.getElementById('unitEditSection').classList.add('d-none')">Cancel</button>
-                                </div>
-                            </form>
+                        <div class="col-8">
+                            <label for="modal_unit_label" class="form-label">Label <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="modal_unit_label" name="unit_label"
+                                   placeholder="e.g. Kilogram" maxlength="50" autocomplete="off" required>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn-modal-primary" id="saveUnitBtn"><i class="fas fa-plus me-1"></i> Add Unit</button>
+                    <div id="unitDupWarning" class="alert-bar danger d-none" style="padding:0.6rem 0.9rem;font-size:0.8rem;margin-bottom:0;">
+                        <i class="fas fa-exclamation-triangle me-1"></i> A unit with this code already exists.
+                    </div>
+
+                    <div style="margin-top:1.25rem;">
+                        <div class="form-label">Existing Units</div>
+                        <?php if (empty($units_raw)): ?>
+                            <p style="font-size:0.82rem;color:var(--warm-gray);font-style:italic;">No units yet.</p>
+                        <?php else: ?>
+                            <div class="units-list">
+                                <?php foreach ($units_raw as $u): ?>
+                                <div class="units-list-item">
+                                    <div style="display:flex;align-items:center;gap:0.6rem;">
+                                        <span style="font-size:0.88rem;font-weight:600;color:var(--navy);"><?= htmlspecialchars($u['unit_label']) ?></span>
+                                        <span class="unit-badge"><?= htmlspecialchars($u['unit_code']) ?></span>
+                                    </div>
+                                    <div style="display:flex;gap:0.35rem;">
+                                        <button type="button" class="btn-act btn-act-edit"
+                                                onclick="unitEditInline(<?= $u['unit_id'] ?>, <?= htmlspecialchars(json_encode($u['unit_code'])) ?>, <?= htmlspecialchars(json_encode($u['unit_label'])) ?>)"
+                                                title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <!-- DELETE UNIT: standalone form, NOT nested inside addUnitForm -->
+                                        <button type="button" class="btn-act btn-act-del" title="Delete"
+                                                onclick="deleteUnit(<?= $u['unit_id'] ?>, '<?= htmlspecialchars(addslashes($u['unit_label'])) ?>')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn-modal-primary" id="saveUnitBtn"><i class="fas fa-plus me-1"></i> Add Unit</button>
+                </div>
+            </form>
+
+            <!-- EDIT UNIT FORM — sibling to addUnitForm, never nested inside it -->
+            <div id="unitEditSection" class="unit-edit-box d-none" style="margin:0 1.6rem 1.2rem;">
+                <form method="POST" action="index.php?page=manage_ingredients" id="editUnitForm">
+                    <input type="hidden" name="edit_unit" value="1">
+                    <input type="hidden" name="unit_id" id="editUnitId">
+                    <label class="form-label" style="font-size:0.78rem;">Edit Unit</label>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <input type="text" class="form-control form-control-sm" name="unit_code" id="editUnitCode" placeholder="Code" maxlength="20" required>
+                            <div class="form-text">Code</div>
+                        </div>
+                        <div class="col-8">
+                            <input type="text" class="form-control form-control-sm" name="unit_label" id="editUnitLabel" placeholder="Label" required>
+                            <div class="form-text">Label</div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn-modal-primary" style="font-size:0.82rem;padding:0.4rem 1rem;"><i class="fas fa-save me-1"></i> Save</button>
+                        <button type="button" class="btn-modal-secondary" style="font-size:0.82rem;padding:0.4rem 1rem;"
+                                onclick="document.getElementById('unitEditSection').classList.add('d-none')">Cancel</button>
                     </div>
                 </form>
             </div>
+
         </div>
     </div>
+</div>
+
+<!-- DELETE UNIT hidden form — lives outside the modal entirely -->
+<form method="POST" action="index.php?page=manage_ingredients" id="deleteUnitForm" style="display:none;">
+    <input type="hidden" name="delete_unit" value="1">
+    <input type="hidden" name="unit_id" id="deleteUnitId">
+</form>
 
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
 /* ── Sidebar ──────────────────────────────────────────────────────── */
 document.getElementById('menuToggle')?.addEventListener('click', () => {
@@ -900,7 +884,11 @@ function unitEditInline(id, code, label) {
     document.getElementById('unitEditSection').classList.remove('d-none');
     document.getElementById('editUnitCode').focus();
 }
-
+function deleteUnit(id, label) {
+    if (!confirm("Delete unit '" + label + "'?")) return;
+    document.getElementById('deleteUnitId').value = id;
+    document.getElementById('deleteUnitForm').submit();
+}
 /* ── Modal backdrop cleanup ───────────────────────────────────────── */
 document.addEventListener('hidden.bs.modal', function() {
     if (document.querySelector('.modal.show')) return;

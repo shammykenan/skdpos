@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>POS — Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/manage_pos.css">
 </head>
 <body>
@@ -25,11 +26,11 @@
 
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
 
@@ -454,29 +455,9 @@
 
 
 <!-- ════════════════════════════════════════════════════
-     VARIANT MODAL
-════════════════════════════════════════════════════ -->
-<div class="modal fade" id="variantModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-layer-group" style="color:var(--secondary);"></i>
-                    Choose Size — <span id="variantModalItemName"></span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0" id="variantList"></div>
-            <div class="modal-footer" style="border-top:1px solid var(--border);">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ════════════════════════════════════════════════════
-     ADD-ONS MODAL
+     CUSTOMIZE MODAL
+     Variants (size picker) embedded at top when item has sizes.
+     Add-ons below. No separate variant modal needed.
 ════════════════════════════════════════════════════ -->
 <div class="modal fade" id="addonsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -493,6 +474,45 @@
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="addToCartBtn">
                     <i class="fas fa-cart-plus me-1"></i>Add to Cart
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     ITEM NOTE MODAL
+════════════════════════════════════════════════════ -->
+<div class="modal fade" id="itemNoteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+        <div class="modal-content">
+            <div class="modal-header" style="padding:1rem 1.25rem 0.75rem;">
+                <h5 class="modal-title" style="font-size:0.95rem;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fas fa-pen-to-square" style="color:var(--secondary);font-size:0.9rem;"></i>
+                    <span id="noteModalItemName">Add Note</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:0.85rem 1.25rem;">
+                <p style="font-size:0.78rem;color:var(--warm-gray);margin-bottom:0.65rem;">
+                    Note applies only to this item.
+                </p>
+                <textarea id="noteModalTextarea" rows="4" maxlength="300"
+                    placeholder="e.g. No sugar, less ice, extra hot…"
+                    style="width:100%;resize:none;border:1.5px solid var(--border);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.88rem;font-family:inherit;outline:none;transition:border-color 0.2s;display:block;"
+                    onfocus="this.style.borderColor='var(--primary)'"
+                    onblur="this.style.borderColor='var(--border)'"></textarea>
+                <div style="font-size:0.72rem;color:var(--warm-gray);margin-top:0.3rem;text-align:right;">
+                    <span id="noteModalCharCount">0</span>/300
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:0.65rem 1.25rem 1rem;gap:0.5rem;">
+                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" id="noteModalClearBtn" onclick="clearNoteFromModal()" style="font-size:0.82rem;">
+                    <i class="fas fa-times me-1"></i>Clear Note
+                </button>
+                <button type="button" class="btn btn-primary btn-sm flex-fill" onclick="saveNoteFromModal()" style="font-size:0.82rem;">
+                    <i class="fas fa-check me-1"></i>Save Note
                 </button>
             </div>
         </div>
@@ -610,64 +630,61 @@
                     <div class="pm-total-label">Total Due</div>
                     <div class="pm-total-amount">₱<span id="pmTotalAmount">0.00</span></div>
                 </div>
+
                 <!-- ── Discount Section ── -->
-<div id="pmDiscountSection" style="margin:0 0 1rem;">
-    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--warm-gray);margin-bottom:0.5rem;">
-        <i class="fas fa-tag me-1"></i>Discount
-    </div>
-    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;">
-        <button class="pm-disc-btn active" data-type="none"    onclick="setDiscountType('none')">None</button>
-        <button class="pm-disc-btn"        data-type="senior"  onclick="setDiscountType('senior')">Senior (20%)</button>
-        <button class="pm-disc-btn"        data-type="pwd"     onclick="setDiscountType('pwd')">PWD (20%)</button>
-        <button class="pm-disc-btn"        data-type="promo"   onclick="setDiscountType('promo')">Promo</button>
-    </div>
+                <div id="pmDiscountSection" style="margin:0 0 1rem;">
+                    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--warm-gray);margin-bottom:0.5rem;">
+                        <i class="fas fa-tag me-1"></i>Discount
+                    </div>
+                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;">
+                        <button class="pm-disc-btn active" data-type="none"   onclick="setDiscountType('none')">None</button>
+                        <button class="pm-disc-btn"        data-type="senior" onclick="setDiscountType('senior')">Senior (20%)</button>
+                        <button class="pm-disc-btn"        data-type="pwd"    onclick="setDiscountType('pwd')">PWD (20%)</button>
+                        <button class="pm-disc-btn"        data-type="promo"  onclick="setDiscountType('promo')">Promo</button>
+                    </div>
 
-    <!-- Reference number (Senior / PWD) -->
-    <div id="pmDiscRefWrap" style="display:none;margin-bottom:0.5rem;">
-    <div style="display:flex;align-items:center;gap:0.5rem;">
-        <input type="text" id="pmDiscRef" class="pm-cash-input"
-               style="font-size:0.88rem;padding:0.45rem 0.75rem;flex:1;"
-               placeholder="Senior/PWD ID number" maxlength="50">
-        <button class="pm-disc-btn active" onclick="applyFixedDiscount(_discountType)"
-                style="white-space:nowrap;">Apply</button>
-    </div>
-</div>
+                    <div id="pmDiscRefWrap" style="display:none;margin-bottom:0.5rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <input type="text" id="pmDiscRef" class="pm-cash-input"
+                                   style="font-size:0.88rem;padding:0.45rem 0.75rem;flex:1;"
+                                   placeholder="Senior/PWD ID number" maxlength="50">
+                            <button class="pm-disc-btn active" onclick="applyFixedDiscount(_discountType)"
+                                    style="white-space:nowrap;">Apply</button>
+                        </div>
+                    </div>
 
-    <!-- Promo % -->
-    <div id="pmDiscPromoWrap" style="display:none;margin-bottom:0.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-            <input type="number" id="pmDiscPromoPct" class="pm-cash-input"
-                   style="font-size:0.88rem;padding:0.45rem 0.75rem;width:100px;"
-                   placeholder="%" min="1" max="100" step="1">
-            <button class="pm-disc-btn active" onclick="applyPromoDiscount()"
-                    style="white-space:nowrap;">Apply</button>
-        </div>
-    </div>
+                    <div id="pmDiscPromoWrap" style="display:none;margin-bottom:0.5rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <input type="number" id="pmDiscPromoPct" class="pm-cash-input"
+                                   style="font-size:0.88rem;padding:0.45rem 0.75rem;width:100px;"
+                                   placeholder="%" min="1" max="100" step="1">
+                            <button class="pm-disc-btn active" onclick="applyPromoDiscount()"
+                                    style="white-space:nowrap;">Apply</button>
+                        </div>
+                    </div>
 
-    <!-- Applied discount summary -->
-    <div id="pmDiscApplied" style="display:none;padding:0.55rem 0.85rem;background:rgba(44,122,90,0.07);border:1px solid rgba(44,122,90,0.2);border-radius:8px;font-size:0.83rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span id="pmDiscAppliedLabel" style="color:var(--success);font-weight:600;"></span>
-            <span id="pmDiscAppliedAmt"   style="color:var(--success);font-weight:700;"></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:0.2rem;color:var(--navy);font-weight:700;">
-            <span>New Total</span>
-            <span id="pmDiscNewTotal"></span>
-        </div>
-    </div>
-</div>
-                <!-- VAT Breakdown (shown only when VAT-registered) -->
+                    <div id="pmDiscApplied" style="display:none;padding:0.55rem 0.85rem;background:rgba(44,122,90,0.07);border:1px solid rgba(44,122,90,0.2);border-radius:8px;font-size:0.83rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span id="pmDiscAppliedLabel" style="color:var(--success);font-weight:600;"></span>
+                            <span id="pmDiscAppliedAmt"   style="color:var(--success);font-weight:700;"></span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:0.2rem;color:var(--navy);font-weight:700;">
+                            <span>New Total</span>
+                            <span id="pmDiscNewTotal"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VAT Breakdown -->
                 <div id="pmVatBreakdown" style="display:none; margin: 0 0 1rem; padding: 0.75rem 1rem; background: rgba(15,76,92,0.05); border: 1px solid rgba(15,76,92,0.12); border-radius: 10px; font-size: 0.82rem;">
                     <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--primary);margin-bottom:0.5rem;">
                         <i class="fas fa-percent me-1"></i>VAT Breakdown
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;color:var(--warm-gray);">
-                        <span>VATable Sales</span>
-                        <span id="pmVatableSales">₱0.00</span>
+                        <span>VATable Sales</span><span id="pmVatableSales">₱0.00</span>
                     </div>
                     <div id="pmVatExemptRow" style="display:none;justify-content:space-between;margin-bottom:0.2rem;color:var(--warm-gray);">
-                        <span>VAT-Exempt Sales</span>
-                        <span id="pmVatExemptSales">₱0.00</span>
+                        <span>VAT-Exempt Sales</span><span id="pmVatExemptSales">₱0.00</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-weight:600;color:var(--primary-dark);">
                         <span>VAT (<span id="pmVatRateLabel">12</span>%)</span>
@@ -684,9 +701,7 @@
                         <input type="number" id="pmCashInput" class="pm-cash-input"
                                placeholder="0.00" min="0" step="0.01" autocomplete="off">
                     </div>
-                    <div class="pm-enter-hint">
-                        <kbd>Enter</kbd> to confirm payment
-                    </div>
+                    <div class="pm-enter-hint"><kbd>Enter</kbd> to confirm payment</div>
                     <div class="pm-quick-amounts" id="pmQuickAmounts"></div>
                 </div>
 
@@ -716,7 +731,7 @@
 <!-- ════════════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════════════ -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
 <script>
 /* ── PHP → JS data ── */
@@ -726,20 +741,24 @@ const addonsMap      = <?= json_encode($addons_map       ?? []) ?>;
 const variantsMap    = <?= json_encode($variants_map     ?? []) ?>;
 const DB_DRAFT_CART  = <?= json_encode($draft_cart      ?? []) ?>;
 const DB_DRAFT_META  = <?= json_encode($draft_meta      ?? null) ?>;
-const BASE_URL              = <?= json_encode($baseUrl) ?>;
+const BASE_URL       = <?= json_encode($baseUrl) ?>;
+const AJAX_BASE      = <?= json_encode(rtrim(str_replace('/public', '', $baseUrl), '/')) ?>;
 const CASHIER_NAME          = <?= json_encode($_SESSION['full_name'] ?? 'Cashier') ?>;
 const POS_IS_VAT_REGISTERED = <?= json_encode(VatHelper::isVatRegistered($pdo)) ?>;
 const POS_VAT_RATE          = <?= json_encode(VatHelper::getVatRate($pdo)) ?>;
-const AVAILABLE_TABLES = <?= json_encode($available_tables ?? []) ?>;
+const AVAILABLE_TABLES      = <?= json_encode($available_tables ?? []) ?>;
 
-let cart               = [];
-let currentItem        = null;
+let cart             = [];
+let currentItem      = null;
 let currentVariantId   = null;
 let currentVariantName = null;
 let currentOrderType   = 'dine_in';
 let hasStockIssues     = false;
 let lastOrderData      = null;
 let _submitting        = false;
+
+// Note modal state
+let _noteTargetIdx = null;
 
 const isMobile = () => window.innerWidth < 992;
 
@@ -789,10 +808,7 @@ function saveDraftToServer() {
         table_id: tableIdEl?.value || '',
     }));
 }
-function debouncedSave() {
-    clearTimeout(_draftTimer);
-    _draftTimer = setTimeout(saveDraftToServer, 500);
-}
+function debouncedSave() { clearTimeout(_draftTimer); _draftTimer = setTimeout(saveDraftToServer, 500); }
 function saveCart() { localStorage.setItem('pos_cart', JSON.stringify(cart)); debouncedSave(); }
 function loadCart() { try { cart = JSON.parse(localStorage.getItem('pos_cart') || '[]'); } catch(e) { cart = []; } }
 
@@ -830,9 +846,124 @@ function showStockErrorModal(title, missing) {
 }
 function showErrorModal(title, msg) {
     document.getElementById('genericErrTitle').textContent = title;
-    document.getElementById('genericErrMsg').textContent = msg;
+    document.getElementById('genericErrMsg').textContent   = msg;
     showModal('genericErrorModal');
 }
+
+// ─── NOTE MODAL ──────────────────────────────────────────────────
+function openNoteModal(idx) {
+    _noteTargetIdx = idx;
+    const row = cart[idx];
+    if (!row) return;
+    const label = row.variantName ? `${row.name} (${row.variantName})` : row.name;
+    document.getElementById('noteModalItemName').textContent = label;
+    const ta = document.getElementById('noteModalTextarea');
+    ta.value = row.note || '';
+    document.getElementById('noteModalCharCount').textContent = ta.value.length;
+    // Show/hide Clear button based on whether there's an existing note
+    document.getElementById('noteModalClearBtn').style.display = row.note ? '' : 'none';
+    showModal('itemNoteModal');
+    setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 200);
+}
+function normalizeAddons(addons) {
+    return addons
+        .map(a => `${a.id}:${a.quantity}`)
+        .sort()
+        .join('|');
+}
+
+function saveNoteFromModal() {
+    if (_noteTargetIdx === null) return;
+
+    const ta = document.getElementById('noteModalTextarea');
+    const newNote = ta.value.trim();
+    const row = cart[_noteTargetIdx];
+
+    if (!newNote) {
+        // Search BEFORE mutating — same pattern as clearNoteFromModal
+        const matchIdx = cart.findIndex((r, i) =>
+            i !== _noteTargetIdx &&
+            r.id === row.id &&
+            r.variant_id === row.variant_id &&
+            (r.note || '') === '' &&
+            r.quantity > 0 &&
+            normalizeAddons(r.addons) === normalizeAddons(row.addons)
+        );
+
+        if (matchIdx > -1) {
+            cart[matchIdx].quantity += row.quantity;
+            cart.splice(_noteTargetIdx, 1);
+        } else {
+            row.note = '';
+        }
+
+    } else {
+        // Adding/editing note — check if another row already has this exact note
+        const matchIdx = cart.findIndex((r, i) =>
+            i !== _noteTargetIdx &&
+            r.id === row.id &&
+            r.variant_id === row.variant_id &&
+            (r.note || '') === newNote &&
+            normalizeAddons(r.addons) === normalizeAddons(row.addons)
+        );
+
+        if (matchIdx > -1) {
+            // Merge into existing row with same note
+            cart[matchIdx].quantity += row.quantity;
+            cart.splice(_noteTargetIdx, 1);
+        } else if (row.quantity > 1) {
+            // Split: leave qty-1 behind, create new noted row
+            row.quantity -= 1;
+            const splitItem = {
+                ...row,
+                quantity: 1,
+                note: newNote,
+                addons: row.addons.map(a => ({ ...a })),
+                hasStockIssue: false
+            };
+            cart.splice(_noteTargetIdx + 1, 0, splitItem);
+        } else {
+            // qty is 1, just update note in place
+            row.note = newNote;
+            row.hasStockIssue = false;
+        }
+    }
+
+    saveCart();
+    validateAndRender();
+    hideModal('itemNoteModal');
+    _noteTargetIdx = null;
+}
+function clearNoteFromModal() {
+    if (_noteTargetIdx === null) return;
+
+    const row = cart[_noteTargetIdx];
+
+    // Search BEFORE mutating row.note — otherwise row already looks like a no-note item
+    const matchIdx = cart.findIndex((r, i) =>
+        i !== _noteTargetIdx &&
+        r.id === row.id &&
+        r.variant_id === row.variant_id &&
+        (r.note || '') === '' &&
+        r.quantity > 0 &&
+        normalizeAddons(r.addons) === normalizeAddons(row.addons)
+    );
+
+    if (matchIdx > -1) {
+        cart[matchIdx].quantity += row.quantity;
+        cart.splice(_noteTargetIdx, 1);
+    } else {
+        row.note = '';
+    }
+
+    saveCart();
+    validateAndRender();
+    hideModal('itemNoteModal');
+    _noteTargetIdx = null;
+}
+document.getElementById('noteModalTextarea')?.addEventListener('input', function() {
+    document.getElementById('noteModalCharCount').textContent = this.value.length;
+});
 
 // ─── CLEAR CART ──────────────────────────────────────────────────
 function confirmClearCart() {
@@ -884,7 +1015,7 @@ function buildDemandMap(rows) {
             d[ing.ingredient_id].needed += ing.quantity_required * row.quantity;
         });
         (row.addons || []).forEach(a => {
-            (addonStockData[a.id]?.ingredients || []).map(ing => {
+            (addonStockData[a.id]?.ingredients || []).forEach(ing => {
                 if (!ing.quantity_required || ing.quantity_required <= 0) return;
                 if (!d[ing.ingredient_id]) {
                     d[ing.ingredient_id] = { name: ing.ingredient_name, needed: 0, available: +ing.stock_quantity };
@@ -911,25 +1042,30 @@ function checkCanChangeQty(idx, newQty) {
 // ─── CART MUTATIONS ──────────────────────────────────────────────
 function addToCartWithQuantity(item, addons, quantity, note, variantId, variantName) {
     const trimmedNote = (note || '').trim();
-    if (!trimmedNote) {
-        const ei = cart.findIndex(r =>
-            r.id === item.id && r.variant_id === (variantId ?? null) &&
-            (r.note || '') === '' &&
-            r.addons.length === addons.length &&
-            r.addons.map(a => `${a.id}:${a.quantity}`).sort().join('|') ===
-              addons.map(a => `${a.id}:${a.quantity}`).sort().join('|')
-        );
-        if (ei > -1) {
-            const mq = cart[ei].quantity + quantity;
-            const mc = checkCanChangeQty(ei, mq);
-            if (!mc.success) { showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients); return; }
-            cart[ei].quantity = mq;
-            validateAndRender(); saveCart(); flashCard(item.id); showAddToast(item.name); return;
-        }
+
+    // Merge if id, variant, note, AND addons all match — regardless of whether there's a note
+    const ei = cart.findIndex(r =>
+        r.id === item.id &&
+        r.variant_id === (variantId ?? null) &&
+        (r.note || '') === trimmedNote &&
+        r.addons.length === addons.length &&
+        r.addons.map(a => `${a.id}:${a.quantity}`).sort().join('|') ===
+          addons.map(a => `${a.id}:${a.quantity}`).sort().join('|')
+    );
+
+    if (ei > -1) {
+        const mq = cart[ei].quantity + quantity;
+        const mc = checkCanChangeQty(ei, mq);
+        if (!mc.success) { showStockErrorModal(`Cannot increase "${item.name}" — exceeds stock`, mc.missingIngredients); return; }
+        cart[ei].quantity = mq;
+        validateAndRender(); saveCart(); flashCard(item.id); showAddToast(item.name); return;
     }
-    cart.push({ id: item.id, name: item.name, price: item.price, quantity,
+
+    cart.push({
+        id: item.id, name: item.name, price: item.price, quantity,
         variant_id: variantId ?? null, variantName: variantName ?? null,
-        addons: addons.map(a => ({ ...a })), note: trimmedNote, hasStockIssue: false });
+        addons: addons.map(a => ({ ...a })), note: trimmedNote, hasStockIssue: false
+    });
     validateAndRender(); saveCart(); flashCard(item.id);
     showAddToast(variantName ? `${item.name} (${variantName})` : item.name);
 }
@@ -953,67 +1089,35 @@ function setQuantity(idx, val) {
 }
 function removeFromCart(idx) { cart.splice(idx, 1); validateAndRender(); saveCart(); }
 
-// ─── NOTES ───────────────────────────────────────────────────────
-function showNoteEditor(key, idx) {
-    document.querySelectorAll('.cart-item-note-editor').forEach(el => {
-        if (el.getAttribute('data-note-editor') !== key) el.style.display = 'none';
-    });
-    document.querySelectorAll('[data-note-display]').forEach(el => {
-        if (el.getAttribute('data-note-display') !== key) el.style.display = '';
-    });
-    const display = document.querySelector(`[data-note-display="${key}"]`);
-    const editor  = document.querySelector(`[data-note-editor="${key}"]`);
-    if (display) display.style.display = 'none';
-    if (editor) {
-        editor.style.display = 'block';
-        const ta = editor.querySelector('textarea');
-        if (ta) { ta.value = cart[idx]?.note || ''; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-    }
-}
-function saveNote(key, idx) {
-    const editor = document.querySelector(`[data-note-editor="${key}"]`);
-    const ta = editor?.querySelector('textarea');
-    if (!ta) return;
-    cart[idx].note = ta.value.trim();
-    saveCart(); renderCart();
-}
-function cancelNoteEdit(key) {
-    const editor  = document.querySelector(`[data-note-editor="${key}"]`);
-    const display = document.querySelector(`[data-note-display="${key}"]`);
-    if (editor)  editor.style.display  = 'none';
-    if (display) display.style.display = '';
-}
-function handleNoteKeydown(e, key, idx) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(key, idx); }
-    if (e.key === 'Escape') cancelNoteEdit(key);
-}
-
 // ─── RENDER ──────────────────────────────────────────────────────
 function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-function buildCartItemHTML(row, idx, containerKey) {
-    const key = `${containerKey}_${idx}`;
-    const addonsTotal = row.addons.reduce((s,a) => s + a.price * a.quantity, 0);
-    const lineTotal   = (row.price + addonsTotal) * row.quantity;
-    const hasIssue    = row.hasStockIssue === true;
-    const note        = row.note || '';
+
+function buildCartItemHTML(row, idx) {
+    const addonsTotal  = row.addons.reduce((s,a) => s + a.price * a.quantity, 0);
+    const lineTotal    = (row.price + addonsTotal) * row.quantity;
+    const hasIssue     = row.hasStockIssue === true;
+    const note         = row.note || '';
     const variantLabel = row.variantName
         ? `<div class="cart-item-variant"><i class="fas fa-layer-group"></i>${escHtml(row.variantName)}</div>` : '';
+
+    // Note display: show below item name if note exists
     const noteDisplay = note
-        ? `<div class="cart-item-note" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span class="cart-item-note-text">${escHtml(note)}</span></div>`
-        : `<button class="cart-item-note-empty" data-note-display="${key}" onclick="showNoteEditor('${key}',${idx})"><i class="fas fa-pen-to-square"></i><span>Add note…</span></button>`;
-    const noteEditor = `<div class="cart-item-note-editor" data-note-editor="${key}" style="display:none">
-        <textarea rows="2" maxlength="300" placeholder="e.g. No sugar, extra hot…" onkeydown="handleNoteKeydown(event,'${key}',${idx})"></textarea>
-        <div class="note-actions">
-            <button class="note-cancel-btn" onclick="cancelNoteEdit('${key}')">Cancel</button>
-            <button class="note-save-btn" onclick="saveNote('${key}',${idx})"><i class="fas fa-check me-1"></i>Save</button>
-        </div>
-    </div>`;
-    const minusIcon = row.quantity <= 1
-        ? `<i class="fas fa-trash-alt"></i>`
-        : `<i class="fas fa-minus"></i>`;
-    const minusBtnClass = row.quantity <= 1 ? 'qty-btn qty-remove' : 'qty-btn';
+        ? `<div style="display:flex;align-items:flex-start;gap:0.4rem;margin:0.3rem 0 0;padding:0.3rem 0.5rem;background:rgba(0,0,0,0.03);border-radius:6px;font-size:0.76rem;color:var(--warm-gray);">
+               <i class="fas fa-pen-to-square" style="margin-top:2px;flex-shrink:0;color:var(--secondary);font-size:0.7rem;"></i>
+               <span style="flex:1;word-break:break-word;line-height:1.4;">${escHtml(note)}</span>
+           </div>` : '';
+
+    // Note button: always visible per item
+    const noteBtn = `<button
+        onclick="openNoteModal(${idx})"
+        style="display:inline-flex;align-items:center;gap:0.3rem;margin-top:0.4rem;padding:0.18rem 0.6rem;font-size:0.72rem;font-weight:600;color:var(--secondary);background:transparent;border:1px solid currentColor;border-radius:20px;cursor:pointer;line-height:1.5;font-family:inherit;">
+        <i class="fas fa-${note ? 'pen' : 'plus'}" style="font-size:0.65rem;"></i>${note ? 'Edit Note' : 'Add Note'}
+    </button>`;
+
+    const minusIcon    = row.quantity <= 1 ? `<i class="fas fa-trash-alt"></i>` : `<i class="fas fa-minus"></i>`;
+    const minusBtnCls  = row.quantity <= 1 ? 'qty-btn qty-remove' : 'qty-btn';
 
     return `<div class="cart-item ${hasIssue ? 'insufficient-stock' : ''}">
         <div class="cart-item-top">
@@ -1025,21 +1129,22 @@ function buildCartItemHTML(row, idx, containerKey) {
             <button class="cart-item-remove" onclick="removeFromCart(${idx})" title="Remove"><i class="fas fa-times-circle"></i></button>
         </div>
         ${row.addons.length ? `<div class="addon-item">${row.addons.map(a => `+${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ''} ₱${(a.price*a.quantity).toFixed(2)}`).join(' · ')}</div>` : ''}
-        ${noteDisplay}${noteEditor}
+        ${noteDisplay}
+        ${noteBtn}
         ${hasIssue ? `<div class="stock-warning-danger"><i class="fas fa-exclamation-circle"></i>Exceeds available stock</div>` : ''}
         <div class="cart-item-qty">
-            <button class="${minusBtnClass}" onclick="updateQuantity(${idx},-1)">${minusIcon}</button>
+            <button class="${minusBtnCls}" onclick="updateQuantity(${idx},-1)">${minusIcon}</button>
             <input type="number" class="qty-input" value="${row.quantity}" min="1" onchange="setQuantity(${idx},this.value)">
-            <button class="qty-btn" onclick="updateQuantity(${idx},1)" ${hasIssue?'disabled':''}><i class="fas fa-plus"></i></button>
+            <button class="qty-btn" onclick="updateQuantity(${idx},1)" ${hasIssue ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
         </div>
     </div>`;
 }
 
 function updateCheckoutButtonLabel() {
-    const total = cart.reduce((s,r) => s + (r.price + r.addons.reduce((a,b) => a + b.price*b.quantity, 0)) * r.quantity, 0);
+    const total  = cart.reduce((s,r) => s + (r.price + r.addons.reduce((a,b) => a + b.price*b.quantity, 0)) * r.quantity, 0);
     const textEl  = document.getElementById('collectPaymentBtnText');
     const textElM = document.getElementById('collectPaymentBtnTextM');
-    const label = cart.length > 0 ? `Charge ₱${total.toFixed(2)}` : 'Collect Payment';
+    const label   = cart.length > 0 ? `Charge ₱${total.toFixed(2)}` : 'Collect Payment';
     if (textEl)  textEl.textContent  = label;
     if (textElM) textElM.textContent = label;
 }
@@ -1048,13 +1153,16 @@ function renderCart() {
     const totalItems = cart.reduce((s,r) => s + r.quantity, 0);
     const total      = cart.reduce((s,r) => s + (r.price + r.addons.reduce((a,b) => a + b.price*b.quantity, 0)) * r.quantity, 0);
     const emptyHTML  = `<div class="empty-cart"><div class="empty-cart-icon"><i class="fas fa-shopping-cart"></i></div><p>Cart is empty</p><small>Tap a menu item to add it</small></div>`;
-    [{ id: 'cartItems', key: 'desk' }, { id: 'cartItemsMobile', key: 'mob' }].forEach(({ id, key }) => {
+
+    [{ id: 'cartItems' }, { id: 'cartItemsMobile' }].forEach(({ id }) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.innerHTML = cart.length ? cart.map((r,i) => buildCartItemHTML(r,i,key)).join('') : emptyHTML;
+        el.innerHTML = cart.length ? cart.map((r,i) => buildCartItemHTML(r,i)).join('') : emptyHTML;
     });
+
     const upd = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
     const showCart = cart.length > 0;
+
     ['cartCountPill','cartCountPillM'].forEach(id => {
         const el = document.getElementById(id); if (!el) return;
         el.textContent = totalItems > 99 ? '99+' : totalItems;
@@ -1069,6 +1177,7 @@ function renderCart() {
     upd('collectPaymentBtnM',     el => { el.classList.toggle('d-none', !showCart); el.disabled = hasStockIssues; });
     upd('submitDisabledMessageM', el => el.classList.toggle('d-none', !hasStockIssues || !showCart));
     if (showCart) upd('totalM', el => el.textContent = `₱${total.toFixed(2)}`);
+
     const badge  = document.getElementById('mobileBadge');
     const mCount = document.getElementById('mobileCartCount');
     const mTotal = document.getElementById('mobileCartTotal');
@@ -1083,15 +1192,17 @@ function renderCart() {
         if (mTotal) mTotal.textContent = '₱0.00';
     }
     if (mBtn) mBtn.disabled = hasStockIssues || !showCart;
+
     const cartCounts = {};
     cart.forEach(r => { cartCounts[r.id] = (cartCounts[r.id] || 0) + r.quantity; });
     document.querySelectorAll('.menu-item-card').forEach(card => {
-        const id   = card.dataset.itemId;
-        const cnt  = cartCounts[id] || 0;
-        const bdg  = document.getElementById(`cartBadge_${id}`);
+        const id  = card.dataset.itemId;
+        const cnt = cartCounts[id] || 0;
+        const bdg = document.getElementById(`cartBadge_${id}`);
         if (bdg) { bdg.textContent = cnt > 0 ? cnt : ''; bdg.style.display = cnt > 0 ? 'flex' : 'none'; }
         card.classList.toggle('in-cart', cnt > 0);
     });
+
     const wrapper = document.getElementById('cartItemsWrapper');
     if (wrapper && cart.length > 0) wrapper.scrollTop = wrapper.scrollHeight;
     updateCheckoutButtonLabel();
@@ -1180,62 +1291,70 @@ document.querySelectorAll('.category-tab').forEach(tab => {
     });
 });
 
-// ─── VARIANT PICKER ──────────────────────────────────────────────
-const _variantPickerData = new Map();
-function openVariantModal(item, variants) {
-    document.getElementById('variantModalItemName').textContent = item.name;
-    _variantPickerData.clear();
-    let html = '';
-    variants.forEach((v, idx) => {
-        _variantPickerData.set(idx, { item, variant: v });
-        const vStock   = stockData[item.id]?.variants?.[v.variant_id];
-        const hasStock = vStock?.has_stock  ?? false;
-        const noRecipe = vStock?.no_recipe  ?? false;
-        const maxQty   = vStock?.max_quantity ?? 0;
-        const isAvailable = hasStock && !noRecipe;
-        const outCls   = isAvailable ? '' : 'out-of-stock-variant';
-        const clickAttr = isAvailable ? `onclick="selectVariant(${idx})"` : '';
-        let badge = '';
-        if (noRecipe)       badge = '<span class="badge bg-secondary ms-2">Unavailable</span>';
-        else if (!hasStock) badge = '<span class="badge bg-danger ms-2">Out of Stock</span>';
-        else if (maxQty < 10) badge = `<span class="badge bg-warning text-dark ms-2">Only ${maxQty} left</span>`;
-        html += `<div class="variant-option ${outCls}" ${clickAttr}>
-            <div><span class="variant-name">${escHtml(v.variant_name)}</span>${badge}</div>
-            <span class="variant-price">₱${parseFloat(v.price).toFixed(2)}</span>
-        </div>`;
-    });
-    document.getElementById('variantList').innerHTML = html;
-    showModal('variantModal');
-}
-function selectVariant(idx) {
-    const entry = _variantPickerData.get(idx);
-    if (!entry) return;
-    const { item, variant } = entry;
-    hideModal('variantModal');
-    const resolvedItem = { ...item, price: parseFloat(variant.price) };
-    setTimeout(() => openAddonsModal(resolvedItem, variant.variant_id, variant.variant_name), 200);
-}
-
-// ─── ADDONS MODAL ────────────────────────────────────────────────
-function openAddonsModal(item, variantId, variantName) {
+// ─── CUSTOMIZE MODAL (variants embedded + addons) ─────────────────
+function openCustomizeModal(item, variants) {
     currentItem        = item;
-    currentVariantId   = variantId   ?? null;
-    currentVariantName = variantName ?? null;
+    currentVariantId   = null;
+    currentVariantName = null;
+
     const activeAddons = (addonsMap[item.id] || []).filter(a => a.is_active);
-    const stockKey = (variantId !== null && variantId !== undefined)
-        ? stockData[item.id]?.variants?.[variantId]
-        : stockData[item.id]?.base;
-    const maxQty = stockKey?.max_quantity ?? 0;
+    const hasVariants  = variants && variants.length > 0;
+
+    document.getElementById('addonsModalLabel').innerHTML =
+        `<i class="fas fa-utensils" style="color:var(--secondary);"></i>${escHtml(item.name)}`;
+
     let html = '';
+
+    // ── Embedded size/variant picker ──
+    if (hasVariants) {
+        html += `<div style="margin-bottom:1rem;">
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--warm-gray);margin-bottom:0.6rem;">
+                <i class="fas fa-layer-group me-1"></i>Choose Size <span class="text-danger">*</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.4rem;">`;
+
+        variants.forEach((v, idx) => {
+            const vStock      = stockData[item.id]?.variants?.[v.variant_id];
+            const hasStock    = vStock?.has_stock  ?? false;
+            const noRecipe    = vStock?.no_recipe  ?? false;
+            const maxQty      = vStock?.max_quantity ?? 0;
+            const isAvailable = hasStock && !noRecipe;
+
+            let badgeHtml = '';
+            if (noRecipe)         badgeHtml = '<span class="badge bg-secondary ms-2" style="font-size:0.67rem;">Unavailable</span>';
+            else if (!hasStock)   badgeHtml = '<span class="badge bg-danger ms-2" style="font-size:0.67rem;">Out of Stock</span>';
+            else if (maxQty < 10) badgeHtml = `<span class="badge bg-warning text-dark ms-2" style="font-size:0.67rem;">Only ${maxQty} left</span>`;
+
+            html += `<label style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.85rem;border:1.5px solid var(--border);border-radius:10px;cursor:${isAvailable ? 'pointer' : 'not-allowed'};gap:0.5rem;opacity:${isAvailable ? '1' : '0.5'};transition:border-color 0.15s,background 0.15s;" id="vrlabel_${idx}" ${isAvailable ? `onclick="selectVariantInModal(${idx})"` : ''}>
+                <div style="display:flex;align-items:center;gap:0.5rem;flex:1;">
+                    <input type="radio" name="variantPick" id="vr_${idx}"
+                        value="${v.variant_id}"
+                        data-variant-name="${escHtml(v.variant_name)}"
+                        data-variant-price="${v.price}"
+                        data-variant-idx="${idx}"
+                        ${!isAvailable ? 'disabled' : ''}
+                        onchange="onVariantRadioChange(this)"
+                        style="accent-color:var(--primary);width:15px;height:15px;flex-shrink:0;cursor:pointer;">
+                    <span style="font-weight:600;font-size:0.9rem;color:var(--navy);">${escHtml(v.variant_name)}</span>
+                    ${badgeHtml}
+                </div>
+                <span style="font-weight:700;color:var(--primary);font-size:0.9rem;white-space:nowrap;">₱${parseFloat(v.price).toFixed(2)}</span>
+            </label>`;
+        });
+
+        html += `</div></div><hr style="margin:0.5rem 0 0.85rem;border-color:var(--border);">`;
+    }
+
+    // ── Add-ons ──
     if (activeAddons.length > 0) {
-        document.getElementById('addonsModalLabel').innerHTML =
-            `<i class="fas fa-plus-circle" style="color:var(--secondary);"></i>Customize: ${escHtml(item.name)}` +
-            (variantName ? ` <small class="text-muted">(${escHtml(variantName)})</small>` : '');
-        html += `<div class="mb-3"><h6 class="fw-bold mb-2" style="font-size:0.75rem;text-transform:uppercase;color:var(--warm-gray);letter-spacing:0.8px;">Available Add-ons</h6>`;
+        html += `<div style="margin-bottom:1rem;">
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--warm-gray);margin-bottom:0.55rem;">
+                <i class="fas fa-plus-circle me-1"></i>Add-ons <span style="font-weight:400;opacity:0.7;">(optional)</span>
+            </div>`;
         activeAddons.forEach(addon => {
-            const as = addonStockData[addon.addon_id] || {};
+            const as   = addonStockData[addon.addon_id] || {};
             const hasStk = (as.max_quantity ?? 0) > 0;
-            const maxA = as.max_quantity ?? 0;
+            const maxA   = as.max_quantity ?? 0;
             html += `<div class="addon-checkbox ${!hasStk ? 'opacity-50' : ''}">
                 <input type="checkbox" id="addon_${addon.addon_id}" value="${addon.addon_id}"
                        data-name="${escHtml(addon.addon_name)}" data-price="${addon.price}"
@@ -1251,33 +1370,93 @@ function openAddonsModal(item, variantId, variantName) {
             </div>`;
         });
         html += `</div>`;
-    } else {
-        document.getElementById('addonsModalLabel').innerHTML =
-            `<i class="fas fa-utensils" style="color:var(--secondary);"></i>${escHtml(item.name)}` +
-            (variantName ? ` <small class="text-muted">(${escHtml(variantName)})</small>` : '');
+    } else if (!hasVariants) {
+        // Simple item — no variants, no addons
         html += `<div class="text-center py-2">
             <div class="modal-icon primary mb-2"><i class="fas fa-utensils"></i></div>
             <p class="fw-bold mb-1">${escHtml(item.name)}</p>
-            ${variantName ? `<p class="text-muted small mb-1">${escHtml(variantName)}</p>` : ''}
             <p class="text-success fw-bold">₱${item.price.toFixed(2)}</p>
         </div>`;
     }
-    html += `<div class="p-3 rounded-3 mb-0" style="background:var(--light-bg);">
+
+    // ── Quantity section ──
+    const initMaxQty = hasVariants ? 0 : (stockData[item.id]?.base?.max_quantity ?? 0);
+    html += `<div class="p-3 rounded-3 mb-0" style="background:var(--light-bg);" id="qtySection">
         <label class="form-label">Quantity</label>
         <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="decModalQty()">−</button>
-            <input type="number" id="modalItemQty" class="form-control text-center fw-bold" value="1" min="1" max="${maxQty}" style="width:75px">
-            <button class="btn btn-outline-secondary btn-sm px-3" type="button" onclick="incModalQty()">+</button>
+            <button class="btn btn-outline-secondary btn-sm px-3" type="button" id="qtyDecBtn" onclick="decModalQty()" ${hasVariants ? 'disabled' : ''}>−</button>
+            <input type="number" id="modalItemQty" class="form-control text-center fw-bold"
+                   value="1" min="1" max="${initMaxQty}" style="width:75px" ${hasVariants ? 'disabled' : ''}>
+            <button class="btn btn-outline-secondary btn-sm px-3" type="button" id="qtyIncBtn" onclick="incModalQty()" ${hasVariants ? 'disabled' : ''}>+</button>
         </div>
-        <div class="text-muted mt-1" style="font-size:0.72rem;">Max available: ${maxQty}</div>
+        <div class="text-muted mt-1" style="font-size:0.72rem;" id="maxQtyHint">
+            ${hasVariants ? 'Select a size first' : `Max available: ${initMaxQty}`}
+        </div>
     </div>
     <div class="note-field-wrapper">
         <div class="note-field-label"><i class="fas fa-pen-to-square"></i>Order Note <span style="font-weight:400;opacity:0.65">(optional)</span></div>
         <textarea id="modalItemNote" rows="2" maxlength="300" placeholder="e.g. No sugar, less ice, extra hot…"></textarea>
         <div class="note-field-hint"><i class="fas fa-circle-info me-1"></i>Max 300 characters</div>
     </div>`;
-    document.getElementById('addonsContent').innerHTML = html;
+
+document.getElementById('addonsContent').innerHTML = html;
+    const noteField = document.getElementById('modalItemNote');
+    if (noteField) noteField.value = '';
+    document.getElementById('addToCartBtn').disabled = hasVariants;
+
     showModal('addonsModal');
+
+    document.getElementById('addonsModal').addEventListener('shown.bs.modal', function handler() {
+        this.removeEventListener('shown.bs.modal', handler);
+        const modalBody = document.getElementById('addonsContent');
+        const ta = document.getElementById('modalItemNote');
+        if (!ta || !modalBody) return;
+        // Scroll the modal-body (the scrollable container) to bottom so note field is visible
+        const scrollable = modalBody.closest('.modal-body');
+        if (scrollable) scrollable.scrollTop = scrollable.scrollHeight;
+        // Defeat Bootstrap's focus trap with a slightly delayed focus
+        requestAnimationFrame(() => requestAnimationFrame(() => ta.focus()));
+    }, { once: true });
+}
+
+function selectVariantInModal(idx) {
+    const radio = document.getElementById(`vr_${idx}`);
+    if (!radio || radio.disabled) return;
+    radio.checked = true;
+    onVariantRadioChange(radio);
+}
+
+function onVariantRadioChange(radio) {
+    const variantId   = parseInt(radio.value);
+    const variantName = radio.dataset.variantName;
+    const price       = parseFloat(radio.dataset.variantPrice);
+    const variantIdx  = parseInt(radio.dataset.variantIdx);
+
+    currentVariantId   = variantId;
+    currentVariantName = variantName;
+    currentItem        = { ...currentItem, price };
+
+    // Highlight selected row
+    document.querySelectorAll('label[id^="vrlabel_"]').forEach((lbl, i) => {
+        const sel = i === variantIdx;
+        lbl.style.borderColor = sel ? 'var(--primary)'                  : 'var(--border)';
+        lbl.style.background  = sel ? 'rgba(15,76,92,0.05)'             : '';
+        lbl.style.boxShadow   = sel ? '0 0 0 2px rgba(15,76,92,0.12)'   : '';
+    });
+
+    // Update qty controls
+    const vStock  = stockData[currentItem.id]?.variants?.[variantId];
+    const maxQty  = vStock?.max_quantity ?? 0;
+    const qtyIn   = document.getElementById('modalItemQty');
+    const decBtn  = document.getElementById('qtyDecBtn');
+    const incBtn  = document.getElementById('qtyIncBtn');
+    const hint    = document.getElementById('maxQtyHint');
+    if (qtyIn)  { qtyIn.max = maxQty; qtyIn.value = 1; qtyIn.disabled = false; }
+    if (decBtn)   decBtn.disabled = false;
+    if (incBtn)   incBtn.disabled = false;
+    if (hint)     hint.textContent = `Max available: ${maxQty}`;
+
+    document.getElementById('addToCartBtn').disabled = false;
 }
 
 // ─── MENU ITEM CLICK ─────────────────────────────────────────────
@@ -1290,32 +1469,35 @@ document.querySelectorAll('.menu-item-card').forEach(card => {
         const catId     = parseInt(this.dataset.categoryId);
         const variants  = variantsMap[itemId] || [];
         const item      = { id: itemId, name: itemName, price: basePrice, categoryId: catId };
-
-        if (variants.length > 0) {
-            openVariantModal(item, variants);
-            return;
-        }
-
         const activeAddons = (addonsMap[itemId] || []).filter(a => a.is_active);
 
-        if (activeAddons.length === 0) {
+        // No variants and no addons: add directly (1 qty, no note)
+        if (variants.length === 0 && activeAddons.length === 0) {
             const c = checkCanAdd(itemId, 1, [], null);
             if (!c.success) { showStockErrorModal(`Cannot add "${itemName}" — exceeds stock`, c.missingIngredients); return; }
             addToCartWithQuantity(item, [], 1, '', null, null);
             return;
         }
 
-        currentVariantId = null; currentVariantName = null;
-        openAddonsModal(item, null, null);
+        // Open combined customize modal
+        openCustomizeModal(item, variants);
     });
 });
-function decModalQty() { const i = document.getElementById('modalItemQty'); if (i && +i.value > 1) i.value = +i.value - 1; }
-function incModalQty() { const i = document.getElementById('modalItemQty'); if (i && +i.value < +i.max) i.value = +i.value + 1; }
+
+function decModalQty() {
+    const i = document.getElementById('modalItemQty');
+    if (i && !i.disabled && +i.value > 1) i.value = +i.value - 1;
+}
+function incModalQty() {
+    const i = document.getElementById('modalItemQty');
+    if (i && !i.disabled && +i.value < +i.max) i.value = +i.value + 1;
+}
 function toggleAddonQty(id) {
-    const cb = document.getElementById(`addon_${id}`);
+    const cb  = document.getElementById(`addon_${id}`);
     const ctl = document.getElementById(`qty_${id}`);
     if (ctl) ctl.style.display = cb.checked ? 'flex' : 'none';
 }
+
 document.getElementById('addToCartBtn').addEventListener('click', () => {
     const qty  = Math.max(1, parseInt(document.getElementById('modalItemQty')?.value) || 1);
     const note = (document.getElementById('modalItemNote')?.value || '').trim();
@@ -1325,6 +1507,13 @@ document.getElementById('addToCartBtn').addEventListener('click', () => {
             price: parseFloat(cb.dataset.price),
             quantity: parseInt(document.getElementById(`qty_input_${cb.value}`)?.value) || 1
         }));
+
+    const variants = variantsMap[currentItem?.id] || [];
+    if (variants.length > 0 && currentVariantId === null) {
+        showErrorModal('Size Required', 'Please choose a size before adding to cart.');
+        return;
+    }
+
     const c = checkCanAdd(currentItem.id, qty, adds, currentVariantId);
     if (!c.success) { showStockErrorModal(`Cannot add "${currentItem.name}" — exceeds stock`, c.missingIngredients); return; }
     addToCartWithQuantity(currentItem, adds, qty, note, currentVariantId, currentVariantName);
@@ -1343,31 +1532,23 @@ function collectOrderData() {
         : document.getElementById('table_id');
     return { orderType, customerName, tableId: tableIdEl?.value || '' };
 }
+
 // ─── DISCOUNT ────────────────────────────────────────────────────────
-let _discountType   = 'none';
-let _discountPct    = 0;
-let _discountAmount = 0;
+let _discountType    = 'none';
+let _discountPct     = 0;
+let _discountAmount  = 0;
 let _discountedTotal = 0;
-let _discountRef    = '';
+let _discountRef     = '';
 
 function setDiscountType(type) {
-    _discountType   = type;
-    _discountPct    = 0;
-    _discountAmount = 0;
-    _discountedTotal = _pmTotal;
-    _discountRef    = '';
-
-    document.querySelectorAll('.pm-disc-btn[data-type]').forEach(b => {
-        b.classList.toggle('active', b.dataset.type === type);
-    });
-
+    _discountType = type; _discountPct = 0; _discountAmount = 0;
+    _discountedTotal = _pmTotal; _discountRef = '';
+    document.querySelectorAll('.pm-disc-btn[data-type]').forEach(b => b.classList.toggle('active', b.dataset.type === type));
     document.getElementById('pmDiscRefWrap').style.display   = (type === 'senior' || type === 'pwd') ? '' : 'none';
     document.getElementById('pmDiscPromoWrap').style.display = type === 'promo' ? '' : 'none';
     document.getElementById('pmDiscApplied').style.display   = 'none';
-    if (document.getElementById('pmDiscRef')) document.getElementById('pmDiscRef').value = '';
+    if (document.getElementById('pmDiscRef'))      document.getElementById('pmDiscRef').value      = '';
     if (document.getElementById('pmDiscPromoPct')) document.getElementById('pmDiscPromoPct').value = '';
-
-    // Reset total display back to base when switching types
     document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
     buildQuickAmounts(_pmTotal);
     const cashInput = document.getElementById('pmCashInput');
@@ -1375,47 +1556,30 @@ function setDiscountType(type) {
     updateChangeDisplay(paid, cashInput.value !== '');
     document.getElementById('pmConfirmBtn').disabled = paid < _pmTotal;
     renderVatBreakdown();
-
-    if (type === 'none') {
-        resetDiscountedTotal();
-    }
-    // Senior/PWD: do NOT auto-apply — wait for user to enter ID and click Apply
+    if (type === 'none') resetDiscountedTotal();
 }
 
 async function applyFixedDiscount(type) {
     const ref = document.getElementById('pmDiscRef')?.value.trim() || '';
-    const payload = new URLSearchParams({
-        discount_type: type,
-        reference_no:  ref,
-        subtotal:      _pmTotal.toFixed(2),
-    });
+    const payload = new URLSearchParams({ discount_type: type, reference_no: ref, subtotal: _pmTotal.toFixed(2) });
     try {
         const res  = await fetch('index.php?page=ajax_apply_discount', { method: 'POST', body: payload });
         const data = await res.json();
         if (!data.success) { showErrorModal('Discount Error', data.message); return; }
         applyDiscountResult(data);
-    } catch(e) {
-        showErrorModal('Discount Error', 'Could not compute discount. Try again.');
-    }
+    } catch(e) { showErrorModal('Discount Error', 'Could not compute discount. Try again.'); }
 }
 
 async function applyPromoDiscount() {
     const pct = parseFloat(document.getElementById('pmDiscPromoPct')?.value) || 0;
     if (pct <= 0 || pct > 100) { showErrorModal('Invalid %', 'Enter a promo percentage between 1 and 100.'); return; }
-    const payload = new URLSearchParams({
-        discount_type: 'promo',
-        reference_no:  '',
-        subtotal:      _pmTotal.toFixed(2),
-        promo_pct:     pct,
-    });
+    const payload = new URLSearchParams({ discount_type: 'promo', reference_no: '', subtotal: _pmTotal.toFixed(2), promo_pct: pct });
     try {
         const res  = await fetch('index.php?page=ajax_apply_discount', { method: 'POST', body: payload });
         const data = await res.json();
         if (!data.success) { showErrorModal('Discount Error', data.message); return; }
         applyDiscountResult(data);
-    } catch(e) {
-        showErrorModal('Discount Error', 'Could not compute discount. Try again.');
-    }
+    } catch(e) { showErrorModal('Discount Error', 'Could not compute discount. Try again.'); }
 }
 
 function applyDiscountResult(data) {
@@ -1423,33 +1587,24 @@ function applyDiscountResult(data) {
     _discountAmount  = data.discount_amount;
     _discountedTotal = data.total_after;
     _discountRef     = data.reference_no || '';
-
     const label = _discountType === 'senior' ? `Senior Citizen (${_discountPct}%)`
                 : _discountType === 'pwd'    ? `PWD (${_discountPct}%)`
                 : `Promo (${_discountPct}%)`;
-
     document.getElementById('pmDiscAppliedLabel').textContent = label;
     document.getElementById('pmDiscAppliedAmt').textContent   = `-₱${_discountAmount.toFixed(2)}`;
     document.getElementById('pmDiscNewTotal').textContent     = `₱${_discountedTotal.toFixed(2)}`;
-    document.getElementById('pmDiscApplied').style.display   = '';
-
-    // Update the total display and recalculate change
-    document.getElementById('pmTotalAmount').textContent = _discountedTotal.toFixed(2);
+    document.getElementById('pmDiscApplied').style.display    = '';
+    document.getElementById('pmTotalAmount').textContent      = _discountedTotal.toFixed(2);
     const cashInput = document.getElementById('pmCashInput');
     const paid = parseFloat(cashInput.value) || 0;
     updateChangeDisplay(paid, cashInput.value !== '');
     document.getElementById('pmConfirmBtn').disabled = paid < _discountedTotal;
-
-    // Rebuild quick amounts based on new total
     buildQuickAmounts(_discountedTotal);
     renderVatBreakdown(data);
 }
 
 function resetDiscountedTotal() {
-    _discountPct     = 0;
-    _discountAmount  = 0;
-    _discountedTotal = _pmTotal;
-    _discountRef     = '';
+    _discountPct = 0; _discountAmount = 0; _discountedTotal = _pmTotal; _discountRef = '';
     document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
     buildQuickAmounts(_pmTotal);
     const cashInput = document.getElementById('pmCashInput');
@@ -1462,34 +1617,26 @@ function resetDiscountedTotal() {
 function renderVatBreakdown(vatData = null) {
     const wrap = document.getElementById('pmVatBreakdown');
     if (!wrap) return;
-
-    if (!POS_IS_VAT_REGISTERED) {
-        wrap.style.display = 'none';
-        return;
-    }
-
+    if (!POS_IS_VAT_REGISTERED) { wrap.style.display = 'none'; return; }
     const rate = parseFloat(POS_VAT_RATE) || 0;
-    let vatableSales = 0;
-    let vatAmount = 0;
-    let vatExemptSales = 0;
-
+    let vatableSales = 0, vatAmount = 0, vatExemptSales = 0;
     if (vatData) {
-        vatableSales = parseFloat(vatData.vatable_sales ?? 0) || 0;
-        vatAmount = parseFloat(vatData.vat_amount ?? 0) || 0;
-        vatExemptSales = parseFloat(vatData.vat_exempt ?? 0) || 0;
+        vatableSales   = parseFloat(vatData.vatable_sales ?? 0) || 0;
+        vatAmount      = parseFloat(vatData.vat_amount    ?? 0) || 0;
+        vatExemptSales = parseFloat(vatData.vat_exempt    ?? 0) || 0;
     } else {
         const divisor = 1 + (rate / 100);
-        vatableSales = Math.round((_pmTotal / divisor) * 100) / 100;
-        vatAmount = Math.round((_pmTotal - vatableSales) * 100) / 100;
+        vatableSales  = Math.round((_pmTotal / divisor) * 100) / 100;
+        vatAmount     = Math.round((_pmTotal - vatableSales) * 100) / 100;
     }
-
-    document.getElementById('pmVatRateLabel').textContent = rate.toString();
-    document.getElementById('pmVatableSales').textContent = `₱${vatableSales.toFixed(2)}`;
-    document.getElementById('pmVatAmount').textContent = `₱${vatAmount.toFixed(2)}`;
+    document.getElementById('pmVatRateLabel').textContent   = rate.toString();
+    document.getElementById('pmVatableSales').textContent   = `₱${vatableSales.toFixed(2)}`;
+    document.getElementById('pmVatAmount').textContent      = `₱${vatAmount.toFixed(2)}`;
     document.getElementById('pmVatExemptSales').textContent = `₱${vatExemptSales.toFixed(2)}`;
     document.getElementById('pmVatExemptRow').style.display = vatExemptSales > 0 ? 'flex' : 'none';
     wrap.style.display = 'block';
 }
+
 // ─── PAYMENT MODAL ───────────────────────────────────────────────
 let _pmTotal = 0;
 function openPaymentModal() {
@@ -1497,14 +1644,16 @@ function openPaymentModal() {
     const fc = validateCumulative(cart);
     if (!fc.success) { showStockErrorModal('Cannot proceed — stock exceeded', fc.missingIngredients); return; }
     const { orderType, customerName, tableId } = collectOrderData();
-    if (!orderType) { showErrorModal('Order Type Required', 'Please select an order type.'); return; }
-    if (!customerName || customerName.trim() === '') { showErrorModal('Customer Name Required', 'Please enter a customer name.'); return; }
-    if (orderType === 'dine_in' && !tableId) { showErrorModal('Table Required', 'Please select a table for dine-in orders.'); return; }
+    if (!orderType)                               { showErrorModal('Order Type Required',    'Please select an order type.');               return; }
+    if (!customerName || !customerName.trim())    { showErrorModal('Customer Name Required', 'Please enter a customer name.');              return; }
+    if (orderType === 'dine_in' && !tableId)      { showErrorModal('Table Required',         'Please select a table for dine-in orders.'); return; }
     if (isMobile()) closeCartDrawer();
+
     _pmTotal = cart.reduce((s,r) => s + (r.price + r.addons.reduce((a,b) => a + b.price*b.quantity, 0)) * r.quantity, 0);
     const totalItems = cart.reduce((s,r) => s + r.quantity, 0);
     document.getElementById('pmOrderSummaryLine').textContent =
         `${totalItems} item${totalItems !== 1 ? 's' : ''} · ${orderType === 'dine_in' ? 'Dine In' : 'Take Out'}`;
+
     const summaryEl = document.getElementById('pmSummaryItems');
     let summaryHTML = '';
     cart.forEach(row => {
@@ -1514,26 +1663,24 @@ function openPaymentModal() {
         row.addons.forEach(a => {
             summaryHTML += `<div class="pm-summary-item-row" style="padding-left:12px;opacity:0.7;"><span class="pm-summary-item-name">+ ${escHtml(a.name)}</span><span class="pm-summary-item-price">₱${(a.price*a.quantity).toFixed(2)}</span></div>`;
         });
+        if (row.note) {
+            summaryHTML += `<div class="pm-summary-item-row" style="padding-left:12px;opacity:0.6;font-size:0.77rem;font-style:italic;"><span><i class="fas fa-pen-to-square me-1"></i>${escHtml(row.note)}</span></div>`;
+        }
     });
     summaryHTML += `<hr class="pm-summary-divider"><div class="pm-summary-item-row" style="font-weight:700;"><span>Total</span><span>₱${_pmTotal.toFixed(2)}</span></div>`;
     summaryEl.innerHTML = summaryHTML;
     document.getElementById('pmTotalAmount').textContent = _pmTotal.toFixed(2);
-    // Reset discount state
-_discountType   = 'none';
-_discountPct    = 0;
-_discountAmount = 0;
-_discountedTotal = _pmTotal;
-_discountRef    = '';
-document.querySelectorAll('.pm-disc-btn[data-type]').forEach(b => {
-    b.classList.toggle('active', b.dataset.type === 'none');
-});
-document.getElementById('pmDiscRefWrap').style.display   = 'none';
-document.getElementById('pmDiscPromoWrap').style.display = 'none';
-document.getElementById('pmDiscApplied').style.display   = 'none';
-if (document.getElementById('pmDiscRef'))     document.getElementById('pmDiscRef').value     = '';
-if (document.getElementById('pmDiscPromoPct')) document.getElementById('pmDiscPromoPct').value = '';
-    renderVatBreakdown();
 
+    // Reset discount
+    _discountType = 'none'; _discountPct = 0; _discountAmount = 0; _discountedTotal = _pmTotal; _discountRef = '';
+    document.querySelectorAll('.pm-disc-btn[data-type]').forEach(b => b.classList.toggle('active', b.dataset.type === 'none'));
+    document.getElementById('pmDiscRefWrap').style.display   = 'none';
+    document.getElementById('pmDiscPromoWrap').style.display = 'none';
+    document.getElementById('pmDiscApplied').style.display   = 'none';
+    if (document.getElementById('pmDiscRef'))      document.getElementById('pmDiscRef').value      = '';
+    if (document.getElementById('pmDiscPromoPct')) document.getElementById('pmDiscPromoPct').value = '';
+
+    renderVatBreakdown();
     const cashInput = document.getElementById('pmCashInput');
     cashInput.value = ''; cashInput.className = 'pm-cash-input';
     updateChangeDisplay(0, false);
@@ -1568,89 +1715,61 @@ document.getElementById('pmCashInput')?.addEventListener('input', function() {
     document.getElementById('pmConfirmBtn').disabled = !valid;
 });
 document.getElementById('pmCashInput')?.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const btn = document.getElementById('pmConfirmBtn');
-        if (!btn.disabled) confirmPaymentAndSubmit();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('pmConfirmBtn'); if (!btn.disabled) confirmPaymentAndSubmit(); }
 });
 function updateChangeDisplay(amountPaid, hasInput) {
-    const card = document.getElementById('pmChangeCard');
+    const card    = document.getElementById('pmChangeCard');
     const valueEl = document.getElementById('pmChangeValue');
-    const iconEl = card.querySelector('.pm-change-icon i');
+    const iconEl  = card.querySelector('.pm-change-icon i');
     const effectiveTotal = (_discountAmount > 0) ? _discountedTotal : _pmTotal;
     if (!hasInput || effectiveTotal <= 0) {
-        card.className = 'pm-change-card change-none';
-        valueEl.textContent = '—'; iconEl.className = 'fas fa-coins'; return;
+        card.className = 'pm-change-card change-none'; valueEl.textContent = '—'; iconEl.className = 'fas fa-coins'; return;
     }
     const change = amountPaid - effectiveTotal;
     if (change < 0) {
-        card.className = 'pm-change-card change-err';
-        valueEl.textContent = `₱${Math.abs(change).toFixed(2)} short`;
-        iconEl.className = 'fas fa-exclamation-triangle';
+        card.className = 'pm-change-card change-err'; valueEl.textContent = `₱${Math.abs(change).toFixed(2)} short`; iconEl.className = 'fas fa-exclamation-triangle';
     } else if (change === 0) {
-        card.className = 'pm-change-card change-exact';
-        valueEl.textContent = 'No change — exact amount';
-        iconEl.className = 'fas fa-check-circle';
+        card.className = 'pm-change-card change-exact'; valueEl.textContent = 'No change — exact amount'; iconEl.className = 'fas fa-check-circle';
     } else {
-        card.className = 'pm-change-card change-ok';
-        valueEl.textContent = `₱${change.toFixed(2)}`;
-        iconEl.className = 'fas fa-hand-holding-dollar';
+        card.className = 'pm-change-card change-ok'; valueEl.textContent = `₱${change.toFixed(2)}`; iconEl.className = 'fas fa-hand-holding-dollar';
     }
 }
 
 // ─── CONFIRM PAYMENT & SUBMIT ────────────────────────────────────
 async function confirmPaymentAndSubmit() {
     if (_submitting) return;
-    const amountPaid  = parseFloat(document.getElementById('pmCashInput').value) || 0;
-const effectiveTotal = (_discountAmount > 0) ? _discountedTotal : _pmTotal;
-const changeAmt   = Math.max(0, amountPaid - effectiveTotal);
-if (amountPaid < effectiveTotal) { showErrorModal('Insufficient Amount', 'Cash tendered must be ≥ the order total.'); return; }
+    const amountPaid     = parseFloat(document.getElementById('pmCashInput').value) || 0;
+    const effectiveTotal = (_discountAmount > 0) ? _discountedTotal : _pmTotal;
+    const changeAmt      = Math.max(0, amountPaid - effectiveTotal);
+    if (amountPaid < effectiveTotal) { showErrorModal('Insufficient Amount', 'Cash tendered must be ≥ the order total.'); return; }
     const { orderType, customerName, tableId } = collectOrderData();
     const btn = document.getElementById('pmConfirmBtn');
     _submitting = true;
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing…';
     const payload = new URLSearchParams({
-    action:          'pay_and_submit',
-    customer_name:   customerName || '',
-    table_id:        orderType === 'dine_in' ? tableId : '',
-    order_type:      orderType,
-    cart_data:       JSON.stringify(cart),
-    amount_paid:     amountPaid.toFixed(2),
-    change_amount:   changeAmt.toFixed(2),
-    discount_type:   _discountType,
-    discount_ref:    _discountRef,
-    discount_pct:    _discountPct.toFixed(2),
-    discount_amount: _discountAmount.toFixed(2),
-});
+        action: 'pay_and_submit', customer_name: customerName || '',
+        table_id: orderType === 'dine_in' ? tableId : '',
+        order_type: orderType, cart_data: JSON.stringify(cart),
+        amount_paid: amountPaid.toFixed(2), change_amount: changeAmt.toFixed(2),
+        discount_type: _discountType, discount_ref: _discountRef,
+        discount_pct: _discountPct.toFixed(2), discount_amount: _discountAmount.toFixed(2),
+    });
     try {
         const resp = await fetch('index.php?page=manage_pos', {
             method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload,
         });
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Unknown error from server.');
-
-        // ── Store VAT data from server response for receipt ───────────────
         const vatData = data.vat || null;
-
         lastOrderData = {
-    orderNumber:     data.order_number,
-    orNumber:        data.or_number,
-    orderType,
-    customerName,
-    tableName:       data.table_name || '',
-    items:           [...cart],
-    total:           effectiveTotal,   // ← discounted total
-    amountPaid,
-    changeAmt,
-    cashierName:     CASHIER_NAME,
-    vat:             vatData,
-    discountType:    _discountType,
-    discountAmount:  _discountAmount,
-};
-
+            orderId: data.order_id,
+            orderNumber: data.order_number, orNumber: data.or_number,
+            orderType, customerName, tableName: data.table_name || '',
+            items: [...cart], total: effectiveTotal, amountPaid, changeAmt,
+            cashierName: CASHIER_NAME, vat: vatData,
+            discountType: _discountType, discountAmount: _discountAmount,
+        };
         renderVatBreakdown(vatData);
-
         cart = [];
         localStorage.removeItem('pos_cart');
         sessionStorage.removeItem('draft_banner_shown');
@@ -1664,9 +1783,7 @@ if (amountPaid < effectiveTotal) { showErrorModal('Insufficient Amount', 'Cash t
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirm & Place Order';
         showSuccessToast(`OR ${data.or_number} — Order placed!`);
-        if (orderType === 'dine_in') {
-            await refreshTableAvailability();
-        }
+        if (orderType === 'dine_in') await refreshTableAvailability();
         setTimeout(() => printReceiptESC(lastOrderData), 300);
         if (!isMobile()) setTimeout(() => document.getElementById('menuSearch')?.focus(), 400);
     } catch (err) {
@@ -1680,12 +1797,12 @@ if (amountPaid < effectiveTotal) { showErrorModal('Insufficient Amount', 'Cash t
 // ─── REFRESH TABLE AVAILABILITY ──────────────────────────────────
 async function refreshTableAvailability() {
     try {
-        const response = await fetch('app/ajax/get_tables.php');
+        const response = await fetch(`${AJAX_BASE}/app/ajax/get_tables.php`);
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Failed to fetch tables');
         const availableTables = data.tables.filter(table => table.status === 'available');
         ['table_id', 'table_id_m'].forEach(selectId => {
-            const select = document.getElementById(selectId);
+            const select    = document.getElementById(selectId);
             const container = select?.closest('div[id$="Container"]');
             if (!select || !container) return;
             select.innerHTML = '<option value="">— Choose a table —</option>';
@@ -1714,19 +1831,25 @@ async function refreshTableAvailability() {
                 unavailableNotice.style.display = '';
             }
         });
-    } catch (error) {
-        console.error('Error refreshing table availability:', error);
-    }
+    } catch (error) { console.error('Error refreshing table availability:', error); }
 }
 
 async function printReceiptESC(d) {
+    // Only the order id is sent — the server prints from the recorded sale so
+    // the paper always matches what was actually stored and filed.
+    const orderId = d && d.orderId ? d.orderId : null;
+    if (!orderId) { console.warn('No order id — cannot print receipt.'); return; }
     try {
         const response = await fetch('index.php?page=print_receipt', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d)
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId })
         });
         const result = await response.json();
-        if (result.status === 'no_printer') { console.log('No printer available'); }
-        else if (result.status === 'printed') { console.log('Receipt printed'); }
+        if (result.status === 'no_printer')        console.log('No printer available');
+        else if (result.status === 'printed')      console.log('Receipt printed');
+        else if (result.status === 'print_failed') showErrorModal('Printing Failed', result.message);
+        else if (result.message)                   console.warn('Print:', result.message);
     } catch (error) { console.log('Print error:', error.message); }
 }
 
@@ -1756,14 +1879,8 @@ setTimeout(() => {
 // ─── INIT ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     if (DB_DRAFT_CART?.length > 0) {
-        cart = DB_DRAFT_CART;
-        localStorage.setItem('pos_cart', JSON.stringify(cart));
-        const bannerKey = 'draft_banner_shown';
-        if (!sessionStorage.getItem(bannerKey)) {
-            document.getElementById('draftBanner')?.classList.remove('d-none');
-            document.getElementById('draftBannerM')?.classList.remove('d-none');
-            sessionStorage.setItem(bannerKey, '1');
-        }
+    cart = DB_DRAFT_CART;
+    localStorage.setItem('pos_cart', JSON.stringify(cart));
         const ot = DB_DRAFT_META?.order_type || 'dine_in';
         setOrderType(ot, 'desktop'); setOrderType(ot, 'mobile');
         if (DB_DRAFT_META?.customer_name) {
@@ -1812,9 +1929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (!isMobile()) {
-        setTimeout(() => document.getElementById('menuSearch')?.focus(), 150);
-    }
+    if (!isMobile()) setTimeout(() => document.getElementById('menuSearch')?.focus(), 150);
 
     if (isMobile()) {
         const bar = document.getElementById('mobileBottomBar'); if (bar) bar.style.display = 'flex';

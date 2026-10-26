@@ -39,42 +39,17 @@ $tab_meta = $is_admin ? [
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-<title>Reports &ndash; Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports &ndash; The Lounge by: CJV & TEK</title>
 <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
+<link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
+<script src="<?= $baseUrl ?>/assets/vendor/chartjs/chart.umd.min.js"></script>
 <style>
 /* ── TOKENS ─────────────────────────────────────────────────────────── */
-:root {
-    --primary:       #0f4c5c;
-    --primary-dark:  #0a3a47;
-    --primary-light: #1f7a8c;
-    --secondary:     #ff6b4a;
-    --accent:        #fee440;
-    --navy:          #1e2f4e;
-    --lavender:      #e2e6f0;
-    --light-bg:      #f8faff;
-    --warm-gray:     #4a5568;
-    --border:        #cbd5e0;
-    --success:       #2c7a5a;
-    --danger:        #d64045;
-    --warning:       #f4b942;
-    --info:          #5e9b9e;
-    --dark:          #1a202c;
-    --success-soft:  #eaf7ef;
-    --danger-soft:   #fdecea;
-    --warning-soft:  #fef8e7;
-    --info-soft:     rgba(94,155,158,0.1);
-    --sidebar-w:     260px;
-    --top-h:         64px;
-    --radius-sm:     8px;
-    --radius-md:     12px;
-    --radius-lg:     18px;
-    --radius-xl:     24px;
-}
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
@@ -520,11 +495,11 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
     </button>
     <a href="<?= $baseUrl ?>/index.php?page=<?= $is_admin ? 'admin_dashboard' : 'manage_pos' ?>" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -867,7 +842,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
                     <div class="co-sig-block"><div class="sig-line"></div><div class="sig-lbl">Received By (<?= $is_admin_shift ? 'Owner / Supervisor' : 'Admin / Supervisor' ?>)</div></div>
                 </div>
                 <div style="margin-top:1rem;font-size:.75rem;color:var(--warm-gray);text-align:center;">
-                    Dine with Din Cafeteria &copy; <?= date('Y') ?> &nbsp;·&nbsp; Generated <?= $now->format('h:i A') ?> (PHT)
+                    The Lounge by: CJV & TEK Cafeteria &copy; <?= date('Y') ?> &nbsp;·&nbsp; Generated <?= $now->format('h:i A') ?> (PHT)
                 </div>
             </div>
         </div>
@@ -1593,6 +1568,27 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
         </table></div><?php endif; ?>
         </div>
     </div>
+
+    <?php if (!empty($data['discounts']) && ($data['discounts_total'] ?? 0) > $limit): ?>
+    <div class="pagination-wrapper" style="margin-top: 1.5rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+        <?php
+        $total = $data['discounts_total'] ?? 0;
+        $totalPages = ceil($total / $limit);
+        $currentUrl = $_SERVER['REQUEST_URI'] ?? '';
+        $currentUrl = preg_replace('/[&?]page=\d+/', '', $currentUrl);
+        $separator = strpos($currentUrl, '?') !== false ? '&' : '?';
+        ?>
+        <span style="font-size: 0.85rem; color: var(--warm-gray);">Showing <?= min($offset + 1, $total) ?>-<?= min($offset + $limit, $total) ?> of <?= $total ?> records</span>
+        <?php if ($page > 1): ?>
+        <a href="<?= htmlspecialchars($currentUrl . $separator . 'page=' . ($page - 1)) ?>" class="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;"><i class="fas fa-chevron-left"></i> Previous</a>
+        <?php endif; ?>
+        <span style="font-weight: 600; font-size: 0.9rem;">Page <?= $page ?> of <?= $totalPages ?></span>
+        <?php if ($page < $totalPages): ?>
+        <a href="<?= htmlspecialchars($currentUrl . $separator . 'page=' . ($page + 1)) ?>" class="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Next <i class="fas fa-chevron-right"></i></a>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
     <div class="rpt-card fade-in">
         <div class="rpt-card-header">
             <div class="rpt-card-title"><i class="fas fa-cash-register"></i> Payment Reconciliation</div>
@@ -1854,6 +1850,26 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
     </div>
     </div>
 
+    <?php if (!empty($wi) && ($data['waste_total'] ?? 0) > $limit): ?>
+    <div class="pagination-wrapper" style="margin-top: 1.5rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+        <?php
+        $total = $data['waste_total'] ?? 0;
+        $totalPages = ceil($total / $limit);
+        $currentUrl = $_SERVER['REQUEST_URI'] ?? '';
+        $currentUrl = preg_replace('/[&?]page=\d+/', '', $currentUrl);
+        $separator = strpos($currentUrl, '?') !== false ? '&' : '?';
+        ?>
+        <span style="font-size: 0.85rem; color: var(--warm-gray);">Showing <?= min($offset + 1, $total) ?>-<?= min($offset + $limit, $total) ?> of <?= $total ?> records</span>
+        <?php if ($page > 1): ?>
+        <a href="<?= htmlspecialchars($currentUrl . $separator . 'page=' . ($page - 1)) ?>" class="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;"><i class="fas fa-chevron-left"></i> Previous</a>
+        <?php endif; ?>
+        <span style="font-weight: 600; font-size: 0.9rem;">Page <?= $page ?> of <?= $totalPages ?></span>
+        <?php if ($page < $totalPages): ?>
+        <a href="<?= htmlspecialchars($currentUrl . $separator . 'page=' . ($page + 1)) ?>" class="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Next <i class="fas fa-chevron-right"></i></a>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
     <?php
     // =========================================================================
     // Z-READING (admin)
@@ -2084,12 +2100,12 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg)
 
 <footer class="site-footer">
     <div class="site-footer-inner">
-        <div><strong>Copyright &copy; <?= date('Y') ?> Dine with Din &mdash; Cafeteria.</strong> All rights reserved.</div>
+        <div><strong>Copyright &copy; <?= date('Y') ?> The Lounge by: CJV & TEK &mdash; Cafeteria.</strong> All rights reserved.</div>
         <div style="font-size:0.78rem;"><b>Version</b> 1.0.0</div>
     </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
 /* ── Sidebar toggle ───────────────────────────────────────────────── */
 const menuToggle = document.getElementById('menuToggle');
@@ -2207,7 +2223,7 @@ function printCoA4() {
     }
     var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + docTitle + '</title>'
         + '<style>@page{size:A4 portrait;margin:14mm 16mm;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;}.logo{text-align:center;margin-bottom:4px;}.logo .shop{font-size:18px;font-weight:900;letter-spacing:.3px;color:#0f4c5c;}.logo .sub{font-size:9px;color:#666;margin-top:1px;}.doc-title{text-align:center;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:6px 0 2px;}.printed{text-align:center;font-size:9px;color:#888;margin-bottom:8px;}hr{border:none;border-top:1.5px solid #000;margin:6px 0;}.hero{border:2px solid #0f4c5c;border-radius:6px;padding:10px 16px;margin:8px 0 12px;display:flex;align-items:center;justify-content:space-between;}.hero .hl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#0f4c5c;}.hero .hv{font-size:22px;font-weight:900;color:#0f4c5c;}.hero .hb{text-align:right;font-size:10px;color:#555;}.hero .hb strong{display:block;font-size:13px;color:#0f4c5c;}.waste-strip{border:1px solid #d64045;border-radius:4px;padding:6px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}.waste-strip .wl{font-size:9px;font-weight:700;color:#d64045;text-transform:uppercase;}.waste-strip .wv{font-size:13px;font-weight:700;color:#d64045;}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}.box{border:1px solid #ccc;border-radius:4px;}.box-head{background:#f0f4f8;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#0f4c5c;padding:5px 8px;border-bottom:1px solid #ccc;}table.dt{width:100%;border-collapse:collapse;font-size:10px;}table.dt td{padding:4px 8px;border-bottom:1px dotted #e0e0e0;vertical-align:top;}table.dt tr:last-child td{border-bottom:none;}table.dt td.rl{color:#555;}table.dt td.rv{text-align:right;font-weight:600;color:#000;}table.dt td.rv.neg{color:#d64045;}.turnover-box{border:1.5px solid #0f4c5c;border-radius:3px;padding:5px 8px;display:flex;justify-content:space-between;align-items:center;margin:6px 8px;}.turnover-box .tl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#0f4c5c;}.turnover-box .tv{font-size:14px;font-weight:900;color:#0f4c5c;}.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:24mm;margin-top:12px;padding-top:10px;border-top:1.5px dashed #999;}.sig-line{border-bottom:1px solid #000;height:28px;margin-bottom:4px;}.sig-lbl{font-size:8px;color:#666;text-align:center;}.footer{text-align:center;font-size:8px;color:#999;margin-top:12px;padding-top:8px;border-top:1px dashed #ccc;}</style></head><body>'
-        + '<div class="logo"><div class="shop">Dine with Din</div><div class="sub">Cafeteria POS System</div></div>'
+        + '<div class="logo"><div class="shop">The Lounge by: CJV & TEK</div><div class="sub">Cafeteria POS System</div></div>'
         + '<div class="doc-title">' + docTitle + '</div>'
         + '<div class="printed">Printed: ' + esc(co.printed_at) + ' &nbsp;|&nbsp; Shift Date: ' + esc(co.shift_date) + '</div>'
         + '<hr>'
@@ -2223,7 +2239,7 @@ function printCoA4() {
         + '</div>'
         + (topRows ? '<div class="box" style="margin-bottom:12px;"><div class="box-head">Top Items This Shift</div><table class="dt">' + topRows + '</table></div>' : '')
         + '<div class="sig-grid"><div><div class="sig-line"></div><div class="sig-lbl">' + sigLabel + ' \u2014 ' + esc(co.cashier_name) + '</div></div><div><div class="sig-line"></div><div class="sig-lbl">Received By (' + (isAdminShift ? 'Owner / Supervisor' : 'Admin / Supervisor') + ')</div></div></div>'
-        + '<div class="footer">Dine with Din Cafeteria &copy; ' + new Date().getFullYear() + '</div>'
+        + '<div class="footer">The Lounge by: CJV & TEK Cafeteria &copy; ' + new Date().getFullYear() + '</div>'
         + '</body></html>';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     var url  = URL.createObjectURL(blob);
@@ -2327,9 +2343,9 @@ function printDaily() {
         'tbody td{padding:2.5px 1px;border-bottom:1px dotted #ccc;vertical-align:top;}tbody td.r{text-align:right;}tbody td.nm{max-width:34mm;word-break:break-word;}' +
         '.footer{text-align:center;font-size:8px;color:#555;margin-top:8px;padding-top:5px;border-top:1px dashed #000;}' +
         '</style></head><body>' +
-        '<div class="c"><div class="shop">Dine with Din</div><div class="sub">Cafeteria POS System</div><div class="title">Daily Report</div></div>' +
+        '<div class="c"><div class="shop">The Lounge by: CJV & TEK</div><div class="sub">Cafeteria POS System</div><div class="title">Daily Report</div></div>' +
         '<hr class="sep">' + sumRows + itemSection + cashSection +
-        '<div class="footer">Dine with Din Cafeteria &mdash; ' + d.printed_at + '</div></body></html>';
+        '<div class="footer">The Lounge by: CJV & TEK Cafeteria &mdash; ' + d.printed_at + '</div></body></html>';
     html = html.replace('</body></html>',
         '<script>window.addEventListener(\'load\',function(){setTimeout(function(){window.print();},400);});window.addEventListener(\'afterprint\',function(){window.close();});<\/script></body></html>'
     );
@@ -2349,7 +2365,7 @@ function printA4(contentId, title) {
     var html =
         '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
         '<style>@page{size:A4 portrait;margin:12mm 15mm;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;}.print-title{font-size:16px;font-weight:bold;text-align:center;margin-bottom:2px;}.print-sub{font-size:10px;text-align:center;color:#555;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #000;}.rpt-card{margin-bottom:12px;page-break-inside:avoid;}.rpt-card-header{font-size:12px;font-weight:bold;padding:6px 0;border-bottom:1px solid #ccc;margin-bottom:6px;}.rpt-card-title i{display:none;}table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px;}thead th{background:#f0f0f0;border:1px solid #ccc;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.5px;}tbody td{border:1px solid #ddd;padding:5px 6px;vertical-align:top;}tfoot td{border:1px solid #ccc;background:#f0f0f0;padding:5px 6px;font-weight:bold;}tbody tr:nth-child(even) td{background:#fafafa;}.mini-bar,.consumption-bar{display:none;}.rpt-badge,.badge-variant,.badge-base{border:1px solid #999;padding:1px 4px;border-radius:2px;font-size:9px;}.no-data{text-align:center;padding:12px;color:#888;font-style:italic;}canvas{display:none!important;}.comparison-grid,.stats-grid,.z-summary-cards{display:none;}.variance-positive{color:green;font-weight:bold;}.variance-negative{color:red;font-weight:bold;}.variance-zero{color:#555;}.admin-proc-badge{font-size:9px;border:1px solid #ccc;padding:1px 4px;}.profit-breakdown{font-size:9px;color:#555;margin-top:2px;}.waste-cost-cell{color:#d64045;font-weight:bold;}.reason-pill{font-size:9px;border:1px solid #d64045;padding:1px 4px;border-radius:2px;color:#d64045;}.z-locked-badge{display:none;}</style></head><body>' +
-        '<div class="print-title">Dine with Din Cafeteria</div>' +
+        '<div class="print-title">The Lounge by: CJV & TEK Cafeteria</div>' +
         '<div class="print-sub">' + title + ' &nbsp;|&nbsp; Printed: <?= (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('M d, Y h:i A') ?> (PHT)</div>' +
         el.innerHTML + '</body></html>';
     html = html.replace('</body></html>',

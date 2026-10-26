@@ -6,6 +6,8 @@ require_once __DIR__ . '/../core/authHelper.php';
 header('Content-Type: application/json');
 
 requireRole(['admin', 'cashier', 'kitchen']);
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 $validTypes = ['cancel_order', 'void_order', 'cancel_item', 'void_item'];
 $type       = trim($_GET['type'] ?? '');

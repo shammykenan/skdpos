@@ -1,0 +1,22 @@
+# ── Dependencies ────────────────────────────────────────────────
+# Restore with: composer install
+/vendor/
+
+# ── Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Database dumps (contain real sales and customer data) ───────
+/backups/*.sql
+/backups/*.zip
+/backups/*.gz
+
+# ── Local / editor / OS ─────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.bak

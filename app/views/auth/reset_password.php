@@ -2,13 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Password · Cafeteria POS</title>
+  <title>Reset Password · The Lounge by: CJV & TEK</title>
   <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="<?= $baseUrl ?>/assets/vendor/fonts/instrument.css" rel="stylesheet">
+  <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
 
   <style>
     :root {
@@ -441,8 +440,8 @@
         </span>
       </div>
       <div class="logo-text">
-        <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+        <div class="logo-name">The Lounge by: CJV & TEK</div>
+            <div class="logo-sub">Chill. Coffee. Dine.</div>
       </div>
     </div>
 
@@ -457,7 +456,7 @@
         <?= htmlspecialchars($success) ?>
       </div>
 
-      <button onclick="window.location='index.php?page=login'" class="btn-signin a4">
+      <button onclick="window.location='index.php?page=landing'" class="btn-signin a4">
         <i class="fas fa-arrow-right-to-bracket"></i>
         Go to Sign In
       </button>
@@ -524,7 +523,7 @@
       </form>
 
       <div class="back-row a5">
-        <a href="index.php?page=login" class="glass-link">
+        <a href="index.php?page=landing" class="glass-link">
           <i class="fas fa-arrow-left"></i> Back to Sign In
         </a>
       </div>
@@ -548,7 +547,7 @@
       </button>
 
       <div class="back-row a5">
-        <a href="index.php?page=login" class="glass-link">
+        <a href="index.php?page=landing" class="glass-link">
           <i class="fas fa-arrow-left"></i> Back to Sign In
         </a>
       </div>

@@ -2,41 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>User Management — Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
     <style>
         /* ── TOKENS ─────────────────────────────────────────────────── */
-        :root {
-            --primary:       #0f4c5c;
-            --primary-dark:  #0a3a47;
-            --primary-light: #1f7a8c;
-            --secondary:     #ff6b4a;
-            --accent:        #fee440;
-            --navy:          #1e2f4e;
-            --lavender:      #e2e6f0;
-            --light-bg:      #f8faff;
-            --warm-gray:     #4a5568;
-            --border:        #cbd5e0;
-            --success:       #2c7a5a;
-            --danger:        #d64045;
-            --warning:       #f4b942;
-            --info:          #5e9b9e;
-            --dark:          #1a202c;
-            --success-soft:  #eaf7ef;
-            --danger-soft:   #fdecea;
-            --warning-soft:  #fef8e7;
-            --info-soft:     rgba(94,155,158,0.1);
-            --sidebar-w:     260px;
-            --top-h:         64px;
-            --radius-sm:     8px;
-            --radius-md:     12px;
-            --radius-lg:     18px;
-            --radius-xl:     24px;
-        }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: var(--dark); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
@@ -357,11 +332,11 @@
     <button class="mobile-toggle" id="menuToggle" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -838,7 +813,7 @@ $isSelf = ($user['user_id'] == $currentUserId);
 
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
 /* ── Sidebar ──────────────────────────────────────────────────── */
 document.getElementById('menuToggle')?.addEventListener('click', () => {

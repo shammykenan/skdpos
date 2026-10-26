@@ -5,18 +5,19 @@
  * RBAC:
  *   admin   → daily, monthly, yearly, products, staff, adminshift, audit, consumption, waste
  *   cashier → myshift, closeout, inventory, waste
- *   kitchen → blocked
+ *   kitchen → inventory, menu, reports
  */
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/reports.php';
-// At the top, after the existing requires:
 require_once BASE_PATH . '/app/models/ZReading.php';
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 // ── 1. Auth guard ─────────────────────────────────────────────────────────────
 $role = $_SESSION['role'] ?? '';
-if (!in_array($role, ['admin', 'cashier'])) {
+if (!in_array($role, ['admin', 'cashier', 'kitchen'])) {
     header('Location: ' . $baseUrl . '/index.php?page=' . ($role === 'kitchen' ? 'kitchen' : 'login'));
     exit;
 }
@@ -49,6 +50,11 @@ $range_start  = $_GET['start'] ?? date('Y-m-01');
 $range_end    = $_GET['end']   ?? $today;
 
 $filter_month = max(1, min(12, $filter_month));
+
+// ── Pagination params ─────────────────────────────────────────────────────────
+$page = (int)($_GET['page'] ?? 1);
+$limit = 50;
+$offset = max(0, ($page - 1) * $limit);
 
 // ── 5. Period comparison helper ───────────────────────────────────────────────
 function get_previous_period(string $start, string $end): array {
@@ -149,7 +155,8 @@ switch ($tab) {
 
     // ── ADMIN: Audit ──────────────────────────────────────────────────────────
     case 'audit':
-        $data['discounts'] = rpt_discount_audit($pdo, $range_start, $range_end);
+        $data['discounts'] = rpt_discount_audit($pdo, $range_start, $range_end, $limit, $offset);
+        $data['discounts_total'] = rpt_discount_audit_count($pdo, $range_start, $range_end);
         $data['payments']  = rpt_payment_reconciliation($pdo, $range_start, $range_end);
         break;
 
@@ -163,7 +170,8 @@ switch ($tab) {
     case 'waste':
         $waste_cid           = $is_admin ? null : $session_uid;
         $data['summary']     = rpt_waste_summary($pdo, $range_start, $range_end, $waste_cid);
-        $data['waste_items'] = rpt_waste_report($pdo,  $range_start, $range_end, $waste_cid);
+        $data['waste_items'] = rpt_waste_report($pdo, $range_start, $range_end, $waste_cid, $limit, $offset);
+        $data['waste_total'] = rpt_waste_report_count($pdo, $range_start, $range_end, $waste_cid);
         break;
     // ── ADMIN: Z-Reading ──────────────────────────────────────────────────────────
     case 'zreading':
@@ -191,6 +199,8 @@ $ctx = [
     'today'        => $today,
     'data'         => $data,
     'baseUrl'      => $baseUrl,
+    'page'         => $page,
+    'limit'        => $limit,
 ];
 
 require_once BASE_PATH . '/app/views/cashier/view_reports.php';

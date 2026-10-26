@@ -2,57 +2,82 @@
 require_once __DIR__ . '/../../config/db.php';
 
 function getAllCategories(PDO $pdo) {
-    $stmt = $pdo->query("SELECT category_id, category_name FROM categories ORDER BY category_name");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("SELECT category_id, category_name FROM categories ORDER BY category_name");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAllCategories: " . $e->getMessage());
+        return [];
+    }
 }
 
 function getAllItems(PDO $pdo) {
-    $stmt = $pdo->query("SELECT mi.*, c.category_name FROM menu_items as mi JOIN categories as c ON mi.category_id = c.category_id ORDER BY item_name");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("SELECT mi.*, c.category_name FROM menu_items as mi JOIN categories as c ON mi.category_id = c.category_id ORDER BY item_name");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAllItems: " . $e->getMessage());
+        return [];
+    }
 }
 
 function getAllItemsWithVariants(PDO $pdo): array {
-    $stmt = $pdo->query("
-        SELECT
-            mi.item_id,
-            mi.item_name,
-            mi.description,
-            mi.base_price,
-            mi.cost_price,
-            mi.image_url,
-            mi.is_available,
-            mi.category_id,
-            c.category_name
-        FROM menu_items mi
-        LEFT JOIN categories c ON mi.category_id = c.category_id
-        ORDER BY mi.item_name
-    ");
-    return $stmt->fetchAll();
+    try {
+        $stmt = $pdo->query("
+            SELECT
+                mi.item_id,
+                mi.item_name,
+                mi.description,
+                mi.base_price,
+                mi.cost_price,
+                mi.image_url,
+                mi.is_available,
+                mi.category_id,
+                c.category_name
+            FROM menu_items mi
+            LEFT JOIN categories c ON mi.category_id = c.category_id
+            ORDER BY mi.item_name
+        ");
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Error in getAllItemsWithVariants: " . $e->getMessage());
+        return [];
+    }
 }
 
 function getAllAvailableItems(PDO $pdo) {
-    $stmt = $pdo->query("SELECT mi.*, c.category_name FROM menu_items as mi JOIN categories as c ON mi.category_id = c.category_id WHERE mi.is_available = 1 ORDER BY item_name");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("SELECT mi.*, c.category_name FROM menu_items as mi JOIN categories as c ON mi.category_id = c.category_id WHERE mi.is_available = 1 ORDER BY item_name");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAllAvailableItems: " . $e->getMessage());
+        return [];
+    }
 }
 
 function getMenuItemById(PDO $pdo, $item_id) {
-    $stmt = $pdo->prepare("
-        SELECT
-            mi.item_id,
-            mi.item_name,
-            mi.description,
-            mi.base_price,
-            mi.cost_price,
-            mi.image_url,
-            mi.is_available,
-            mi.category_id,
-            c.category_name
-        FROM menu_items mi
-        LEFT JOIN categories c ON mi.category_id = c.category_id
-        WHERE mi.item_id = ?
-    ");
-    $stmt->execute([$item_id]);
-    return $stmt->fetch();
+    try {
+        $stmt = $pdo->prepare("
+            SELECT
+                mi.item_id,
+                mi.item_name,
+                mi.description,
+                mi.base_price,
+                mi.cost_price,
+                mi.image_url,
+                mi.is_available,
+                mi.category_id,
+                c.category_name
+            FROM menu_items mi
+            LEFT JOIN categories c ON mi.category_id = c.category_id
+            WHERE mi.item_id = ?
+        ");
+        $stmt->execute([$item_id]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log("Error in getMenuItemById: " . $e->getMessage());
+        return null;
+    }
 }
 
 function getTotalSalesByItem($pdo, $item_id) {

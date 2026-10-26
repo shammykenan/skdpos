@@ -6,11 +6,14 @@ require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
-require_once __DIR__ . '/../core/tableHelper.php';
+require_once __DIR__ . '/../core/tablehelper.php';
 
 requireRole(['admin', 'cashier', 'kitchen']);
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
 
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 // ── Cancel order (pending orders only) ────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {

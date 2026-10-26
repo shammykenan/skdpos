@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../core/tableHelper.php';
+require_once __DIR__ . '/../core/tablehelper.php';
 require_once __DIR__ . '/../core/OrNumberHelper.php';
 require_once __DIR__ . '/../core/VatHelper.php';
 

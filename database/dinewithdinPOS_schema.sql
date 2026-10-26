@@ -63,8 +63,10 @@ CREATE TABLE business_info (
     machine_serial_no VARCHAR(50) DEFAULT NULL,
     ptu_number VARCHAR(50) DEFAULT NULL,
     accreditation_no VARCHAR(50) DEFAULT NULL,
+    document_label VARCHAR(40) NOT NULL DEFAULT 'SALES INVOICE',
     min_pwd_discount DECIMAL(5,2) NOT NULL DEFAULT 20.00,
     min_senior_discount DECIMAL(5,2) NOT NULL DEFAULT 20.00,
+    max_promo_discount DECIMAL(5,2) NOT NULL DEFAULT 20.00,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

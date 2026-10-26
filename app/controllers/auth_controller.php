@@ -1,31 +1,101 @@
 <?php
 // app/controllers/landing_controller.php
-// Handles: POST login submission + GET landing page (with live menu data)
-// Route:   case 'landing' (and optionally the default case) in index.php
+// Handles: POST login submission + POST wifi_action + GET landing page
 // No requireRole() — this page is public.
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/users.php';
 require_once __DIR__ . '/../models/menu_items.php';
 require_once __DIR__ . '/../models/categories.php';
+require_once __DIR__ . '/../models/app_settings.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
-
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../../config');
-$dotenv->load();
-$baseUrl = $_ENV['BASE_URL'];
 
 $success = $_SESSION['success'] ?? '';
 $error   = $_SESSION['error']   ?? '';
 unset($_SESSION['success'], $_SESSION['error']);
 
+
+// ================================================================
+// POST — WiFi action (verify admin + serve credentials)
+// ================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wifi_action'])) {
+    csrf_require('json');
+    header('Content-Type: application/json');
+
+    $action = $_POST['wifi_action'];
+
+    if ($action === 'get') {
+        // Return current WiFi settings from DB
+        try {
+            $ssid = getSetting($pdo, 'wifi_ssid') ?: 'The Lounge';
+            $pass = getSetting($pdo, 'wifi_password') ?: '';
+            echo json_encode(['success' => true, 'ssid' => $ssid, 'pass' => $pass]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Could not load WiFi settings.']);
+        }
+        exit;
+    }
+
+    if ($action === 'verify_and_update') {
+        $admin_user  = trim($_POST['admin_username'] ?? '');
+        $admin_pass  = trim($_POST['admin_password'] ?? '');
+        $new_wifi_pw = trim($_POST['new_wifi_pass']  ?? '');
+
+        if (empty($admin_user) || empty($admin_pass)) {
+            echo json_encode(['success' => false, 'message' => 'Admin username and password are required.']);
+            exit;
+        }
+        if (empty($new_wifi_pw)) {
+            echo json_encode(['success' => false, 'message' => 'New WiFi password cannot be empty.']);
+            exit;
+        }
+        if (strlen($new_wifi_pw) < 8) {
+            echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters.']);
+            exit;
+        }
+
+        try {
+            // Verify admin credentials against users table
+            $stmt = $pdo->prepare("
+                SELECT password_hash FROM users
+                WHERE username = :username AND role = 'admin' AND is_active = 1
+                LIMIT 1
+            ");
+            $stmt->execute([':username' => $admin_user]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user || !password_verify($admin_pass, $user['password_hash'])) {
+                echo json_encode(['success' => false, 'message' => 'Invalid admin credentials.']);
+                exit;
+            }
+
+            // Upsert WiFi password into app_settings
+            $upsert = $pdo->prepare("
+                INSERT INTO app_settings (setting_key, setting_value)
+                VALUES ('wifi_password', :pass)
+                ON DUPLICATE KEY UPDATE setting_value = :pass
+            ");
+            $upsert->execute([':pass' => $new_wifi_pw]);
+
+            echo json_encode(['success' => true, 'pass' => $new_wifi_pw]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Server error. Please try again.']);
+        }
+        exit;
+    }
+
+    echo json_encode(['success' => false, 'message' => 'Invalid action.']);
+    exit;
+}
+
 // ================================================================
 // POST — Login form submission
 // ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+    csrf_require('html');
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
@@ -35,10 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         exit;
     }
 
-    // IP-based rate limiting
     checkLoginRateLimit($pdo, $baseUrl);
-
-    // Pre-record as failed (overwritten below on success)
     recordLoginAttempt($pdo, $username, false);
 
     $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username AND is_active = 1");
@@ -48,42 +115,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     if ($user && password_verify($password, $user['password_hash'])) {
         clearLoginAttempts($pdo, $_SERVER['REMOTE_ADDR']);
 
-        // Mark last attempt as successful
         $pdo->prepare("
-            UPDATE login_attempts
-            SET success = 1
-            WHERE ip_address = :ip
-            ORDER BY attempt_time DESC
-            LIMIT 1
+            UPDATE login_attempts SET success = 1
+            WHERE ip_address = :ip ORDER BY attempt_time DESC LIMIT 1
         ")->execute([':ip' => $_SERVER['REMOTE_ADDR']]);
 
-        // Set session
         $_SESSION['user_id']   = $user['user_id'];
         $_SESSION['username']  = $user['username'];
         $_SESSION['role']      = $user['role'];
         $_SESSION['full_name'] = $user['full_name'];
 
-        // Update last login timestamp
         $pdo->prepare("UPDATE users SET last_login = NOW() WHERE user_id = :id")
             ->execute([':id' => $user['user_id']]);
 
-        // Redirect based on role
         switch ($user['role']) {
             case 'admin':
-                header('Location: ' . $baseUrl . '/index.php?page=admin_dashboard');
-                exit;
+                header('Location: ' . $baseUrl . '/index.php?page=admin_dashboard'); exit;
             case 'cashier':
-                header('Location: ' . $baseUrl . '/index.php?page=manage_pos');
-                exit;
+                header('Location: ' . $baseUrl . '/index.php?page=manage_pos'); exit;
             case 'kitchen':
-                header('Location: ' . $baseUrl . '/index.php?page=manage_orders');
-                exit;
+                header('Location: ' . $baseUrl . '/index.php?page=manage_orders'); exit;
             default:
                 $_SESSION['error'] = 'Invalid user role.';
-                header('Location: ' . $baseUrl . '/index.php?page=landing');
-                exit;
+                header('Location: ' . $baseUrl . '/index.php?page=landing'); exit;
         }
-
     } else {
         $_SESSION['error'] = 'Invalid username or password.';
         header('Location: ' . $baseUrl . '/index.php?page=landing');
@@ -109,20 +164,15 @@ if (isset($_SESSION['user_id'])) {
 // ================================================================
 // GET — Build landing page data
 // ================================================================
-
-// Ensure correct fetch mode ($pdo already created by config/db.php)
 if (isset($pdo)) {
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } else {
     try {
         $pdo = new PDO(
-            "mysql:host={$_ENV['DB_HOST']};dbname={$_ENV['DB_NAME']};charset=utf8mb4",
-            $_ENV['DB_USER'],
-            $_ENV['DB_PASS'],
-            [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
+            "mysql:host=$host;dbname=$dbname;charset=utf8mb4",
+            $username,
+            $password,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
         );
     } catch (PDOException $e) {
         die("Database connection failed: " . $e->getMessage());
@@ -132,7 +182,6 @@ if (isset($pdo)) {
 $raw_items  = getAllItemsWithVariants($pdo);
 $categories = getAllCategories($pdo);
 
-// Load all variants grouped by item_id
 $variants_grouped = [];
 try {
     $stmt = $pdo->query("SELECT * FROM menu_variants ORDER BY item_id, price ASC");
@@ -143,7 +192,10 @@ try {
     $variants_grouped = [];
 }
 
-// Build display-ready items (available + priced only)
+// Load current WiFi settings for view
+$wifi_ssid = getSetting($pdo, 'wifi_ssid') ?: 'The Lounge';
+$wifi_password = getSetting($pdo, 'wifi_password') ?: '';
+
 $menu_items = [];
 foreach ($raw_items as $item) {
     if (!$item['is_available']) continue;
@@ -164,7 +216,7 @@ foreach ($raw_items as $item) {
         $display_price = '₱' . number_format((float)$item['base_price'], 2);
         $price_min     = (float)$item['base_price'];
     } else {
-        continue; // skip unpriced items — they won't show on the public page
+        continue;
     }
 
     $menu_items[] = [
@@ -181,14 +233,12 @@ foreach ($raw_items as $item) {
     ];
 }
 
-// Group by category (alphabetical)
 $menu_by_category = [];
 foreach ($menu_items as $item) {
     $menu_by_category[$item['category_name']][] = $item;
 }
 ksort($menu_by_category);
 
-// Featured = first 6 available items
 $featured_items = array_slice($menu_items, 0, 6);
 
 include __DIR__ . '/../views/auth/landing.php';

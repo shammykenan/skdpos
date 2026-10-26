@@ -1,7 +1,7 @@
 <?php
 /**
  * VatHelper
- * All VAT math for Dine with Din POS.
+ * All VAT math for The Lounge by: CJV & TEK POS.
  *
  * Rules (BIR RR 16-2005 / TRAIN Law):
  *  - Prices are VAT-inclusive (gross).
@@ -35,8 +35,13 @@ class VatHelper
             return self::$info;
         }
 
-        $stmt = $pdo->query("SELECT * FROM business_info WHERE info_id = 1 LIMIT 1");
-        $row  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        try {
+            $stmt = $pdo->query("SELECT * FROM business_info WHERE info_id = 1 LIMIT 1");
+            $row  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        } catch (PDOException $e) {
+            error_log("Error in VatHelper::loadInfo: " . $e->getMessage());
+            $row = false;
+        }
 
         self::$info = $row ?: [
             'vat_registered'      => 0,
@@ -305,6 +310,17 @@ class VatHelper
     public static function getPwdDiscountPct(PDO $pdo): float
     {
         return (float) self::loadInfo($pdo)['min_pwd_discount'];
+    }
+
+    /**
+     * Ceiling for manual promo discounts (percent).
+     */
+    public static function getMaxPromoPct(PDO $pdo): float
+    {
+        self::loadInfo($pdo);
+        return isset(self::$info['max_promo_discount'])
+            ? (float) self::$info['max_promo_discount']
+            : 20.0;
     }
 
     // ------------------------------------------------------------------

@@ -1,9 +1,12 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
-require_once __DIR__ . '/../core/tableHelper.php';
+require_once __DIR__ . '/../core/tablehelper.php';
 requireRole(['admin', 'cashier']);
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 // ── Free a table (customer has left) — order must be completed first ──
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['free_table'])) {

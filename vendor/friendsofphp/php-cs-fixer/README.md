@@ -24,7 +24,7 @@ There are also [`@auto`](./doc/ruleSets/Auto.rst) and [`@auto:risky`](./doc/rule
 
 ## Supported PHP Versions
 
-* PHP 7.4 - PHP 8.5
+- PHP 7.4 - PHP 8.5
 
 > [!NOTE]
 > Each new PHP version requires a huge effort to support the new syntax.
@@ -74,14 +74,14 @@ If you need to apply code styles that are not built-in into the tool, you can
 
 Native support exists for:
 
-* [PhpStorm](https://www.jetbrains.com/help/phpstorm/using-php-cs-fixer.html)
+- [PhpStorm](https://www.jetbrains.com/help/phpstorm/using-php-cs-fixer.html)
 
 Community plugins exist for:
 
-* [NetBeans](https://plugins.netbeans.apache.org/catalogue/?id=36)
-* [Sublime Text](https://github.com/benmatselby/sublime-phpcs)
-* [Vim](https://github.com/stephpy/vim-php-cs-fixer)
-* [VS Code](https://github.com/junstyle/vscode-php-cs-fixer)
+- [NetBeans](https://plugins.netbeans.apache.org/catalogue/?id=36)
+- [Sublime Text](https://github.com/benmatselby/sublime-phpcs)
+- [Vim](https://github.com/stephpy/vim-php-cs-fixer)
+- [VS Code](https://github.com/junstyle/vscode-php-cs-fixer)
 
 ## Community
 

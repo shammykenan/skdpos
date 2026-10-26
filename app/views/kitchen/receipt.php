@@ -88,7 +88,7 @@ $order_total    = (float) $order['total_amount'];
 
 $company = [
 
-    'name'    => 'DINE WITH DIN CAFETERIA',
+    'name'    => 'The Lounge by: CJV & TEK CAFETERIA',
 
     'address' => 'Karuhatan, Valenzuela City',
 
@@ -107,6 +107,7 @@ $company = [
 <head>
 
 <meta charset="UTF-8">
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
 
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 

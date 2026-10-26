@@ -24,30 +24,30 @@ function getDashboardStats($pdo) {
         WHERE DATE(created_at) = CURDATE() AND status = 'completed'
     ");
     $stmt->execute();
-    $stats['today_revenue'] = $stmt->fetch()['total'];
+    $stats['today_revenue'] = $stmt->fetch()['total'] ?? 0;
 
     // Total Orders (Today)
     $stmt = $pdo->prepare("
-        SELECT COUNT(*) as total FROM orders WHERE DATE(created_at) = CURDATE()
+        SELECT COUNT(*) as total FROM orders WHERE DATE(created_at) = CURDATE() AND status != 'draft'
     ");
     $stmt->execute();
-    $stats['today_orders'] = $stmt->fetch()['total'];
+    $stats['today_orders'] = $stmt->fetch()['total'] ?? 0;
 
     // Total Customers (Today)
     $stmt = $pdo->prepare("
         SELECT COUNT(DISTINCT customer_name) as total
         FROM orders
-        WHERE DATE(created_at) = CURDATE() AND customer_name IS NOT NULL
+        WHERE DATE(created_at) = CURDATE() AND customer_name IS NOT NULL AND status != 'draft'
     ");
     $stmt->execute();
-    $stats['today_customers'] = $stmt->fetch()['total'];
+    $stats['today_customers'] = $stmt->fetch()['total'] ?? 0;
 
     // Active Orders — pending + preparing + ready
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as total FROM orders WHERE status IN ('pending','preparing','ready')
     ");
     $stmt->execute();
-    $stats['pending_orders'] = $stmt->fetch()['total'];
+    $stats['pending_orders'] = $stmt->fetch()['total'] ?? 0;
 
     // Individual active order counts for notification breakdown
     $stmt = $pdo->prepare("
@@ -67,19 +67,19 @@ function getDashboardStats($pdo) {
     // Total Menu Items
     $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM menu_items");
     $stmt->execute();
-    $stats['total_items'] = $stmt->fetch()['total'];
+    $stats['total_items'] = $stmt->fetch()['total'] ?? 0;
 
     // Active Categories
     $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM categories");
     $stmt->execute();
-    $stats['total_categories'] = $stmt->fetch()['total'];
+    $stats['total_categories'] = $stmt->fetch()['total'] ?? 0;
 
     // Low Stock Items
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as total FROM ingredients WHERE stock_quantity <= low_stock_alert
     ");
     $stmt->execute();
-    $stats['low_stock'] = $stmt->fetch()['total'];
+    $stats['low_stock'] = $stmt->fetch()['total'] ?? 0;
 
     // Monthly Revenue
     $stmt = $pdo->prepare("
@@ -90,7 +90,7 @@ function getDashboardStats($pdo) {
           AND status = 'completed'
     ");
     $stmt->execute();
-    $stats['monthly_revenue'] = $stmt->fetch()['total'];
+    $stats['monthly_revenue'] = $stmt->fetch()['total'] ?? 0;
 
     return $stats;
 }
@@ -101,6 +101,7 @@ function getRecentOrders($pdo, $limit = 10) {
                    u.full_name as cashier_name
             FROM orders o
             LEFT JOIN users u ON o.cashier_id = u.user_id
+            WHERE o.status != 'draft'
             ORDER BY o.created_at DESC
             LIMIT :limit";
     $stmt = $pdo->prepare($sql);

@@ -11,8 +11,11 @@ require_once __DIR__ . '/../core/recipesHelper.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 
 require_once __DIR__ . '/../core/ingredientsHelper.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
 
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 
 

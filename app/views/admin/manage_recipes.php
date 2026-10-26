@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>Recipe Management — Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Management — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/manage_recipes.css">
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
 </head>
@@ -101,11 +102,11 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
     </button>
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -739,7 +740,7 @@ function renderIngredientSection(array $rows, string $label, bool $isBase, bool 
 
 
 <!-- ═══ SCRIPTS ══════════════════════════════════════════════════════ -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="<?= $baseUrl ?>/assets/js/manage_recipes.js"></script>
 <script src="<?= $baseUrl ?>/assets/js/common.js"></script>
 <script>

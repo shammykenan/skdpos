@@ -566,7 +566,7 @@ function rpt_top_items(PDO $pdo, string $start, string $end, int $limit = 10): a
 // ─────────────────────────────────────────────────────────────────────────────
 // WASTE REPORT  (full void log — Waste tab)
 // ─────────────────────────────────────────────────────────────────────────────
-function rpt_waste_report(PDO $pdo, string $start, string $end, ?int $cashier_id = null): array
+function rpt_waste_report(PDO $pdo, string $start, string $end, ?int $cashier_id = null, int $limit = 50, int $offset = 0): array
 {
     $cid_and = $cashier_id !== null ? 'AND o.cashier_id = :cid' : '';
     $stmt = $pdo->prepare("
@@ -593,11 +593,35 @@ function rpt_waste_report(PDO $pdo, string $start, string $end, ?int $cashier_id
           AND DATE(o.created_at) BETWEEN :start AND :end
           $cid_and
         ORDER BY o.created_at DESC, oi.order_item_id ASC
+        LIMIT :limit OFFSET :offset
+    ");
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    if ($cashier_id !== null) {
+        $stmt->bindValue(':cid', $cashier_id, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function rpt_waste_report_count(PDO $pdo, string $start, string $end, ?int $cashier_id = null): int
+{
+    $cid_and = $cashier_id !== null ? 'AND o.cashier_id = :cid' : '';
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS total
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE oi.status = 'voided'
+          AND oi.waste_cost IS NOT NULL
+          AND DATE(o.created_at) BETWEEN :start AND :end
+          $cid_and
     ");
     $params = [':start' => $start, ':end' => $end];
     if ($cashier_id !== null) $params[':cid'] = $cashier_id;
     $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return (int) $stmt->fetchColumn();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -867,7 +891,7 @@ function rpt_top_addons(PDO $pdo, string $start, string $end): array
 // ─────────────────────────────────────────────────────────────────────────────
 // DISCOUNT & CANCELLATION AUDIT
 // ─────────────────────────────────────────────────────────────────────────────
-function rpt_discount_audit(PDO $pdo, string $start, string $end): array
+function rpt_discount_audit(PDO $pdo, string $start, string $end, int $limit = 50, int $offset = 0): array
 {
     $stmt = $pdo->prepare("
         SELECT
@@ -899,9 +923,40 @@ function rpt_discount_audit(PDO $pdo, string $start, string $end): array
             )
         )
         ORDER BY o.created_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $stmt->bindValue(':s1', $start);
+    $stmt->bindValue(':e1', $end);
+    $stmt->bindValue(':s2', $start);
+    $stmt->bindValue(':e2', $end);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function rpt_discount_audit_count(PDO $pdo, string $start, string $end): int
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS total
+        FROM orders o
+        WHERE (
+            (   o.discount > 0
+                AND o.status IN (" . RPT_ACTIVE_STATUSES . ")
+                AND DATE(o.created_at) BETWEEN :s1 AND :e1
+                AND EXISTS (
+                    SELECT 1 FROM payments px
+                    WHERE px.order_id = o.order_id AND px.amount_paid > 0
+                )
+            )
+            OR
+            (   o.status = 'cancelled'
+                AND DATE(o.created_at) BETWEEN :s2 AND :e2
+            )
+        )
     ");
     $stmt->execute([':s1' => $start, ':e1' => $end, ':s2' => $start, ':e2' => $end]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return (int) $stmt->fetchColumn();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -933,6 +988,7 @@ function rpt_payment_reconciliation(PDO $pdo, string $start, string $end): array
           AND DATE(p.paid_at) BETWEEN :start AND :end
         GROUP BY DATE(p.paid_at), u.user_id, u.full_name
         ORDER BY pay_date DESC, u.full_name
+        LIMIT 100
     ");
     $stmt->execute([':start' => $start, ':end' => $end]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -943,19 +999,25 @@ function rpt_payment_reconciliation(PDO $pdo, string $start, string $end): array
 // ─────────────────────────────────────────────────────────────────────────────
 function rpt_low_stock(PDO $pdo): array
 {
-    $stmt = $pdo->query("
-        SELECT i.ingredient_id, i.ingredient_name,
-               i.stock_quantity, i.low_stock_alert, i.last_updated,
-               u.unit_code AS unit, u.unit_label,
-               CASE WHEN i.stock_quantity = 0                  THEN 'OUT OF STOCK'
-                    WHEN i.stock_quantity <= i.low_stock_alert THEN 'LOW'
-                    ELSE 'OK' END AS stock_status
-        FROM ingredients i
-        LEFT JOIN units u ON i.unit_id = u.unit_id
-        WHERE i.stock_quantity <= i.low_stock_alert
-        ORDER BY i.stock_quantity ASC
-    ");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("
+            SELECT i.ingredient_id, i.ingredient_name,
+                   i.stock_quantity, i.low_stock_alert, i.last_updated,
+                   u.unit_code AS unit, u.unit_label,
+                   CASE WHEN i.stock_quantity = 0                  THEN 'OUT OF STOCK'
+                        WHEN i.stock_quantity <= i.low_stock_alert THEN 'LOW'
+                        ELSE 'OK' END AS stock_status
+            FROM ingredients i
+            LEFT JOIN units u ON i.unit_id = u.unit_id
+            WHERE i.stock_quantity <= i.low_stock_alert
+            ORDER BY i.stock_quantity ASC
+            LIMIT 100
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in rpt_low_stock: " . $e->getMessage());
+        return [];
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -963,17 +1025,23 @@ function rpt_low_stock(PDO $pdo): array
 // ─────────────────────────────────────────────────────────────────────────────
 function rpt_available_years(PDO $pdo): array
 {
-    $stmt = $pdo->query("
-        SELECT DISTINCT YEAR(created_at) AS yr
-        FROM orders
-        WHERE status IN (" . RPT_ACTIVE_STATUSES . ")
-          AND EXISTS (
-              SELECT 1 FROM payments px
-              WHERE px.order_id = orders.order_id AND px.amount_paid > 0
-          )
-        ORDER BY yr DESC
-    ");
-    return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'yr');
+    try {
+        $stmt = $pdo->query("
+            SELECT DISTINCT YEAR(created_at) AS yr
+            FROM orders
+            WHERE status IN (" . RPT_ACTIVE_STATUSES . ")
+              AND EXISTS (
+                  SELECT 1 FROM payments px
+                  WHERE px.order_id = orders.order_id AND px.amount_paid > 0
+              )
+            LIMIT 20
+            ORDER BY yr DESC
+        ");
+        return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'yr');
+    } catch (PDOException $e) {
+        error_log("Error in rpt_available_years: " . $e->getMessage());
+        return [];
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1010,6 +1078,7 @@ function rpt_ingredient_consumption(PDO $pdo, string $start, string $end): array
                  u.unit_code, u.unit_label, i.stock_quantity, i.low_stock_alert
         HAVING theoretical_consumed > 0
         ORDER BY theoretical_consumed DESC
+        LIMIT 100
     ");
     $stmt->execute([':start' => $start, ':end' => $end]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

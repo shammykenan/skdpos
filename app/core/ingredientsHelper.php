@@ -194,6 +194,70 @@ function restoreIngredientsForOrder(PDO $pdo, int $order_id): void {
     }
 }
 /**
+ * Ingredient quantities already sold but not yet deducted from stock.
+ *
+ * Ingredients are only deducted when the kitchen starts preparing a unit, so an
+ * order that is paid for but still queued holds no stock yet. Without counting
+ * that demand, a checkout stock check reads the raw on-hand figure and happily
+ * sells the same last serving twice.
+ *
+ * Undeducted units per order item follow the same definition the kitchen uses in
+ * partial_item_action.php: quantity - started - ready - voided.
+ *
+ * @return array<int,float> ingredient_id => committed quantity
+ */
+function getCommittedIngredientDemand(PDO $pdo): array
+{
+    $committed = [];
+
+    $openOrder = "o.status NOT IN ('draft', 'completed', 'cancelled', 'voided')";
+    $openItem  = "oi.status NOT IN ('completed', 'cancelled', 'voided')";
+    $pendingQty = "GREATEST(oi.quantity - oi.quantity_started - oi.quantity_ready - oi.quantity_voided, 0)";
+
+    // ── Recipe ingredients ────────────────────────────────────────────────────
+    $stmt = $pdo->query("
+        SELECT r.ingredient_id,
+               SUM(r.quantity_required * $pendingQty) AS committed
+        FROM order_items oi
+        JOIN orders o ON o.order_id = oi.order_id
+        JOIN recipes r
+          ON r.item_id = oi.item_id
+         AND (r.variant_id = oi.variant_id
+              OR (r.variant_id IS NULL AND oi.variant_id IS NULL))
+        WHERE $openOrder
+          AND $openItem
+          AND r.quantity_required > 0
+        GROUP BY r.ingredient_id
+    ");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $id = (int)$row['ingredient_id'];
+        $committed[$id] = ($committed[$id] ?? 0) + (float)$row['committed'];
+    }
+
+    // ── Add-on ingredients ────────────────────────────────────────────────────
+    // Add-on consumption scales with the number of item units prepared, matching
+    // how deductIngredientsForAddon() is called from the kitchen endpoints.
+    $stmt = $pdo->query("
+        SELECT a.ingredient_id,
+               SUM(a.quantity_used * oia.quantity * $pendingQty) AS committed
+        FROM order_items oi
+        JOIN orders o ON o.order_id = oi.order_id
+        JOIN order_item_addons oia ON oia.order_item_id = oi.order_item_id
+        JOIN addons a ON a.addon_id = oia.addon_id
+        WHERE $openOrder
+          AND $openItem
+          AND a.quantity_used > 0
+        GROUP BY a.ingredient_id
+    ");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $id = (int)$row['ingredient_id'];
+        $committed[$id] = ($committed[$id] ?? 0) + (float)$row['committed'];
+    }
+
+    return $committed;
+}
+
+/**
  * Deduct ingredients for one ordered item, variant-aware.
  */
 function deductIngredientsForItem(
@@ -208,10 +272,14 @@ function deductIngredientsForItem(
         return; // No recipe → nothing to deduct (item has no tracked ingredients)
     }
 
+    // Guarded deduction — the WHERE clause makes the update a no-op when there
+    // is not enough stock, so rowCount() tells us whether it actually applied.
+    // Without this, stock silently goes negative and corrupts COGS/waste reports.
     $stmt = $pdo->prepare("
         UPDATE ingredients
         SET stock_quantity = stock_quantity - :deduct
         WHERE ingredient_id = :ingredient_id
+          AND stock_quantity >= :deduct_min
     ");
 
     foreach ($recipe as $row) {
@@ -221,8 +289,17 @@ function deductIngredientsForItem(
         }
         $stmt->execute([
             ':deduct'        => $deduct,
+            ':deduct_min'    => $deduct,
             ':ingredient_id' => $row['ingredient_id'],
         ]);
+
+        if ($stmt->rowCount() === 0) {
+            throw new RuntimeException(sprintf(
+                'Insufficient stock for "%s": needs %.2f but not enough remains.',
+                $row['ingredient_name'] ?? ('ingredient #' . $row['ingredient_id']),
+                $deduct
+            ));
+        }
     }
 }
 

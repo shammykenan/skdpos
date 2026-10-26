@@ -5,7 +5,8 @@ require_once BASE_PATH . '/app/services/mailer.php';
 
 $error   = '';
 $success = '';
-$baseUrl = $_ENV['BASE_URL'] ?? 'http://localhost/dinewithdinpos/public';
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 

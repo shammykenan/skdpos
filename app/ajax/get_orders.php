@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../core/init.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 try {
     $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
@@ -48,11 +50,19 @@ try {
     }
 
     if ($dateFrom !== '') {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid date_from format. Use YYYY-MM-DD']);
+            exit;
+        }
         $where[]              = "DATE(o.created_at) >= :date_from";
         $params[':date_from'] = $dateFrom;
     }
 
     if ($dateTo !== '') {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid date_to format. Use YYYY-MM-DD']);
+            exit;
+        }
         $where[]            = "DATE(o.created_at) <= :date_to";
         $params[':date_to'] = $dateTo;
     }

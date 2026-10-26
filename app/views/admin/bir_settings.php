@@ -2,46 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>BIR Settings — Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIR Settings — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
 
     <?php
-        require_once BASE_PATH . '/app/models/BusinessInfo.php';
+        require_once BASE_PATH . '/app/models/businessinfo.php';
         $info = getBusinessInfo($pdo);
     ?>
 
     <style>
         /* ── TOKENS ── */
-        :root {
-            --primary:       #0f4c5c;
-            --primary-dark:  #0a3a47;
-            --primary-light: #1f7a8c;
-            --secondary:     #ff6b4a;
-            --navy:          #1e2f4e;
-            --lavender:      #e2e6f0;
-            --light-bg:      #f8faff;
-            --warm-gray:     #4a5568;
-            --border:        #cbd5e0;
-            --success:       #2c7a5a;
-            --danger:        #d64045;
-            --warning:       #f4b942;
-            --info:          #5e9b9e;
-            --dark:          #1a202c;
-            --success-soft:  #eaf7ef;
-            --danger-soft:   #fdecea;
-            --warning-soft:  #fef8e7;
-            --info-soft:     rgba(94,155,158,0.1);
-            --sidebar-w:     260px;
-            --top-h:         64px;
-            --radius-sm:     8px;
-            --radius-md:     12px;
-            --radius-lg:     18px;
-            --radius-xl:     24px;
-        }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -315,11 +291,11 @@
     </button>
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -404,7 +380,9 @@
         <i class="fas fa-exclamation-triangle"></i>
         <div>
             <strong>Non-VAT / Exempt Business</strong> —
-            Receipts will include the BIR non-VAT disclaimer as required by RR 10-2021.
+                Receipts will include the BIR non-VAT disclaimer 
+                ("THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX")
+                as required under RMO No. 12-2013 and RR No. 7-2024.
         </div>
     </div>
     <?php endif; ?>
@@ -427,7 +405,7 @@
                         <label class="form-label">Business Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="business_name"
                                value="<?= htmlspecialchars($info['business_name']) ?>"
-                               placeholder="e.g. Dine with Din Cafeteria" required>
+                               placeholder="e.g. The Lounge by: CJV & TEK Cafeteria" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Tax Identification Number (TIN) <span class="text-danger">*</span></label>
@@ -464,6 +442,12 @@
                                placeholder="From BIR machine registration">
                     </div>
                     <div class="col-md-4">
+                        <label class="form-label">MIN (Machine Identification No.)</label>
+                        <input type="text" class="form-control" name="min_number"
+                               value="<?= htmlspecialchars($info['min_number'] ?? '') ?>"
+                               placeholder="Issued by BIR on registration">
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label">PTU Number</label>
                         <input type="text" class="form-control" name="ptu_number"
                                value="<?= htmlspecialchars($info['ptu_number'] ?? '') ?>"
@@ -474,6 +458,19 @@
                         <input type="text" class="form-control" name="accreditation_no"
                                value="<?= htmlspecialchars($info['accreditation_no'] ?? '') ?>"
                                placeholder="POS accreditation number">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Printed Document Label</label>
+                        <?php $docLabel = $info['document_label'] ?? 'SALES INVOICE'; ?>
+                        <select class="form-select" name="document_label">
+                            <?php foreach (['SALES INVOICE','SERVICE INVOICE','INVOICE','OFFICIAL RECEIPT','SALES RECEIPT'] as $opt): ?>
+                                <option value="<?= $opt ?>" <?= $docLabel === $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">
+                            Printed as the heading on every receipt. Must match the sample
+                            layout approved on your Permit To Use.
+                        </div>
                     </div>
                 </div>
                 <div class="form-text mt-2">
@@ -548,6 +545,16 @@
                         <div class="form-text">Standard rate: 20%</div>
                     </div>
                     <div class="col-md-4">
+                        <label class="form-label">Max Promo Discount</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="max_promo_discount"
+                                   value="<?= number_format((float)($info['max_promo_discount'] ?? 20.00), 2) ?>"
+                                   min="0" max="100" step="0.01">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text">Ceiling a cashier may apply as a manual promo.</div>
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label">PWD Discount</label>
                         <div class="input-group">
                             <input type="number" class="form-control" name="min_pwd_discount"
@@ -570,12 +577,29 @@
 
     </form>
 
+    <!-- ── SALES LEDGER INTEGRITY ── -->
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-body">
+            <h5 style="margin-bottom:.35rem;">Sales Ledger Integrity</h5>
+            <p class="form-text" style="margin-bottom:1rem;">
+                Every sale is appended to a tamper-evident ledger that produces the
+                accumulated Grand Total. This check re-reads the whole chain and
+                confirms nothing has been altered or removed.
+            </p>
+            <button type="button" class="btn btn-outline-primary" id="verifyLedgerBtn">
+                <i class="fas fa-shield-halved me-1"></i> Verify Ledger
+            </button>
+            <div id="ledgerResult" style="margin-top:1rem;display:none;"></div>
+        </div>
+    </div>
+
+
 </main>
 
 <!-- ── TOAST ── -->
 <div id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
 /* ── Sidebar ── */
 document.getElementById('menuToggle')?.addEventListener('click', () => {
@@ -635,6 +659,37 @@ document.getElementById('birSettingsForm').addEventListener('submit', function (
         btn.disabled  = false;
         btn.innerHTML = orig;
     });
+});
+</script>
+
+<script>
+document.getElementById('verifyLedgerBtn')?.addEventListener('click', async function () {
+    const btn = this;
+    const out = document.getElementById('ledgerResult');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking...';
+    out.style.display = 'none';
+    try {
+        const res  = await fetch('index.php?page=ajax_verify_ledger', { method: 'POST' });
+        const json = await res.json();
+        const d    = json.data || {};
+        const ok   = json.success && d.ok;
+        out.className = 'alert ' + (ok ? 'alert-success' : 'alert-danger');
+        out.innerHTML = ok
+            ? '<strong>Ledger intact.</strong><br>' + d.entries + ' entries · Grand Total '
+              + Number(d.grand_total).toLocaleString('en-PH', {minimumFractionDigits: 2})
+              + '<br><small class="text-muted" style="word-break:break-all;">Verification code: '
+              + d.ledger_hash + '</small>'
+            : '<strong>Problem found.</strong><br>' + (json.message || d.message || 'Verification failed.');
+        out.style.display = '';
+    } catch (e) {
+        out.className = 'alert alert-danger';
+        out.textContent = 'Could not reach the server: ' + e.message;
+        out.style.display = '';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-shield-halved me-1"></i> Verify Ledger';
+    }
 });
 </script>
 </body>

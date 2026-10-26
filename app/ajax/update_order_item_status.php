@@ -9,6 +9,8 @@ require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
 require_once __DIR__ . '/../core/ingredientsHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 ob_clean(); // discard any HTML that snuck out from the requires above
 header('Content-Type: application/json');
@@ -82,37 +84,72 @@ try {
         exit;
     }
 
-    // ── 3. Update item status ─────────────────────────────────────────────────
-    $pdo->prepare("UPDATE order_items SET status = ? WHERE order_item_id = ?")
-        ->execute([$new_status, $order_item_id]);
+    // ── 3. Deduct ingredients for units not yet deducted ──────────────────────
+    // Stock is deducted per unit as it enters the kitchen. Only the units still
+    // pending have not been deducted yet — deducting the item's full quantity
+    // would double-count anything already started, or charge for units that were
+    // voided out of pending.
+    $stmt = $pdo->prepare("
+        SELECT item_id, variant_id, quantity,
+               quantity_started, quantity_ready, quantity_voided
+        FROM order_items
+        WHERE order_item_id = ?
+    ");
+    $stmt->execute([$order_item_id]);
+    $orderItem = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // ── 3b. Deduct ingredients when kitchen starts preparing ──────────────────
-    if ($new_status === 'preparing') {
-        $stmt = $pdo->prepare("SELECT item_id, variant_id, quantity FROM order_items WHERE order_item_id = ?");
-        $stmt->execute([$order_item_id]);
-        $orderItem = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$orderItem) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Order item not found.']);
+        exit;
+    }
 
-        if ($orderItem) {
-            deductIngredientsForItem(
-                $pdo,
-                (int) $orderItem['item_id'],
-                (int) $orderItem['quantity'],
-                $orderItem['variant_id'] !== null ? (int) $orderItem['variant_id'] : null
-            );
+    $totalQty   = (int) $orderItem['quantity'];
+    $qtyStarted = (int) $orderItem['quantity_started'];
+    $qtyReady   = (int) $orderItem['quantity_ready'];
+    $qtyVoided  = (int) $orderItem['quantity_voided'];
+    $qtyPending = max(0, $totalQty - $qtyStarted - $qtyReady - $qtyVoided);
 
-            $addonStmt = $pdo->prepare("SELECT addon_id, quantity FROM order_item_addons WHERE order_item_id = ?");
-            $addonStmt->execute([$order_item_id]);
-            $itemQty = (int) $orderItem['quantity'];
-            foreach ($addonStmt->fetchAll(PDO::FETCH_ASSOC) as $ad) {
-                try {
-                    deductIngredientsForAddon($pdo, (int) $ad['addon_id'], (int) $ad['quantity'] * $itemQty);
-                } catch (Exception $e) {
-                    error_log('Addon deduction failed: addon_id=' . $ad['addon_id'] . ' err=' . $e->getMessage());
-                    throw $e; // re-throw so the transaction still rolls back properly
-                }
+    if ($qtyPending > 0) {
+        deductIngredientsForItem(
+            $pdo,
+            (int) $orderItem['item_id'],
+            $qtyPending,
+            $orderItem['variant_id'] !== null ? (int) $orderItem['variant_id'] : null
+        );
+
+        $addonStmt = $pdo->prepare("SELECT addon_id, quantity FROM order_item_addons WHERE order_item_id = ?");
+        $addonStmt->execute([$order_item_id]);
+        foreach ($addonStmt->fetchAll(PDO::FETCH_ASSOC) as $ad) {
+            try {
+                deductIngredientsForAddon($pdo, (int) $ad['addon_id'], (int) $ad['quantity'] * $qtyPending);
+            } catch (Exception $e) {
+                error_log('Addon deduction failed: addon_id=' . $ad['addon_id'] . ' err=' . $e->getMessage());
+                throw $e; // re-throw so the transaction still rolls back properly
             }
         }
     }
+
+    // ── 3b. Update item status and unit counters ──────────────────────────────
+    // partial_item_action.php derives pending units as
+    // quantity - started - ready - voided, and getCommittedIngredientDemand()
+    // relies on the same identity. Bulk transitions must maintain the counters
+    // or those units look undeducted forever.
+    if ($new_status === 'ready') {
+        // Everything active is now ready — nothing left in the kitchen.
+        $newStarted = 0;
+        $newReady   = max(0, $totalQty - $qtyVoided);
+    } else {
+        // 'preparing' — the previously pending units are now in the kitchen.
+        $newStarted = $qtyStarted + $qtyPending;
+        $newReady   = $qtyReady;
+    }
+
+    $pdo->prepare("
+        UPDATE order_items
+        SET status = ?, quantity_started = ?, quantity_ready = ?
+        WHERE order_item_id = ?
+    ")->execute([$new_status, $newStarted, $newReady, $order_item_id]);
 
     $order_id = $item['order_id'];
 

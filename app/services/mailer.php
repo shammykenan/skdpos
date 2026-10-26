@@ -12,21 +12,23 @@ function send_password_reset_email(string $to_email, string $to_name, string $re
 
     try {
         $mail->isSMTP();
-        $mail->Host       = $_ENV['SMTP_HOST'] ?? 'smtp-relay.brevo.com';
+        // SMTP configuration for InfinityFree
+        // Update these values with your SMTP provider credentials
+        $mail->Host       = 'smtp-relay.brevo.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = $_ENV['SMTP_USER'];
-        $mail->Password   = $_ENV['SMTP_PASS'];
+        $mail->Username   = 'a0c11f001@smtp-brevo.com';
+        $mail->Password   = 'xsmtpsib-43a6f23fca558bf99b539c092e830a9153cd7945150fab153027c64e4dc75fb6-TODpkaM3bTrsBDJo';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = (int)($_ENV['SMTP_PORT'] ?? 587);
+        $mail->Port       = 587;
 
         $mail->setFrom(
-            $_ENV['SMTP_FROM'],
-            $_ENV['SMTP_NAME'] ?? 'Cafeteria POS'
+            'dinshammykenan012@example.com',
+            'SKD-POS Support Team'
         );
         $mail->addAddress($to_email, $to_name);
 
         $mail->isHTML(true);
-        $mail->Subject = 'Password Reset Request (Cafeteria POS)';
+        $mail->Subject = 'Password Reset Request (SKD-POS)';
         $mail->Body    = build_reset_email_html($to_name, $reset_url);
         $mail->AltBody = build_reset_email_plain($to_name, $reset_url);
 
@@ -51,7 +53,7 @@ function build_reset_email_html(string $name, string $url): string
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Reset – Cafeteria POS</title>
+  <title>Password Reset – SKD-POS</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
 
@@ -68,8 +70,8 @@ function build_reset_email_html(string $name, string $url): string
           <!-- HEADER -->
           <tr>
             <td style="background-color:#0f4c5c; padding:32px 40px; text-align:center;">
-              <p style="margin:0 0 6px; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.55);">Management System</p>
-              <h1 style="margin:0; font-size:26px; font-weight:700; color:#ffffff; letter-spacing:-0.02em;">Cafeteria POS</h1>
+              <p style="margin:0 0 6px; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.55);">SKD Software Solutions</p>
+              <h1 style="margin:0; font-size:26px; font-weight:700; color:#ffffff; letter-spacing:-0.02em;">SKD-POS</h1>
             </td>
           </tr>
 
@@ -134,10 +136,9 @@ function build_reset_email_html(string $name, string $url): string
           <!-- FOOTER -->
           <tr>
             <td style="background-color:#f8fafc; border-top:1px solid #edf2f7; padding:24px 40px; border-radius:0 0 12px 12px; text-align:center;">
-              <p style="margin:0 0 6px; font-size:13px; font-weight:600; color:#0f4c5c;">Cafeteria POS</p>
               <p style="margin:0; font-size:12px; color:#a0b4be; line-height:1.6;">
                 This is an automated message &mdash; please do not reply.<br>
-                &copy; {$year} Cafeteria POS Management System. All rights reserved.
+                &copy; {$year} SKD Software Solutions. All rights reserved.
               </p>
             </td>
           </tr>
@@ -157,7 +158,7 @@ function build_reset_email_plain(string $name, string $url): string
     $year = date('Y');
 
     return implode("\n", [
-        "PASSWORD RESET REQUEST - Cafeteria POS",
+        "PASSWORD RESET REQUEST - SKD-POS",
         str_repeat("-", 40),
         "",
         "Hi {$name},",
@@ -170,7 +171,7 @@ function build_reset_email_plain(string $name, string $url): string
         str_repeat("-", 40),
         "Didn't request this? Ignore this email — your password won't change.",
         "",
-        "(c) {$year} Cafeteria POS Management System",
+        "(c) {$year} SKD Software Solutions",
         "This is an automated message. Please do not reply.",
     ]);
 }

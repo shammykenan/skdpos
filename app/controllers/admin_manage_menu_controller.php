@@ -1,5 +1,5 @@
 <?php
-// app/controllers/manage_menu_controller.php
+// app/controllers/admin_manage_menu_controller.php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/menu_items.php';
 require_once __DIR__ . '/../models/dashboard.php';
@@ -7,12 +7,11 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
 require_once __DIR__ . '/../models/categories.php';
 require_once __DIR__ . '/../models/variants.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
 
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../../config');
-$dotenv->load();
-$baseUrl = $_ENV['BASE_URL'];
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 $success = $_SESSION['success'] ?? '';
 $error   = $_SESSION['error']   ?? '';
@@ -24,19 +23,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit;
 }
 
-try {
-    $pdo = new PDO(
-        "mysql:host={$_ENV['DB_HOST']};dbname={$_ENV['DB_NAME']};charset=utf8mb4",
-        $_ENV['DB_USER'],
-        $_ENV['DB_PASS'],
-        [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ]
-    );
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+// Use the PDO connection from config/db.php instead of creating a new one
 
 // ================================================================
 // CATEGORY: ADD

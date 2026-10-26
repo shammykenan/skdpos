@@ -8,6 +8,8 @@ require_once __DIR__ . '/../core/refundHelper.php';
 
 header('Content-Type: application/json');
 requireRole(['admin', 'cashier', 'kitchen']);
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 $order_id = (int) ($_GET['order_id'] ?? 0);
 if (!$order_id) {

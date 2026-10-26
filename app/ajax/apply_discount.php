@@ -10,6 +10,8 @@ require_once __DIR__ . '/../core/VatHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
 
 requireRole(['admin', 'cashier']);
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -46,9 +48,18 @@ try {
         $pct = VatHelper::getPwdDiscountPct($pdo);
     } elseif ($discount_type === 'promo') {
         // promo — flat percentage sent from client
-        $pct = (float)($_POST['promo_pct'] ?? 0);
+        $pct      = (float)($_POST['promo_pct'] ?? 0);
+        $maxPromo = VatHelper::getMaxPromoPct($pdo);
         if ($pct <= 0 || $pct > 100) {
             echo json_encode(['success' => false, 'message' => 'Invalid promo percentage.']);
+            exit;
+        }
+        if ($pct > $maxPromo) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Promo discount cannot exceed ' . number_format($maxPromo, 0)
+                             . '%. Ask an administrator to raise the limit in BIR settings.',
+            ]);
             exit;
         }
     } else {

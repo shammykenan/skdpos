@@ -6,8 +6,9 @@
  */
 
 require __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/receipt_format.php';
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../models/BusinessInfo.php';
+require_once __DIR__ . '/../models/businessinfo.php';
 
 use Mike42\Escpos\Printer;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
@@ -31,10 +32,11 @@ try {
 
 // ── Business info ─────────────────────────────────────────────────
 $info      = getBusinessInfo($pdo);
-$bizName   = !empty($info['business_name']) ? $info['business_name'] : 'Dine with Din';
+$bizName   = !empty($info['business_name']) ? $info['business_name'] : 'The Lounge by: CJV & TEK';
 $bizAddr   = !empty($info['address'])       ? $info['address']       : '';
 $tin       = !empty($info['tin'])           ? $info['tin']           : '';
 $machineSN = !empty($info['machine_serial_no']) ? $info['machine_serial_no'] : '';
+$minNo     = !empty($info['min_number']) ? $info['min_number'] : '';
 $ptuNo     = !empty($info['ptu_number'])    ? $info['ptu_number']    : '';
 $accredNo  = !empty($info['accreditation_no']) ? $info['accreditation_no'] : '';
 
@@ -42,13 +44,13 @@ $accredNo  = !empty($info['accreditation_no']) ? $info['accreditation_no'] : '';
 $COL = 32;
 
 function zRow($label, $value, $col = 32) {
-    $maxLabel = $col - strlen($value) - 1;
+    $maxLabel = $col - rf_len($value) - 1;
     if ($maxLabel < 1) $maxLabel = 1;
-    if (strlen($label) > $maxLabel) $label = substr($label, 0, $maxLabel - 1) . '.';
+    if (rf_len($label) > $maxLabel) $label = rf_sub($label, 0, $maxLabel - 1) . '.';
     return str_pad($label, $maxLabel) . ' ' . $value . "\n";
 }
 function zCenter($text, $col = 32) {
-    $pad = (int)floor(($col - strlen($text)) / 2);
+    $pad = (int)floor(($col - rf_len($text)) / 2);
     return str_repeat(' ', max(0, $pad)) . $text . "\n";
 }
 function zDivider($ch = '-', $col = 32) {
@@ -63,6 +65,8 @@ date_default_timezone_set('Asia/Manila');
 // ── Start printing ────────────────────────────────────────────────
 
 // Business header
+// A mid-print failure must not leave the caller hanging on the fetch.
+try {
 $printer->setJustification(Printer::JUSTIFY_CENTER);
 $printer->selectPrintMode(Printer::MODE_DOUBLE_WIDTH);
 $printer->text($bizName . "\n");
@@ -125,6 +129,26 @@ $printer->text(zDivider('=', $COL));
 // Net Sales — bold
 $printer->setEmphasis(true);
 $printer->text(zRow("NET SALES:", 'P' . zMoney($d['net_sales']), $COL));
+
+// ── BIR accumulators ────────────────────────────────────────────
+// New GT - Old GT must equal this day's gross sales. That identity is
+// what makes the figure verifiable years later.
+$printer->text(zDivider('-', $COL));
+$printer->text(zRow("Z Counter:",     (string)($d['z_counter'] ?? 0),     $COL));
+$printer->text(zRow("Reset Counter:", (string)($d['reset_counter'] ?? 0), $COL));
+$printer->text(zRow("Old GT:", 'P' . zMoney($d['old_gt'] ?? 0), $COL));
+$printer->text(zRow("New GT:", 'P' . zMoney($d['new_gt'] ?? 0), $COL));
+
+// Chain head at close of day. This paper copy is the anchor: a ledger
+// rebuilt later cannot reproduce a hash that was already printed and filed.
+if (!empty($d['ledger_hash'])) {
+    $printer->text(zDivider('-', $COL));
+    $printer->text("Ledger verification code:\n");
+    // 64 hex chars split across the 32-column paper
+    foreach (str_split((string)$d['ledger_hash'], 32) as $chunk) {
+        $printer->text($chunk . "\n");
+    }
+}
 $printer->setEmphasis(false);
 $printer->text(zDivider('=', $COL));
 
@@ -139,5 +163,16 @@ $printer->text("\n");
 $printer->feed(4);
 $printer->cut();
 $printer->close();
+
+} catch (Throwable $printErr) {
+    error_log('[print-z-reading] print failed: ' . $printErr->getMessage());
+    try { $printer->close(); } catch (Throwable $ignore) {}
+    http_response_code(500);
+    echo json_encode([
+        'status'  => 'print_failed',
+        'message' => 'Printing failed partway through. Check the printer, then reprint.',
+    ]);
+    exit;
+}
 
 echo json_encode(["status" => "printed"]);

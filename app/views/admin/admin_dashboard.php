@@ -2,43 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-    <title>Admin Dashboard · Dine with Din</title>
+    <?php require_once __DIR__ . "/../../core/csrfHelper.php"; echo csrf_head($baseUrl ?? ""); ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — The Lounge by: CJV & TEK</title>
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/common.css">
+    <link href="<?= $baseUrl ?>/assets/vendor/fonts/app.css" rel="stylesheet">
+    <script src="<?= $baseUrl ?>/assets/vendor/chartjs/chart.umd.min.js"></script>
     <style>
         /* ── TOKENS (matching manage menu / manage addons exactly) ── */
-        :root {
-            --primary:       #0f4c5c;
-            --primary-dark:  #0a3a47;
-            --primary-light: #1f7a8c;
-            --secondary:     #ff6b4a;
-            --accent:        #fee440;
-            --navy:          #1e2f4e;
-            --lavender:      #e2e6f0;
-            --light-bg:      #f8faff;
-            --warm-gray:     #4a5568;
-            --border:        #cbd5e0;
-            --success:       #2c7a5a;
-            --danger:        #d64045;
-            --warning:       #f4b942;
-            --info:          #5e9b9e;
-            --dark:          #1a202c;
-            --success-soft:  #eaf7ef;
-            --danger-soft:   #fdecea;
-            --warning-soft:  #fef8e7;
-            --info-soft:     rgba(94,155,158,0.1);
-            --sidebar-w: 260px;
-            --top-h:     64px;   /* ← matched to manage_menu/addons */
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 18px;
-            --radius-xl: 24px;
-            --card-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.02);
-        }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -74,7 +48,6 @@
             flex-shrink: 0;
         }
 
-        /* ← 40px to match manage_menu/addons */
         .brand-logo {
             width: 40px;
             height: 40px;
@@ -129,12 +102,11 @@
         }
         .mobile-toggle:hover { background: var(--lavender); }
 
-        /* icon buttons (bell, db) */
         .icon-btn {
             background: white;
             border: 1px solid var(--border);
             border-radius: 40px;
-            width: 38px;   /* ← tightened to feel consistent */
+            width: 38px;
             height: 38px;
             display: flex;
             align-items: center;
@@ -162,7 +134,6 @@
             border: 2px solid white;
         }
 
-        /* ← user pill matches manage_menu/addons exactly */
         .user-pill {
             display: flex;
             align-items: center;
@@ -178,7 +149,6 @@
         }
         .user-pill:hover { background: var(--lavender); border-color: var(--primary-light); }
 
-        /* ← 30px to match manage_menu/addons */
         .user-avatar {
             width: 30px;
             height: 30px;
@@ -231,7 +201,6 @@
             opacity: 0.7;
         }
 
-        /* unified with manage_menu/addons nav-link class */
         .nav-link-custom {
             display: flex;
             align-items: center;
@@ -391,7 +360,7 @@
         }
         .data-table tbody tr:hover td { background: #fafcff; }
 
-        /* status badges */
+        /* ── STATUS BADGES ── */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -404,7 +373,8 @@
         .status-pending   { background: #fff3e0; color: #b85a1a; }
         .status-preparing { background: #e0f2fe; color: #0f4c5c; }
         .status-ready     { background: #dcfce7; color: #166534; }
-        .status-completed { background: #e0f2fe; color: #155799; }
+        /* ── FIXED: completed is now green (was blue #155799) ── */
+        .status-completed { background: #d1fae5; color: #065f46; }
         .status-cancelled { background: #fee2e2; color: #b91c1c; }
 
         /* low stock */
@@ -448,6 +418,95 @@
             color: var(--warm-gray);
         }
 
+        /* ── TOAST STACK ── */
+        .toast-stack {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            pointer-events: none;
+        }
+
+        .toast-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 0.9rem 1.1rem;
+            min-width: 280px;
+            max-width: 360px;
+            box-shadow: 0 8px 24px rgba(15,76,92,0.12), 0 0 0 1px rgba(15,76,92,0.04);
+            pointer-events: all;
+            animation: toastIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            border-left: 4px solid var(--primary);
+        }
+        .toast-item.toast-success { border-left-color: var(--success); }
+        .toast-item.toast-error   { border-left-color: var(--danger); }
+        .toast-item.toast-warning { border-left-color: var(--warning); }
+        .toast-item.toast-info    { border-left-color: var(--info); }
+
+        .toast-item.toast-out {
+            animation: toastOut 0.22s ease forwards;
+        }
+
+        .toast-icon {
+            width: 32px; height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .toast-success .toast-icon { background: var(--success-soft); color: var(--success); }
+        .toast-error   .toast-icon { background: var(--danger-soft);  color: var(--danger); }
+        .toast-warning .toast-icon { background: var(--warning-soft); color: var(--warning); }
+        .toast-info    .toast-icon { background: var(--info-soft);    color: var(--info); }
+        .toast-item:not([class*="toast-success"]):not([class*="toast-error"]):not([class*="toast-warning"]):not([class*="toast-info"]) .toast-icon {
+            background: rgba(15,76,92,0.08); color: var(--primary);
+        }
+
+        .toast-body { flex: 1; min-width: 0; }
+        .toast-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--navy);
+            line-height: 1.2;
+            margin-bottom: 0.15rem;
+        }
+        .toast-msg {
+            font-size: 0.78rem;
+            color: var(--warm-gray);
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--warm-gray);
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 0.1rem;
+            flex-shrink: 0;
+            opacity: 0.6;
+            transition: opacity 0.15s;
+            line-height: 1;
+            margin-top: 1px;
+        }
+        .toast-close:hover { opacity: 1; }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(24px) scale(0.96); }
+            to   { opacity: 1; transform: translateX(0)    scale(1); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0)    scale(1); max-height: 120px; margin-bottom: 0; }
+            to   { opacity: 0; transform: translateX(24px) scale(0.96); max-height: 0; padding: 0; margin: 0; overflow: hidden; }
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 1199.98px) {
             .stats-row { grid-template-columns: repeat(2, 1fr); }
@@ -461,7 +520,6 @@
             .main-footer { margin-left: 0; }
         }
 
-        /* iPad specific */
         @media (min-width: 768px) and (max-width: 1024px) {
             :root { --sidebar-w: 220px; }
             .stats-row { grid-template-columns: repeat(2, 1fr); }
@@ -473,6 +531,8 @@
             .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
             .brand-text-sub { display: none; }
             .topbar { padding: 0 1rem; }
+            .toast-stack { bottom: 1rem; right: 1rem; left: 1rem; }
+            .toast-item { min-width: 0; max-width: 100%; }
         }
 
         @media (max-width: 480px) {
@@ -505,11 +565,11 @@
     </button>
     <a href="<?= $baseUrl ?>/index.php?page=admin_dashboard" class="topbar-brand">
         <div class="brand-logo">
-            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="Dine with Din Logo">
+            <img src="<?= $baseUrl ?>/assets/images/logo/logo.png" alt="The Lounge by: CJV & TEK Logo">
         </div>
         <div>
-            <div class="brand-text-main">SKD Software Solutions</div>
-            <div class="brand-text-sub">POS with Recipe-Based Inventory Tracking</div>
+            <div class="brand-text-main">The Lounge by: CJV & TEK</div>
+            <div class="brand-text-sub">Chill. Coffee. Dine.</div>
         </div>
     </a>
     <div class="topbar-spacer"></div>
@@ -527,6 +587,11 @@
                 <li><span class="dropdown-item-text">Loading...</span></li>
             </ul>
         </div>
+
+        <!-- WiFi Config -->
+        <button class="icon-btn" data-bs-toggle="modal" data-bs-target="#wifiConfigModal" title="Configure WiFi">
+            <i class="fas fa-wifi"></i>
+        </button>
 
         <!-- Database tools -->
         <div class="dropdown">
@@ -731,13 +796,117 @@
 
 <footer class="main-footer">
     <div class="d-flex justify-content-between flex-wrap">
-        <span><strong>Copyright &copy; <?= date('Y') ?> Dine with Din</strong>. All rights reserved.</span>
+        <span><strong>Copyright &copy; <?= date('Y') ?> The Lounge by: CJV & TEK</strong>. All rights reserved.</span>
         <span class="text-muted">Version 2.0.0</span>
     </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- WiFi Configuration Modal -->
+<div class="modal fade" id="wifiConfigModal" tabindex="-1" aria-labelledby="wifiConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-xl); border: 1px solid var(--border); overflow: hidden;">
+            <div class="modal-header" style="background: #f8faff; border-bottom: 1px solid var(--border); padding: 1.1rem 1.5rem;">
+                <h5 class="modal-title" id="wifiConfigModalLabel" style="font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="width:32px;height:32px;background:rgba(15,76,92,0.08);border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;color:var(--primary);font-size:0.9rem;">
+                        <i class="fas fa-wifi"></i>
+                    </span>
+                    Configure WiFi
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div id="wifiLoadingState" class="text-center py-3" style="display:none;">
+                    <i class="fas fa-spinner fa-spin" style="color:var(--primary);font-size:1.5rem;"></i>
+                    <div class="mt-2 text-muted" style="font-size:0.85rem;">Loading current settings…</div>
+                </div>
+                <div id="wifiFormBody">
+                    <div class="mb-3">
+                        <label for="wifiSSID" class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--navy);">Network Name (SSID)</label>
+                        <input type="text" class="form-control" id="wifiSSID" name="wifi_ssid"
+                               placeholder="e.g., The Lounge"
+                               style="border-radius:var(--radius-md);border-color:var(--border);font-size:0.9rem;">
+                    </div>
+                    <div class="mb-1">
+                        <label for="wifiPassword" class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--navy);">Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="wifiPassword" name="wifi_password"
+                                   placeholder="Enter WiFi password"
+                                   style="border-radius:var(--radius-md) 0 0 var(--radius-md);border-color:var(--border);font-size:0.9rem;">
+                            <button class="btn btn-outline-secondary" type="button" id="toggleWifiPw"
+                                    style="border-color:var(--border);border-radius:0 var(--radius-md) var(--radius-md) 0;color:var(--warm-gray);">
+                                <i class="fas fa-eye" id="toggleWifiPwIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#f8faff;border-top:1px solid var(--border);padding:1rem 1.5rem;gap:0.6rem;">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal"
+                        style="border-radius:30px;border:1px solid var(--border);font-size:0.85rem;padding:0.45rem 1.2rem;">
+                    Cancel
+                </button>
+                <button type="button" class="btn" id="saveWifiConfig"
+                        style="background:var(--primary);color:white;border-radius:30px;font-size:0.85rem;padding:0.45rem 1.4rem;font-weight:600;border:none;">
+                    <i class="fas fa-save me-2"></i>Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST STACK -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="<?= $baseUrl ?>/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
+    /* ── TOAST SYSTEM ─────────────────────────────────────────────────────── */
+    const TOAST_ICONS = {
+        success: 'fa-check-circle',
+        error:   'fa-times-circle',
+        warning: 'fa-exclamation-triangle',
+        info:    'fa-info-circle',
+    };
+    const TOAST_TITLES = {
+        success: 'Success',
+        error:   'Error',
+        warning: 'Warning',
+        info:    'Info',
+    };
+
+    /**
+     * showToast(message, type, duration)
+     * type: 'success' | 'error' | 'warning' | 'info'  (default 'info')
+     * duration: ms before auto-dismiss  (default 4000; 0 = sticky)
+     */
+    window.showToast = function(message, type = 'info', duration = 4000) {
+        const stack = document.getElementById('toastStack');
+        const icon  = TOAST_ICONS[type]  || 'fa-info-circle';
+        const title = TOAST_TITLES[type] || 'Notice';
+
+        const el = document.createElement('div');
+        el.className = `toast-item toast-${type}`;
+        el.innerHTML = `
+            <div class="toast-icon"><i class="fas ${icon}"></i></div>
+            <div class="toast-body">
+                <div class="toast-title">${title}</div>
+                <div class="toast-msg">${escapeHtml(message)}</div>
+            </div>
+            <button class="toast-close" aria-label="Close"><i class="fas fa-times"></i></button>
+        `;
+
+        const dismiss = () => {
+            el.classList.add('toast-out');
+            el.addEventListener('animationend', () => el.remove(), { once: true });
+        };
+
+        el.querySelector('.toast-close').addEventListener('click', dismiss);
+        stack.appendChild(el);
+
+        if (duration > 0) setTimeout(dismiss, duration);
+        return el;
+    };
+
+    /* ── SHARED UTILS ─────────────────────────────────────────────────────── */
     window.escapeHtml = function(text) {
         if (text === null || text === undefined) return '';
         const div = document.createElement('div');
@@ -748,14 +917,28 @@
         const n = parseFloat(amount || 0);
         return isNaN(n) ? '0.00' : n.toFixed(2);
     };
-    window.autoDismissAlerts = function(timeout) { setTimeout(() => { document.querySelectorAll('.alert').forEach(a => { try { bootstrap.Alert.getOrCreateInstance(a).close(); } catch(e) {} }); }, timeout || 3000); };
+    window.autoDismissAlerts = function(timeout) {
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(a => {
+                try { bootstrap.Alert.getOrCreateInstance(a).close(); } catch(e) {}
+            });
+        }, timeout || 3000);
+    };
     window.setupSidebarToggle = function() {
         const toggle  = document.getElementById('menuToggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         if (toggle && sidebar && overlay) {
-            toggle.addEventListener('click', () => { sidebar.classList.toggle('show'); overlay.classList.toggle('show'); document.body.style.overflow = sidebar.classList.contains('show') ? 'hidden' : ''; });
-            overlay.addEventListener('click', () => { sidebar.classList.remove('show'); overlay.classList.remove('show'); document.body.style.overflow = ''; });
+            toggle.addEventListener('click', () => {
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('show');
+                document.body.style.overflow = sidebar.classList.contains('show') ? 'hidden' : '';
+            });
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            });
         }
     };
     window.setupModalBackdropCleanup = function() {
@@ -772,7 +955,7 @@
     setupModalBackdropCleanup();
     autoDismissAlerts(5000);
 
-    // chart data
+    /* ── CHARTS ───────────────────────────────────────────────────────────── */
     const dailyLabels = [<?php foreach ($dailySales as $s) { echo "'" . date('M d', strtotime($s['date'])) . "',"; } ?>];
     const dailyData   = [<?php foreach ($dailySales as $s) { echo (float)$s['total_sales'] . ","; } ?>];
     const catLabels   = [<?php foreach ($salesByCategory as $c) { echo "'" . addslashes($c['category_name']) . "',"; } ?>];
@@ -782,18 +965,50 @@
     const salesCtx = document.getElementById('salesChartCanvas').getContext('2d');
     const salesChart = new Chart(salesCtx, {
         type: 'line',
-        data: { labels: dailyLabels, datasets: [{ label: 'Daily Sales (₱)', data: dailyData, borderColor: '#0f4c5c', backgroundColor: 'rgba(15,76,92,0.05)', borderWidth: 2.5, tension: 0.3, fill: true, pointBackgroundColor: '#ff6b4a', pointRadius: 3 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: ctx => `₱${ctx.raw.toLocaleString()}` } } } }
+        data: {
+            labels: dailyLabels,
+            datasets: [{
+                label: 'Daily Sales (₱)',
+                data: dailyData,
+                borderColor: '#0f4c5c',
+                backgroundColor: 'rgba(15,76,92,0.05)',
+                borderWidth: 2.5,
+                tension: 0.3,
+                fill: true,
+                pointBackgroundColor: '#ff6b4a',
+                pointRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { tooltip: { callbacks: { label: ctx => `₱${ctx.raw.toLocaleString()}` } } }
+        }
     });
+
     const catCtx = document.getElementById('categoryChartCanvas').getContext('2d');
     const categoryChart = new Chart(catCtx, {
         type: 'doughnut',
-        data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: catLabels.map((_,i)=>colorPalette[i%colorPalette.length]), borderWidth: 0 }] },
-        options: { responsive: true, cutout: '65%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ₱${ctx.raw.toLocaleString()}` } } } }
+        data: {
+            labels: catLabels,
+            datasets: [{
+                data: catData,
+                backgroundColor: catLabels.map((_,i) => colorPalette[i % colorPalette.length]),
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '65%',
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: ctx => `${ctx.label}: ₱${ctx.raw.toLocaleString()}` } }
+            }
+        }
     });
 
-    // polling
-    const BASE_URL = '<?= $baseUrl ?>';
+    /* ── DASHBOARD POLLING ────────────────────────────────────────────────── */
+    const BASE_URL = "<?= rtrim(str_replace('/public', '', $baseUrl), '/') ?>";
     const POLL_URL = BASE_URL.replace('/public', '') + '/app/ajax/get_dashboard_counts.php';
 
     async function refreshDashboard() {
@@ -801,6 +1016,7 @@
             const resp = await fetch(POLL_URL, { cache: 'no-store' });
             const data = await resp.json();
             if (!data.success) return;
+
             document.getElementById('statRevenue').innerText = '₱' + formatPrice(data.today_revenue);
             document.querySelector('.stat-card .small.text-muted').innerText = 'Monthly: ₱' + formatPrice(data.monthly_revenue);
             document.getElementById('statOrders').innerText = data.today_orders;
@@ -820,38 +1036,61 @@
                 if (data.total_active === 0 && data.low_stock === 0) html += `<li><span class="dropdown-item-text text-muted"><i class="fas fa-check-circle me-2"></i>All caught up!</span></li>`;
                 notifMenu.innerHTML = html;
             }
+
             const totalNotif = (data.pending_count||0)+(data.preparing_count||0)+(data.ready_count||0)+(data.low_stock||0);
             const badgeSpan  = document.querySelector('#notifDropdownBtn .badge-notify');
-            if (totalNotif > 0) { if (!badgeSpan) document.getElementById('notifDropdownBtn').insertAdjacentHTML('beforeend','<span class="badge-notify"></span>'); const nb = document.querySelector('#notifDropdownBtn .badge-notify'); if(nb) nb.innerText = totalNotif; }
-            else if (badgeSpan) badgeSpan.remove();
+            if (totalNotif > 0) {
+                if (!badgeSpan) document.getElementById('notifDropdownBtn').insertAdjacentHTML('beforeend','<span class="badge-notify"></span>');
+                const nb = document.querySelector('#notifDropdownBtn .badge-notify');
+                if (nb) nb.innerText = totalNotif;
+            } else if (badgeSpan) {
+                badgeSpan.remove();
+            }
 
             if (data.recent_orders) {
                 let rows = '';
                 data.recent_orders.forEach(o => {
-                    rows += `<tr><td><strong>${escapeHtml(o.order_number)}</strong><br><small class="text-muted">by ${escapeHtml(o.cashier_name)}</small></td><td>${o.customer_name ? escapeHtml(o.customer_name) : '<span class="text-muted">Walk-in</span>'}</td><td>₱${formatPrice(o.total_amount)}</td><td><span class="status-badge status-${o.status}">${o.status.charAt(0).toUpperCase()+o.status.slice(1)}</span></td><td>${new Date(o.created_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td></tr>`;
+                    rows += `<tr>
+                        <td><strong>${escapeHtml(o.order_number)}</strong><br><small class="text-muted">by ${escapeHtml(o.cashier_name)}</small></td>
+                        <td>${o.customer_name ? escapeHtml(o.customer_name) : '<span class="text-muted">Walk-in</span>'}</td>
+                        <td>₱${formatPrice(o.total_amount)}</td>
+                        <td><span class="status-badge status-${o.status}">${o.status.charAt(0).toUpperCase()+o.status.slice(1)}</span></td>
+                        <td>${new Date(o.created_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+                    </tr>`;
                 });
                 document.getElementById('recentOrdersBody').innerHTML = rows;
             }
+
             if (data.top_items) {
                 let itemsHtml = '';
-                data.top_items.forEach((it,idx) => {
-                    itemsHtml += `<div class="top-item-row"><div><span class="fw-bold">${idx+1}.</span> ${escapeHtml(it.item_name)}<br><small class="text-muted">₱${formatPrice(it.variant_price)} each</small></div><div class="text-end"><span class="badge-count">${it.total_sold} sold</span><br><small class="fw-bold text-success">₱${formatPrice(it.total_revenue)}</small></div></div>`;
+                data.top_items.forEach((it, idx) => {
+                    itemsHtml += `<div class="top-item-row">
+                        <div><span class="fw-bold">${idx+1}.</span> ${escapeHtml(it.item_name)}<br><small class="text-muted">₱${formatPrice(it.variant_price)} each</small></div>
+                        <div class="text-end"><span class="badge-count">${it.total_sold} sold</span><br><small class="fw-bold text-success">₱${formatPrice(it.total_revenue)}</small></div>
+                    </div>`;
                 });
                 document.getElementById('topItemsList').innerHTML = itemsHtml;
             }
+
             if (data.low_stock_items) {
                 let stockHtml = '';
-                if (data.low_stock_items.length === 0) stockHtml = '<div class="p-3 text-center text-success"><i class="fas fa-check-circle me-1"></i> All ingredients well stocked</div>';
-                else {
+                if (data.low_stock_items.length === 0) {
+                    stockHtml = '<div class="p-3 text-center text-success"><i class="fas fa-check-circle me-1"></i> All ingredients well stocked</div>';
+                } else {
                     data.low_stock_items.forEach(ing => {
                         const critical = ing.stock_quantity <= (ing.low_stock_alert * 0.3);
                         const percent  = Math.min(100, (ing.stock_quantity / ing.low_stock_alert) * 100);
-                        stockHtml += `<div class="stock-item ${critical ? 'stock-critical' : ''}"><div class="d-flex justify-content-between"><strong>${escapeHtml(ing.ingredient_name)}</strong><span class="badge ${critical ? 'bg-danger' : 'bg-warning'}">${critical ? 'Critical' : 'Low'}</span></div><div class="small">Current: ${ing.stock_quantity} ${escapeHtml(ing.unit)} / Alert: ${ing.low_stock_alert}</div><div class="progress-custom"><div class="progress-fill ${critical ? 'danger' : ''}" style="width:${percent}%;"></div></div></div>`;
+                        stockHtml += `<div class="stock-item ${critical ? 'stock-critical' : ''}">
+                            <div class="d-flex justify-content-between"><strong>${escapeHtml(ing.ingredient_name)}</strong><span class="badge ${critical ? 'bg-danger' : 'bg-warning'}">${critical ? 'Critical' : 'Low'}</span></div>
+                            <div class="small">Current: ${ing.stock_quantity} ${escapeHtml(ing.unit)} / Alert: ${ing.low_stock_alert}</div>
+                            <div class="progress-custom"><div class="progress-fill ${critical ? 'danger' : ''}" style="width:${percent}%;"></div></div>
+                        </div>`;
                     });
                     stockHtml += `<div class="p-2 text-center"><a href="${BASE_URL}/index.php?page=manage_ingredients" class="text-decoration-none fw-semibold">Manage ingredients →</a></div>`;
                 }
                 document.getElementById('lowStockContainer').innerHTML = stockHtml;
             }
+
             if (data.daily_sales) {
                 salesChart.data.labels = data.daily_sales.map(s => new Date(s.date+'T00:00:00').toLocaleString('en-US',{month:'short',day:'numeric'}));
                 salesChart.data.datasets[0].data = data.daily_sales.map(s => parseFloat(s.total_sales));
@@ -860,14 +1099,98 @@
             if (data.sales_by_category) {
                 categoryChart.data.labels = data.sales_by_category.map(c => c.category_name);
                 categoryChart.data.datasets[0].data = data.sales_by_category.map(c => parseFloat(c.total_sales));
-                categoryChart.data.datasets[0].backgroundColor = data.sales_by_category.map((_,i)=>colorPalette[i%colorPalette.length]);
+                categoryChart.data.datasets[0].backgroundColor = data.sales_by_category.map((_,i) => colorPalette[i % colorPalette.length]);
                 categoryChart.update('none');
             }
         } catch(e) { console.warn(e); }
     }
+
     refreshDashboard();
     setInterval(refreshDashboard, 5000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshDashboard(); });
+
+    /* ── WIFI CONFIGURATION ───────────────────────────────────────────────── */
+    const WIFI_URL      = BASE_URL.replace('/public', '') + '/app/ajax/configure_wifi.php';
+    const wifiSSIDInput = document.getElementById('wifiSSID');
+    const wifiPwInput   = document.getElementById('wifiPassword');
+    const saveWifiBtn   = document.getElementById('saveWifiConfig');
+    const wifiFormBody  = document.getElementById('wifiFormBody');
+    const wifiLoading   = document.getElementById('wifiLoadingState');
+
+    // Password show/hide toggle
+    document.getElementById('toggleWifiPw').addEventListener('click', function() {
+        const isHidden = wifiPwInput.type === 'password';
+        wifiPwInput.type = isHidden ? 'text' : 'password';
+        document.getElementById('toggleWifiPwIcon').className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+
+    // Load current WiFi settings when modal opens
+    document.getElementById('wifiConfigModal').addEventListener('show.bs.modal', async function() {
+        wifiSSIDInput.value = '';
+        wifiPwInput.value   = '';
+        wifiPwInput.type    = 'password';
+        document.getElementById('toggleWifiPwIcon').className = 'fas fa-eye';
+        wifiFormBody.style.display = 'none';
+        wifiLoading.style.display  = 'block';
+
+        try {
+            const resp = await fetch(WIFI_URL, { cache: 'no-store' });
+            const data = await resp.json();
+            if (data.success) {
+                wifiSSIDInput.value = data.ssid     || '';
+                wifiPwInput.value   = data.password || '';
+            } else {
+                showToast(data.message || 'Could not load WiFi settings.', 'warning');
+            }
+        } catch(e) {
+            showToast('Failed to load WiFi settings.', 'error');
+        } finally {
+            wifiLoading.style.display  = 'none';
+            wifiFormBody.style.display = 'block';
+        }
+    });
+
+    // Save WiFi configuration
+    saveWifiBtn.addEventListener('click', async function() {
+        const ssid     = wifiSSIDInput.value.trim();
+        const password = wifiPwInput.value.trim();
+
+        if (!ssid) {
+            showToast('Please enter the network name (SSID).', 'warning');
+            wifiSSIDInput.focus();
+            return;
+        }
+        if (!password) {
+            showToast('Please enter the WiFi password.', 'warning');
+            wifiPwInput.focus();
+            return;
+        }
+
+        saveWifiBtn.disabled     = true;
+        saveWifiBtn.innerHTML    = '<i class="fas fa-spinner fa-spin me-2"></i>Saving…';
+
+        try {
+            const formData = new FormData();
+            formData.append('ssid',     ssid);
+            formData.append('password', password);
+
+            const resp = await fetch(WIFI_URL, { method: 'POST', body: formData });
+            const data = await resp.json();
+
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('wifiConfigModal')).hide();
+                showToast('WiFi configuration saved successfully!', 'success');
+            } else {
+                showToast(data.message || 'Failed to save WiFi configuration.', 'error');
+            }
+        } catch(e) {
+            showToast('An error occurred while saving. Please try again.', 'error');
+            console.error(e);
+        } finally {
+            saveWifiBtn.disabled  = false;
+            saveWifiBtn.innerHTML = '<i class="fas fa-save me-2"></i>Save Configuration';
+        }
+    });
 </script>
 </body>
 </html>

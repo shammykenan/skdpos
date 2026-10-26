@@ -1,12 +1,12 @@
 <?php
 // app/controllers/reset_password_controller.php
+require_once __DIR__ . '/../../config/db.php';
 
 $token       = trim(urldecode($_GET['token'] ?? ''));
 $error       = '';
 $success     = '';
 $valid_token = false;
 $reset       = null;
-$baseUrl = $_ENV['BASE_URL'] ?? 'http://localhost/coffee_shop/public';
 if (empty($token)) {
     $error = 'Invalid or missing reset token.';
 

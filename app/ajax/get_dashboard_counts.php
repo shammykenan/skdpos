@@ -2,6 +2,8 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../core/authHelper.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 header('Content-Type: application/json');
 
@@ -11,17 +13,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 try {
-    // ── Debug: Check today's orders ───────────────────────────────────
-    $debugStmt = $pdo->prepare("
-        SELECT order_id, order_number, total_amount, status, created_at
-        FROM orders
-        WHERE DATE(created_at) = CURDATE()
-        ORDER BY created_at DESC
-        LIMIT 5
-    ");
-    $debugStmt->execute();
-    $todayOrders = $debugStmt->fetchAll(PDO::FETCH_ASSOC);
-    error_log("DEBUG: Today's orders: " . json_encode($todayOrders));
 
     // ── Active order counts ───────────────────────────────────────────
     $stmt = $pdo->prepare("
@@ -62,7 +53,7 @@ try {
             COUNT(*)                      AS today_orders,
             COUNT(DISTINCT customer_name) AS today_customers
         FROM orders
-        WHERE DATE(created_at) = CURDATE()
+        WHERE DATE(created_at) = CURDATE() AND status != 'draft'
     ");
     $stmt->execute();
     $todayStats = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -117,6 +108,7 @@ try {
                COALESCE(u.full_name, 'N/A') AS cashier_name
         FROM orders o
         LEFT JOIN users u ON o.cashier_id = u.user_id
+        WHERE o.status != 'draft'
         ORDER BY o.created_at DESC
         LIMIT 10
     ");

@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../core/init.php';
 
 requireRole(['admin']);
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 try {
     $stmt = $pdo->query("

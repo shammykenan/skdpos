@@ -10,7 +10,7 @@
 function requireRole(array $allowed_roles): void {
     if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], $allowed_roles)) {
         $_SESSION['error'] = 'Access denied.';
-        header('Location: index.php?page=login');
+        header('Location: index.php?page=landing');
         exit;
     }
 }
@@ -46,7 +46,7 @@ function checkLoginRateLimit(PDO $pdo, string $baseUrl): bool {
 
     if ((int) $stmt->fetchColumn() >= $limit) {
         $_SESSION['error'] = "Too many login attempts from your IP. Try again after $windowMinutes minutes.";
-        header('Location: ' . $baseUrl . '/index.php?page=login');
+        header('Location: ' . $baseUrl . '/index.php?page=landing');
         exit;
     }
 

@@ -6,17 +6,19 @@ require_once __DIR__ . '/../core/recipesHelper.php';
 require_once __DIR__ . '/../core/addonsHelper.php';
 require_once __DIR__ . '/../core/posHelper.php';
 require_once __DIR__ . '/../core/authHelper.php';
-require_once __DIR__ . '/../core/tableHelper.php';
+require_once __DIR__ . '/../core/tablehelper.php';
 require_once __DIR__ . '/../models/pos.php';
 require_once __DIR__ . '/../models/variants.php';
 require_once __DIR__ . '/../core/VatHelper.php';
+require_once __DIR__ . '/../core/GrandTotal.php';
 
 requireRole(['admin', 'cashier']);
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'cashier'])) {
     $_SESSION['error'] = 'Access denied. Please log in as admin or cashier.';
-    header("Location: index.php?page=login");
+    header("Location: index.php?page=landing");
     exit;
 }
 
@@ -141,6 +143,10 @@ if (
         }
 
         // ── Cumulative stock validation ───────────────────────────────────────
+        // Availability is on-hand minus what is already sold but not yet
+        // deducted (orders still waiting on the kitchen). Comparing against raw
+        // stock_quantity lets two cashiers sell the same last serving.
+        $committed_stock   = getCommittedIngredientDemand($pdo);
         $ingredient_demand = [];
 
         foreach ($cart_data as $cart_item) {
@@ -157,7 +163,7 @@ if (
                     $ingredient_demand[$id] = [
                         'name'      => $ing['ingredient_name'],
                         'needed'    => 0,
-                        'available' => (float)$ing['stock_quantity'],
+                        'available' => max(0, (float)$ing['stock_quantity'] - ($committed_stock[$id] ?? 0)),
                     ];
                 }
                 $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $item_qty;
@@ -173,7 +179,7 @@ if (
                         $ingredient_demand[$id] = [
                             'name'      => $ing['ingredient_name'],
                             'needed'    => 0,
-                            'available' => (float)$ing['stock_quantity'],
+                            'available' => max(0, (float)$ing['stock_quantity'] - ($committed_stock[$id] ?? 0)),
                         ];
                     }
                     $ingredient_demand[$id]['needed'] += $ing['quantity_required'] * $addon_qty;
@@ -274,6 +280,13 @@ if (
             $discount_pct = VatHelper::getPwdDiscountPct($pdo);
         } elseif ($discount_type === 'promo') {
             $discount_pct = (float)($_POST['discount_pct'] ?? 0);
+            $maxPromo     = VatHelper::getMaxPromoPct($pdo);
+            if ($discount_pct > $maxPromo) {
+                throw new Exception(sprintf(
+                    'Promo discount cannot exceed %s%%. Ask an administrator to raise the limit in BIR settings.',
+                    number_format($maxPromo, 0)
+                ));
+            }
             if ($discount_pct <= 0 || $discount_pct > 100) {
                 throw new Exception('Invalid promo percentage.');
             }
@@ -330,6 +343,10 @@ if (
 
         // assignOrNumberAndVat() uses FOR UPDATE internally — must be inside transaction
         $or_number = assignOrNumberAndVat($pdo, $order_id, $total_amount, $discount_type);
+
+        // Accumulated Grand Total — appended in the same transaction as the OR
+        // number so the two can never drift apart. Never reset, never reduced.
+        $grand_total = gt_append($pdo, $order_id, $or_number, $subtotal, $total_amount);
 
         recordOrderDiscount(
             $pdo,
@@ -389,6 +406,7 @@ if (
             'order_id'        => $order_id,
             'order_number'    => $order_number,
             'or_number'       => $or_number,
+            'grand_total'     => $grand_total,
             'table_name'      => $table_name,
             'total'           => $total_amount,
             'amount_paid'     => $amount_paid,

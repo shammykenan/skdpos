@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/receipt_format.php';
 
 use Mike42\Escpos\Printer;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
@@ -45,22 +46,24 @@ if (!$printerAvailable) {
     exit;
 }
 
+// A mid-print failure must not leave the caller hanging on the fetch.
+try {
+
 // ===== CONFIG =====
 $COL = 30;
 
 // ===== HELPERS =====
-function rpad($s, $n) {
-    return strlen($s) >= $n ? substr($s, 0, $n) : $s . str_repeat(" ", $n - strlen($s));
-}
-function row2col($label, $value, $total = 30) {
-    $maxLabel = $total - strlen($value) - 1;
-    if (strlen($label) > $maxLabel) {
-        $label = substr($label, 0, $maxLabel - 1) . '.';
+// rpad() and divider() come from receipt_format.php (multibyte-safe).
+// This sheet indents its rows by 4, so it keeps its own row builder.
+function closeoutRow($label, $value, $total = 30) {
+    $maxLabel = $total - rf_len($value) - 1;
+    if ($maxLabel < 5) {
+        $maxLabel = 5;
+    }
+    if (rf_len($label) > $maxLabel) {
+        $label = rf_sub($label, 0, max(1, $maxLabel - 1)) . '.';
     }
     return "    " . rpad($label, $maxLabel - 4) . " " . $value;
-}
-function divider($ch = '-', $width = 30) {
-    return str_repeat($ch, $width);
 }
 
 date_default_timezone_set("Asia/Manila");
@@ -106,35 +109,35 @@ $printer->text(divider('-', $COL) . "\n");
 $printer->setEmphasis(true);
 $printer->text("    CASHIER INFO\n");
 $printer->setEmphasis(false);
-$printer->text(row2col("Cashier:", $cashier_name, $COL) . "\n");
-$printer->text(row2col("Username:", $username, $COL) . "\n");
-$printer->text(row2col("Date:", $shift_date, $COL) . "\n");
-$printer->text(row2col("Printed at:", $printed_at, $COL) . "\n");
+$printer->text(closeoutRow("Cashier:", $cashier_name, $COL) . "\n");
+$printer->text(closeoutRow("Username:", $username, $COL) . "\n");
+$printer->text(closeoutRow("Date:", $shift_date, $COL) . "\n");
+$printer->text(closeoutRow("Printed at:", $printed_at, $COL) . "\n");
 $printer->text(divider('-', $COL) . "\n");
 
 $printer->setEmphasis(true);
 $printer->text("    ORDER SUMMARY\n");
 $printer->setEmphasis(false);
-$printer->text(row2col("Orders handled:", (string)$total_orders, $COL) . "\n");
-$printer->text(row2col("Cancelled:", (string)$cancelled_orders, $COL) . "\n");
-$printer->text(row2col("Transactions:", (string)$payment_count, $COL) . "\n");
+$printer->text(closeoutRow("Orders handled:", (string)$total_orders, $COL) . "\n");
+$printer->text(closeoutRow("Cancelled:", (string)$cancelled_orders, $COL) . "\n");
+$printer->text(closeoutRow("Transactions:", (string)$payment_count, $COL) . "\n");
 if ($admin_processed > 0) {
-    $printer->text(row2col("Admin-processed:", (string)$admin_processed, $COL) . "\n");
+    $printer->text(closeoutRow("Admin-processed:", (string)$admin_processed, $COL) . "\n");
 }
 $printer->text(divider('-', $COL) . "\n");
 
 $printer->setEmphasis(true);
 $printer->text("    SALES BREAKDOWN\n");
 $printer->setEmphasis(false);
-$printer->text(row2col("Gross sales:", "PHP " . number_format($gross_sales, 2), $COL) . "\n");
+$printer->text(closeoutRow("Gross sales:", "PHP " . number_format($gross_sales, 2), $COL) . "\n");
 if ($total_discounts > 0) {
-    $printer->text(row2col("Discounts:", "- " . number_format($total_discounts, 2), $COL) . "\n");
+    $printer->text(closeoutRow("Discounts:", "- " . number_format($total_discounts, 2), $COL) . "\n");
 }
-$printer->text(row2col("Net sales (w/ VAT):", "PHP " . number_format($net_sales, 2), $COL) . "\n");
-$printer->text(row2col("  Excl. VAT:", "PHP " . number_format($net_sales_excl, 2), $COL) . "\n");
-$printer->text(row2col("  VAT (12%):", "PHP " . number_format($vat_collected, 2), $COL) . "\n");
+$printer->text(closeoutRow("Net sales (w/ VAT):", "PHP " . number_format($net_sales, 2), $COL) . "\n");
+$printer->text(closeoutRow("  Excl. VAT:", "PHP " . number_format($net_sales_excl, 2), $COL) . "\n");
+$printer->text(closeoutRow("  VAT (12%):", "PHP " . number_format($vat_collected, 2), $COL) . "\n");
 if ($total_refunds > 0) {
-    $printer->text(row2col("Refunds:", "- " . number_format($total_refunds, 2), $COL) . "\n");
+    $printer->text(closeoutRow("Refunds:", "- " . number_format($total_refunds, 2), $COL) . "\n");
 }
 $printer->text(divider('-', $COL) . "\n");
 
@@ -147,7 +150,7 @@ if (!empty($top_items)) {
         if (!empty($item['variant_name'])) {
             $label .= " (" . $item['variant_name'] . ")";
         }
-        $printer->text(row2col($label, "x" . $item['units_sold'], $COL) . "\n");
+        $printer->text(closeoutRow($label, "x" . $item['units_sold'], $COL) . "\n");
     }
     $printer->text(divider('-', $COL) . "\n");
 }
@@ -155,8 +158,8 @@ if (!empty($top_items)) {
 $printer->setEmphasis(true);
 $printer->text("    CASH RECONCILIATION\n");
 $printer->setEmphasis(false);
-$printer->text(row2col("Cash received:", "PHP " . number_format($cash_received, 2), $COL) . "\n");
-$printer->text(row2col("Change given:", "- " . number_format($change_given, 2), $COL) . "\n");
+$printer->text(closeoutRow("Cash received:", "PHP " . number_format($cash_received, 2), $COL) . "\n");
+$printer->text(closeoutRow("Change given:", "- " . number_format($change_given, 2), $COL) . "\n");
 $printer->text(divider('=', $COL) . "\n");
 
 $printer->setJustification(Printer::JUSTIFY_CENTER);
@@ -170,7 +173,7 @@ $printer->setJustification(Printer::JUSTIFY_LEFT);
 $printer->text(divider('=', $COL) . "\n");
 
 if ($total_waste_cost > 0) {
-    $printer->text(row2col("Waste written off:", "PHP " . number_format($total_waste_cost, 2), $COL) . "\n");
+    $printer->text(closeoutRow("Waste written off:", "PHP " . number_format($total_waste_cost, 2), $COL) . "\n");
     $printer->text(divider('-', $COL) . "\n");
 }
 
@@ -186,7 +189,7 @@ $printer->text(divider('_', $COL) . "\n");
 $printer->text("\n");
 $printer->setJustification(Printer::JUSTIFY_CENTER);
 $printer->text("Thank you for your service today.\n");
-$printer->text("Dine with Din Cafeteria\n");
+$printer->text("The Lounge by: CJV & TEK Cafeteria\n");
 $printer->text(date('Y') . "\n");
 $printer->text("\n");
 $printer->text("Powered by SKD Software\n");
@@ -194,6 +197,16 @@ $printer->text("\n"); // small gap before cut
 $printer->text("\n"); // small gap before cut
 
 $printer->cut();
-$printer->close();
+    $printer->close();
 
-echo json_encode(["status" => "printed"]);
+    echo json_encode(["status" => "printed"]);
+
+} catch (Throwable $printErr) {
+    error_log('[print-closeout] print failed: ' . $printErr->getMessage());
+    try { $printer->close(); } catch (Throwable $ignore) {}
+    http_response_code(500);
+    echo json_encode([
+        "status"  => "print_failed",
+        "message" => "Printing failed partway through. Check the printer, then reprint.",
+    ]);
+}

@@ -1,16 +1,13 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../models/menu_items.php';
 require_once __DIR__ . '/../models/dashboard.php';
 require_once __DIR__ . '/../models/users.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../core/itemsHelper.php';
+require_once __DIR__ . '/../models/app_settings.php';
 
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../../config');
-$dotenv->load();
-$baseUrl = $_ENV['BASE_URL'];
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 // Check authentication
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {

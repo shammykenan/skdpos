@@ -3,13 +3,18 @@ require_once __DIR__ . '/../../config/db.php';
 
 function getAllAddons(PDO $pdo): array
 {
-    $sql = "SELECT a.*, i.ingredient_name, u.unit_code, u.unit_label
-            FROM addons a
-            JOIN ingredients i ON a.ingredient_id = i.ingredient_id
-            JOIN units u       ON i.unit_id        = u.unit_id
-            ORDER BY a.addon_name";
-    $stmt = $pdo->query($sql);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $sql = "SELECT a.*, i.ingredient_name, u.unit_code, u.unit_label
+                FROM addons a
+                JOIN ingredients i ON a.ingredient_id = i.ingredient_id
+                JOIN units u       ON i.unit_id        = u.unit_id
+                ORDER BY a.addon_name";
+        $stmt = $pdo->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAllAddons: " . $e->getMessage());
+        return [];
+    }
 }
 
 function getAddonById(PDO $pdo, int $addon_id): ?array
@@ -27,8 +32,13 @@ function getAddonsForItemCategory(PDO $pdo, int $category_id): array
     if (!in_array($category_id, $beverageCategories)) {
         return [];
     }
-    $stmt = $pdo->query("SELECT * FROM addons WHERE is_active = 1 ORDER BY addon_name");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->query("SELECT * FROM addons WHERE is_active = 1 ORDER BY addon_name");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error in getAddonsForItemCategory: " . $e->getMessage());
+        return [];
+    }
 }
 
 /**
@@ -70,15 +80,34 @@ function deductIngredientsForAddon(PDO $pdo, int $addon_id, int $addon_quantity)
     }
 
     $deduct = (float)$addon['quantity_used'] * $addon_quantity;
+    if ($deduct <= 0) {
+        return;
+    }
 
-    $pdo->prepare("
+    // Guarded deduction — see deductIngredientsForItem() for the rationale.
+    $stmt = $pdo->prepare("
         UPDATE ingredients
         SET stock_quantity = stock_quantity - :deduct
         WHERE ingredient_id = :ingredient_id
-    ")->execute([
+          AND stock_quantity >= :deduct_min
+    ");
+    $stmt->execute([
         ':deduct'        => $deduct,
+        ':deduct_min'    => $deduct,
         ':ingredient_id' => $addon['ingredient_id'],
     ]);
+
+    if ($stmt->rowCount() === 0) {
+        $nameStmt = $pdo->prepare("SELECT ingredient_name FROM ingredients WHERE ingredient_id = ?");
+        $nameStmt->execute([$addon['ingredient_id']]);
+        $name = $nameStmt->fetchColumn() ?: ('ingredient #' . $addon['ingredient_id']);
+
+        throw new RuntimeException(sprintf(
+            'Insufficient stock for "%s": add-on needs %.2f but not enough remains.',
+            $name,
+            $deduct
+        ));
+    }
 }
 
 /**

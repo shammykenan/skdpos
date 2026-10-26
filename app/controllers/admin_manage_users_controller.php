@@ -2,12 +2,15 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../models/users.php';      // Model functions
 require_once __DIR__ . '/../core/usersHelper.php';  // Helper functions (usernameExists, emailExists)
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     $_SESSION['error'] = 'Access denied. Admin privileges required.';
-    header('Location: ' . $baseUrl . '/index.php?page=login');
+    header('Location: ' . $baseUrl . '/index.php?page=landing');
     exit;
 }
 

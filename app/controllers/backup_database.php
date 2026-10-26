@@ -12,7 +12,10 @@
  * Folder: {BASE_PATH}/backups/
  */
 require_once __DIR__ . '/../../config/db.php';
-$baseUrl = $_ENV['BASE_URL'] ?? '';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('html');
+// Base URL configuration for InfinityFree
+// Update this with your actual domain on InfinityFree
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     http_response_code(403); exit('Access denied.');
@@ -70,7 +73,7 @@ function buildTableOrder(PDO $pdo, array $tables): array {
 // ── Write dump to file handle ────────────────────────────────────────────────
 function writeDump(PDO $pdo, $fh): void {
     $now = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');
-    fwrite($fh, "-- ============================================================\n-- Dine with Din Cafeteria POS — Database Backup\n-- Generated : {$now} (Asia/Manila)\n-- Host      : " . gethostname() . "\n-- ============================================================\n\nSET FOREIGN_KEY_CHECKS = 0;\nSET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';\nSET NAMES utf8mb4;\n\n");
+    fwrite($fh, "-- ============================================================\n-- The Lounge by: CJV & TEK Cafeteria POS — Database Backup\n-- Generated : {$now} (Asia/Manila)\n-- Host      : " . gethostname() . "\n-- ============================================================\n\nSET FOREIGN_KEY_CHECKS = 0;\nSET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';\nSET NAMES utf8mb4;\n\n");
     foreach (buildTableOrder($pdo, $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN)) as $t) {
         $safe = str_replace('`', '``', $t);
         fwrite($fh, "-- ----------------------------------------------------------\n-- Table: `{$safe}`\n-- ----------------------------------------------------------\nDROP TABLE IF EXISTS `{$safe}`;\n");
@@ -78,6 +81,9 @@ function writeDump(PDO $pdo, $fh): void {
         fwrite($fh, $cr[1] . ";\n\n");
         $off = 0; $chunk = 500;
         while (true) {
+            // Validate chunk and offset are positive integers to prevent SQL injection
+            $chunk = max(1, min(5000, (int)$chunk));
+            $off = max(0, (int)$off);
             $rows = $pdo->query("SELECT * FROM `{$safe}` LIMIT {$chunk} OFFSET {$off}")->fetchAll(PDO::FETCH_ASSOC);
             if (!$rows) break;
             $cols = '`' . implode('`, `', array_keys($rows[0])) . '`';
@@ -175,9 +181,44 @@ if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 $importError = null; $importSuccess = false; $importResult = null; $importDetails = [];
 
 if ($action === 'import' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $sub = $_POST['csrf_token'] ?? ''; $sto = $_SESSION['db_import_csrf'] ?? '';
+    $sub = $_POST['import_token'] ?? ''; $sto = $_SESSION['db_import_csrf'] ?? '';
     unset($_SESSION['db_import_csrf']);
-    if (!hash_equals($sto, $sub)) { $importError = 'Invalid or expired token. Refresh and try again.'; }
+    // ── Restore is a RECOVERY operation, not a register feature ──────────────
+    // Importing a .sql over a machine that already holds sales would let any
+    // recorded transaction be rewritten, which defeats the Grand Total ledger
+    // entirely. Restoring into an empty database (commissioning a replacement
+    // machine from backup) is still allowed, and preserves the hash chain.
+    $existingSales = 0;
+    try {
+        $existingSales = (int) $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn()
+                       + (int) $pdo->query("SELECT COUNT(*) FROM sales_ledger")->fetchColumn();
+    } catch (Throwable $e) {
+        $existingSales = 0; // tables absent = fresh install
+    }
+
+    if ($existingSales > 0) {
+        try {
+            $pdo->prepare("INSERT INTO activity_logs (user_id, action, details, ip_address)
+                           VALUES (?, 'restore_blocked', ?, ?)")
+                ->execute([
+                    (int) ($_SESSION['user_id'] ?? 0),
+                    json_encode([
+                        'reason'         => 'database already contains sales',
+                        'existing_rows'  => $existingSales,
+                        'uploaded_file'  => $_FILES['sql_file']['name'] ?? null,
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                ]);
+        } catch (Throwable $e) {
+            error_log('[restore] could not log blocked attempt: ' . $e->getMessage());
+        }
+
+        $importError = 'Restore refused: this register already contains sales records. '
+                     . 'Importing over them would make recorded transactions editable, which is not '
+                     . 'permitted on a registered machine. Restore is only available on an empty '
+                     . 'database (e.g. commissioning a replacement machine).';
+    }
+    elseif (!hash_equals($sto, $sub)) { $importError = 'Invalid or expired token. Refresh and try again.'; }
     elseif (empty($_FILES['sql_file']['tmp_name']) || ($_FILES['sql_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) { $importError = 'No file uploaded.'; }
     else {
         $file = $_FILES['sql_file']; $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -227,11 +268,12 @@ $backupFiles = listBackups();
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<?= csrf_head($baseUrl ?? "") ?>
 <title>Database Backup &amp; Restore — Cafeteria POS</title>
 <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/images/logo/logo.png">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="<?= $baseUrl ?>/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="<?= $baseUrl ?>/assets/vendor/fontawesome/css/all.min.css">
+<link href="<?= $baseUrl ?>/assets/vendor/fonts/inter.css" rel="stylesheet">
 <style>
 :root{--primary:#0f4c5c;--primary-dark:#0a3a47;--secondary:#ff6b4a;--danger:#d64045;--success:#2c7a5a;--border:#cbd5e0;--navy:#1e2f4e;--warm-gray:#4a5568;--light-bg:#f8faff;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -410,7 +452,7 @@ input[type=file]{display:none;}
     <span><strong>Warning:</strong> This overwrites all existing data. Export a fresh backup first.</span></div>
   <form method="POST" enctype="multipart/form-data" id="importForm"
         action="<?= htmlspecialchars($baseUrl) ?>/index.php?page=backup_database&action=import" novalidate>
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+    <input type="hidden" name="import_token" value="<?= htmlspecialchars($csrf) ?>">
     <div class="dz" id="dz" role="button" tabindex="0">
       <i class="fas fa-cloud-arrow-up dzi"></i>
       <div class="dzt"><strong>Click to browse</strong> or drag &amp; drop<br><small>.sql files only &mdash; max 50 MB</small></div>

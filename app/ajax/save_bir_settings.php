@@ -8,7 +8,9 @@
  */
 
 
-require_once BASE_PATH . '/app/models/BusinessInfo.php';
+require_once BASE_PATH . '/app/models/businessinfo.php';
+require_once __DIR__ . '/../core/csrfHelper.php';
+csrf_require('json');
 
 header('Content-Type: application/json');
 
@@ -62,6 +64,24 @@ if ($pwdDiscount < 0 || $pwdDiscount > 100 || $seniorDiscount < 0 || $seniorDisc
     exit;
 }
 
+$maxPromo = (float)($_POST['max_promo_discount'] ?? 20.00);
+if ($maxPromo < 0 || $maxPromo > 100) {
+    echo json_encode(['success' => false, 'message' => 'Max promo discount must be between 0 and 100.']);
+    exit;
+}
+
+// Printed document label — must match the sample layout approved on the PTU.
+// Restricted to known BIR document types so a typo cannot reach every receipt.
+$allowedLabels = ['SALES INVOICE', 'SERVICE INVOICE', 'INVOICE', 'OFFICIAL RECEIPT', 'SALES RECEIPT'];
+$documentLabel = strtoupper(trim($_POST['document_label'] ?? '')) ?: 'SALES INVOICE';
+if (!in_array($documentLabel, $allowedLabels, true)) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Document label must be one of: ' . implode(', ', $allowedLabels) . '.',
+    ]);
+    exit;
+}
+
 // ------------------------------------------------------------------
 // Save
 // ------------------------------------------------------------------
@@ -72,10 +92,13 @@ $data = [
     'vat_registered'      => isset($_POST['vat_registered']) ? 1 : 0,
     'vat_rate'            => $vatRate,
     'machine_serial_no'   => trim($_POST['machine_serial_no'] ?? ''),
+    'min_number'          => trim($_POST['min_number']        ?? ''),
     'ptu_number'          => trim($_POST['ptu_number']        ?? ''),
     'accreditation_no'    => trim($_POST['accreditation_no']  ?? ''),
+    'document_label'      => $documentLabel,
     'min_pwd_discount'    => $pwdDiscount,
     'min_senior_discount' => $seniorDiscount,
+    'max_promo_discount'  => $maxPromo,
 ];
 
 try {
